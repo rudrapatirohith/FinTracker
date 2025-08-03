@@ -20,6 +20,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Separator } from "@/components/ui/separator"
 import {
   Home,
   DollarSign,
@@ -122,24 +123,22 @@ export function AppSidebar({ user }: AppSidebarProps) {
   }
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center justify-between px-2 py-2">
-          <div className="flex items-center gap-2">
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <div className="flex h-16 shrink-0 items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <div className="flex items-center gap-2 flex-1">
             <div className="bg-primary rounded-lg p-2">
               <DollarSign className="h-5 w-5 text-primary-foreground" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sidebar-foreground flex items-center gap-1">
-                <DollarSign className="h-4 w-4" />
-                FinanceTracker
-              </span>
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+              <span className="font-semibold text-sidebar-foreground flex items-center gap-1">FinanceTracker</span>
               <span className="text-xs text-sidebar-foreground/70">Personal Finance</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
             <ThemeToggle />
-            <SidebarTrigger />
           </div>
         </div>
       </SidebarHeader>

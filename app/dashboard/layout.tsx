@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
@@ -62,10 +62,10 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar user={user} />
-        <main className="flex-1 overflow-hidden">{children}</main>
-      </div>
+      <AppSidebar user={user} />
+      <SidebarInset>
+        <main className="flex-1 overflow-auto">{children}</main>
+      </SidebarInset>
     </SidebarProvider>
   )
 }

@@ -81,7 +81,7 @@ export default function AuthForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/dashboard`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
@@ -129,10 +129,10 @@ export default function AuthForm() {
             <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Google Sign In Button */}
+            {/* Google Sign In Button with Fixed Styling */}
             <Button
               variant="outline"
-              className="w-full mb-6 bg-white hover:bg-gray-50 text-gray-900 border-gray-300"
+              className="w-full mb-6 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 hover:text-gray-900 dark:hover:text-gray-100 border-gray-300 dark:border-gray-600 transition-colors"
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
             >
