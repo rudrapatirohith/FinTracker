@@ -9,6 +9,22 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "FinanceTracker - Personal Finance Management",
   description: "Track your income, loans, and international transfers with ease",
+  icons: {
+    icon: [
+      {
+        url: "/placeholder.svg?height=32&width=32",
+        sizes: "32x32",
+        type: "image/svg+xml",
+      },
+    ],
+    apple: [
+      {
+        url: "/placeholder.svg?height=180&width=180",
+        sizes: "180x180",
+        type: "image/svg+xml",
+      },
+    ],
+  },
     generator: 'v0.dev'
 }
 
