@@ -1,0 +1,209 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ThemeToggle } from "@/components/theme-toggle"
+import {
+  Home,
+  DollarSign,
+  TrendingUp,
+  CreditCard,
+  PiggyBank,
+  ArrowUpDown,
+  FileText,
+  Settings,
+  LogOut,
+  ChevronUp,
+  History,
+  PieChart,
+} from "lucide-react"
+
+interface AppSidebarProps {
+  user: User
+}
+
+const navigationGroups = [
+  {
+    label: "Overview",
+    items: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: Home,
+      },
+    ],
+  },
+  {
+    label: "Financial Management",
+    items: [
+      {
+        title: "Income",
+        url: "/dashboard/income",
+        icon: TrendingUp,
+      },
+      {
+        title: "Loan Management",
+        url: "/dashboard/loans",
+        icon: CreditCard,
+      },
+      {
+        title: "Payments",
+        url: "/dashboard/payments",
+        icon: PiggyBank,
+      },
+      {
+        title: "Transfers",
+        url: "/dashboard/transfers",
+        icon: ArrowUpDown,
+      },
+      {
+        title: "Transaction History",
+        url: "/dashboard/history",
+        icon: History,
+      },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
+      {
+        title: "Analytics",
+        url: "/dashboard/analytics",
+        icon: PieChart,
+      },
+      {
+        title: "Reports",
+        url: "/dashboard/reports",
+        icon: FileText,
+      },
+      {
+        title: "Settings",
+        url: "/dashboard/settings",
+        icon: Settings,
+      },
+    ],
+  },
+]
+
+export function AppSidebar({ user }: AppSidebarProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setIsLoggingOut(true)
+    await supabase.auth.signOut()
+    router.push("/")
+  }
+
+  const getUserInitials = (email: string) => {
+    return email.substring(0, 2).toUpperCase()
+  }
+
+  const getUserDisplayName = () => {
+    return user.user_metadata?.full_name || user.email?.split("@")[0] || "User"
+  }
+
+  return (
+    <Sidebar>
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="flex items-center justify-between px-2 py-2">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary rounded-lg p-2">
+              <DollarSign className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sidebar-foreground flex items-center gap-1">
+                <DollarSign className="h-4 w-4" />
+                FinanceTracker
+              </span>
+              <span className="text-xs text-sidebar-foreground/70">Personal Finance</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <SidebarTrigger />
+          </div>
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent>
+        {navigationGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={pathname === item.url}>
+                      <a href={item.url} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage
+                      src={user.user_metadata?.avatar_url || "/placeholder.svg"}
+                      alt={getUserDisplayName()}
+                    />
+                    <AvatarFallback className="rounded-lg">{getUserInitials(user.email || "")}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{getUserDisplayName()}</span>
+                    <span className="truncate text-xs">{user.email}</span>
+                  </div>
+                  <ChevronUp className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="bottom"
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuItem onClick={handleSignOut} disabled={isLoggingOut} className="cursor-pointer">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {isLoggingOut ? "Signing out..." : "Sign out"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  )
+}

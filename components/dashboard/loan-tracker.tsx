@@ -2,141 +2,93 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
-import { supabase, handleSupabaseError } from "@/lib/supabase"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Plus,
-  Edit,
-  Trash2,
-  CreditCard,
-  TrendingDown,
-  Calendar,
-  DollarSign,
-  AlertCircle,
-  IndianRupee,
-  Percent,
-  History,
-  MoreHorizontal,
-} from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { formatINR, formatUSD, convertCurrency } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Plus, CreditCard, DollarSign, TrendingDown, Edit, Trash2, AlertCircle, Info } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
 interface Loan {
   id: string
   loan_name: string
   principal_amount: number
   current_balance: number
-  interest_rate: number | null
-  monthly_payment: number | null
-  start_date: string
-  end_date: string | null
-  lender: string | null
-  loan_type: string | null
-  status: string | null
-  currency: string | null
+  interest_rate: number
+  currency: string
+  created_at: string
 }
 
-interface LoanPayment {
+interface Payment {
   id: string
   loan_id: string
   amount: number
-  principal_amount: number | null
-  interest_amount: number | null
+  principal_amount: number
+  interest_amount: number
   payment_date: string
-  payment_method: string | null
-  notes: string | null
-  currency: string | null
+  description: string
+  loans: {
+    loan_name: string
+    currency: string
+  }
 }
-
-const loanTypes = [
-  "Personal",
-  "Home Loan",
-  "Car Loan",
-  "Education Loan",
-  "Credit Card",
-  "Business Loan",
-  "Gold Loan",
-  "Other",
-]
-
-const paymentMethods = ["UPI", "Net Banking", "Bank Transfer", "Check", "Cash", "Credit Card", "Debit Card", "Other"]
-
-const currencies = [
-  { value: "INR", label: "Indian Rupee (₹)", symbol: "₹" },
-  { value: "USD", label: "US Dollar ($)", symbol: "$" },
-]
 
 export default function LoanTracker() {
   const [loans, setLoans] = useState<Loan[]>([])
-  const [payments, setPayments] = useState<LoanPayment[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
-  const [loanDialogOpen, setLoanDialogOpen] = useState(false)
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
-  const [editingLoan, setEditingLoan] = useState<Loan | null>(null)
-  const [editingPayment, setEditingPayment] = useState<LoanPayment | null>(null)
+  const [isAddingLoan, setIsAddingLoan] = useState(false)
+  const [isAddingPayment, setIsAddingPayment] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const [displayCurrency, setDisplayCurrency] = useState<"INR" | "USD">("INR")
 
-  const [loanFormData, setLoanFormData] = useState({
-    loan_name: "",
-    principal_amount: "",
-    current_balance: "",
-    interest_rate: "",
-    monthly_payment: "",
-    start_date: new Date().toISOString().split("T")[0],
-    end_date: "",
-    lender: "",
-    loan_type: "",
-    status: "active",
-    currency: "INR",
-  })
+  // Form states
+  const [loanName, setLoanName] = useState("")
+  const [principalAmount, setPrincipalAmount] = useState("")
+  const [interestRate, setInterestRate] = useState("")
+  const [currency, setCurrency] = useState("INR")
 
-  const [paymentFormData, setPaymentFormData] = useState({
-    loan_id: "",
-    amount: "",
-    principal_amount: "",
-    interest_amount: "",
-    payment_date: new Date().toISOString().split("T")[0],
-    payment_method: "",
-    notes: "",
-    currency: "INR",
-  })
+  // Payment form states
+  const [selectedLoanId, setSelectedLoanId] = useState("")
+  const [paymentAmount, setPaymentAmount] = useState("")
+  const [principalPayment, setPrincipalPayment] = useState("")
+  const [interestPayment, setInterestPayment] = useState("")
+  const [paymentDescription, setPaymentDescription] = useState("")
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0])
 
   useEffect(() => {
     fetchLoans()
     fetchPayments()
   }, [])
 
+  // Auto-calculate total when principal or interest changes
+  useEffect(() => {
+    const principal = Number.parseFloat(principalPayment) || 0
+    const interest = Number.parseFloat(interestPayment) || 0
+    const total = principal + interest
+    setPaymentAmount(total > 0 ? total.toString() : "")
+  }, [principalPayment, interestPayment])
+
   const fetchLoans = async () => {
     try {
-      setError("")
       const {
         data: { user },
       } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view loans")
-        return
-      }
+      if (!user) return
 
       const { data, error } = await supabase
         .from("loans")
@@ -144,17 +96,11 @@ export default function LoanTracker() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
-      if (error) {
-        handleSupabaseError(error, "fetch loans")
-        return
-      }
-
+      if (error) throw error
       setLoans(data || [])
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching loans:", error)
-      setError(error.message || "Failed to fetch loans")
-    } finally {
-      setLoading(false)
+      setError("Failed to fetch loans")
     }
   }
 
@@ -167,394 +113,300 @@ export default function LoanTracker() {
 
       const { data, error } = await supabase
         .from("loan_payments")
-        .select("*")
+        .select(`
+          *,
+          loans (
+            loan_name,
+            currency
+          )
+        `)
         .eq("user_id", user.id)
         .order("payment_date", { ascending: false })
 
-      if (error) {
-        console.error("Error fetching payments:", error)
-        return
-      }
-
+      if (error) throw error
       setPayments(data || [])
     } catch (error) {
       console.error("Error fetching payments:", error)
+      setError("Failed to fetch payments")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleLoanSubmit = async (e: React.FormEvent) => {
+  const handleAddLoan = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsAddingLoan(true)
     setError("")
-    setSuccess("")
 
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+      if (!user) throw new Error("User not authenticated")
 
-      if (!user) {
-        setError("Please log in to add loans")
-        return
-      }
+      const principal = Number.parseFloat(principalAmount)
+      const rate = Number.parseFloat(interestRate)
 
-      const loanData = {
+      const { error } = await supabase.from("loans").insert({
         user_id: user.id,
-        loan_name: loanFormData.loan_name,
-        principal_amount: Number.parseFloat(loanFormData.principal_amount),
-        current_balance: Number.parseFloat(loanFormData.current_balance),
-        interest_rate: loanFormData.interest_rate ? Number.parseFloat(loanFormData.interest_rate) : null,
-        monthly_payment: loanFormData.monthly_payment ? Number.parseFloat(loanFormData.monthly_payment) : null,
-        start_date: loanFormData.start_date,
-        end_date: loanFormData.end_date || null,
-        lender: loanFormData.lender || null,
-        loan_type: loanFormData.loan_type || null,
-        status: loanFormData.status,
-        currency: loanFormData.currency,
-      }
+        loan_name: loanName,
+        principal_amount: principal,
+        current_balance: principal,
+        interest_rate: rate,
+        currency: currency,
+      })
 
-      let result
-      if (editingLoan) {
-        result = await supabase.from("loans").update(loanData).eq("id", editingLoan.id).select()
-      } else {
-        result = await supabase.from("loans").insert([loanData]).select()
-      }
+      if (error) throw error
 
-      if (result.error) {
-        handleSupabaseError(result.error, editingLoan ? "update loan" : "add loan")
-        return
-      }
-
-      setSuccess(editingLoan ? "Loan updated successfully!" : "Loan added successfully!")
+      // Reset form
+      setLoanName("")
+      setPrincipalAmount("")
+      setInterestRate("")
+      setCurrency("INR")
 
       await fetchLoans()
-      setLoanDialogOpen(false)
-      resetLoanForm()
-
-      setTimeout(() => setSuccess(""), 3000)
     } catch (error: any) {
-      console.error("Error saving loan:", error)
-      setError(error.message || "Failed to save loan")
+      setError(error.message)
+    } finally {
+      setIsAddingLoan(false)
     }
   }
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
+  const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsAddingPayment(true)
     setError("")
-    setSuccess("")
 
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+      if (!user) throw new Error("User not authenticated")
 
-      if (!user) {
-        setError("Please log in to record payments")
-        return
+      const totalAmount = Number.parseFloat(paymentAmount)
+      const principal = Number.parseFloat(principalPayment) || 0
+      const interest = Number.parseFloat(interestPayment) || 0
+
+      // Validation
+      if (Math.abs(totalAmount - (principal + interest)) > 0.01) {
+        throw new Error("Total amount must equal Principal + Interest")
       }
 
-      const selectedLoan = loans.find((l) => l.id === paymentFormData.loan_id)
-      if (!selectedLoan) {
-        setError("Please select a valid loan")
-        return
+      const selectedLoan = loans.find((loan) => loan.id === selectedLoanId)
+      if (!selectedLoan) throw new Error("Please select a loan")
+
+      if (principal > selectedLoan.current_balance) {
+        throw new Error("Principal payment cannot exceed current loan balance")
       }
 
-      // Convert payment amounts to loan currency if different
-      let totalPaymentAmount = Number.parseFloat(paymentFormData.amount)
-      let principalAmount = paymentFormData.principal_amount ? Number.parseFloat(paymentFormData.principal_amount) : 0
-      let interestAmount = paymentFormData.interest_amount ? Number.parseFloat(paymentFormData.interest_amount) : 0
-
-      if (paymentFormData.currency !== selectedLoan.currency) {
-        totalPaymentAmount = convertCurrency(
-          totalPaymentAmount,
-          paymentFormData.currency,
-          selectedLoan.currency || "INR",
-        )
-        if (principalAmount > 0) {
-          principalAmount = convertCurrency(principalAmount, paymentFormData.currency, selectedLoan.currency || "INR")
-        }
-        if (interestAmount > 0) {
-          interestAmount = convertCurrency(interestAmount, paymentFormData.currency, selectedLoan.currency || "INR")
-        }
-      }
-
-      // Validate that principal + interest doesn't exceed total payment
-      if (principalAmount + interestAmount > totalPaymentAmount) {
-        setError("Principal amount + Interest amount cannot exceed total payment amount")
-        return
-      }
-
-      // If only total amount is provided, assume it's all principal unless interest is specified
-      if (!principalAmount && !interestAmount) {
-        principalAmount = totalPaymentAmount
-        interestAmount = 0
-      } else if (!principalAmount && interestAmount > 0) {
-        principalAmount = totalPaymentAmount - interestAmount
-      } else if (principalAmount > 0 && !interestAmount) {
-        interestAmount = totalPaymentAmount - principalAmount
-      }
-
-      const paymentData = {
-        loan_id: paymentFormData.loan_id,
+      // Add payment record
+      const { error: paymentError } = await supabase.from("loan_payments").insert({
         user_id: user.id,
-        amount: totalPaymentAmount,
-        principal_amount: principalAmount,
-        interest_amount: interestAmount,
-        payment_date: paymentFormData.payment_date,
-        payment_method: paymentFormData.payment_method || null,
-        notes: paymentFormData.notes || null,
-        currency: selectedLoan.currency || "INR",
-      }
+        loan_id: selectedLoanId,
+        amount: totalAmount,
+        principal_amount: principal,
+        interest_amount: interest,
+        payment_date: paymentDate,
+        description: paymentDescription || "Loan payment",
+      })
 
-      let result
-      if (editingPayment) {
-        // For editing, we need to recalculate the loan balance by getting the difference in principal amounts
-        const oldPayment = payments.find((p) => p.id === editingPayment.id)
-        const oldPrincipalAmount = oldPayment?.principal_amount || 0
-        const principalDifference = principalAmount - oldPrincipalAmount
+      if (paymentError) throw paymentError
 
-        result = await supabase.from("loan_payments").update(paymentData).eq("id", editingPayment.id).select()
+      // Update loan balance (only reduce by principal amount)
+      const newBalance = selectedLoan.current_balance - principal
+      const { error: updateError } = await supabase
+        .from("loans")
+        .update({ current_balance: Math.max(0, newBalance) })
+        .eq("id", selectedLoanId)
 
-        if (!result.error) {
-          // Update loan balance based on the difference in principal amounts
-          const newBalance = selectedLoan.current_balance - principalDifference
-          await supabase
-            .from("loans")
-            .update({
-              current_balance: Math.max(0, newBalance),
-              status: newBalance <= 0 ? "paid_off" : "active",
-            })
-            .eq("id", paymentFormData.loan_id)
-        }
-      } else {
-        result = await supabase.from("loan_payments").insert([paymentData]).select()
+      if (updateError) throw updateError
 
-        if (!result.error) {
-          // Update loan balance - only reduce by principal amount, not interest
-          const newBalance = selectedLoan.current_balance - principalAmount
-          await supabase
-            .from("loans")
-            .update({
-              current_balance: Math.max(0, newBalance),
-              status: newBalance <= 0 ? "paid_off" : "active",
-            })
-            .eq("id", paymentFormData.loan_id)
-        }
-      }
+      // Reset form
+      setSelectedLoanId("")
+      setPaymentAmount("")
+      setPrincipalPayment("")
+      setInterestPayment("")
+      setPaymentDescription("")
+      setPaymentDate(new Date().toISOString().split("T")[0])
 
-      if (result.error) {
-        handleSupabaseError(result.error, editingPayment ? "update payment" : "record payment")
-        return
-      }
-
-      setSuccess(editingPayment ? "Payment updated successfully!" : "Payment recorded successfully!")
       await fetchLoans()
       await fetchPayments()
-      setPaymentDialogOpen(false)
-      resetPaymentForm()
-
-      setTimeout(() => setSuccess(""), 3000)
     } catch (error: any) {
-      console.error("Error saving payment:", error)
-      setError(error.message || "Failed to save payment")
+      setError(error.message)
+    } finally {
+      setIsAddingPayment(false)
     }
   }
 
-  const handleEditLoan = (loan: Loan) => {
-    setEditingLoan(loan)
-    setLoanFormData({
-      loan_name: loan.loan_name,
-      principal_amount: loan.principal_amount.toString(),
-      current_balance: loan.current_balance.toString(),
-      interest_rate: loan.interest_rate?.toString() || "",
-      monthly_payment: loan.monthly_payment?.toString() || "",
-      start_date: loan.start_date,
-      end_date: loan.end_date || "",
-      lender: loan.lender || "",
-      loan_type: loan.loan_type || "",
-      status: loan.status || "active",
-      currency: loan.currency || "INR",
-    })
-    setLoanDialogOpen(true)
-  }
+  const handleEditPayment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPayment) return
 
-  const handleEditPayment = (payment: LoanPayment) => {
-    setEditingPayment(payment)
-    setPaymentFormData({
-      loan_id: payment.loan_id,
-      amount: payment.amount.toString(),
-      principal_amount: payment.principal_amount?.toString() || "",
-      interest_amount: payment.interest_amount?.toString() || "",
-      payment_date: payment.payment_date,
-      payment_method: payment.payment_method || "",
-      notes: payment.notes || "",
-      currency: payment.currency || "INR",
-    })
-    setPaymentDialogOpen(true)
-  }
+    setIsAddingPayment(true)
+    setError("")
 
-  const handleDeleteLoan = async (id: string) => {
     try {
-      setError("")
-      const { error } = await supabase.from("loans").delete().eq("id", id)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("User not authenticated")
 
-      if (error) {
-        handleSupabaseError(error, "delete loan")
-        return
+      const totalAmount = Number.parseFloat(paymentAmount)
+      const principal = Number.parseFloat(principalPayment) || 0
+      const interest = Number.parseFloat(interestPayment) || 0
+
+      // Validation
+      if (Math.abs(totalAmount - (principal + interest)) > 0.01) {
+        throw new Error("Total amount must equal Principal + Interest")
       }
 
-      setSuccess("Loan deleted successfully!")
+      const selectedLoan = loans.find((loan) => loan.id === selectedLoanId)
+      if (!selectedLoan) throw new Error("Please select a loan")
+
+      // Calculate balance adjustment
+      const oldPrincipal = editingPayment.principal_amount
+      const newPrincipal = principal
+      const principalDifference = newPrincipal - oldPrincipal
+      const newBalance = selectedLoan.current_balance - principalDifference
+
+      if (newBalance < 0) {
+        throw new Error("This payment would result in a negative loan balance")
+      }
+
+      // Update payment record
+      const { error: paymentError } = await supabase
+        .from("loan_payments")
+        .update({
+          amount: totalAmount,
+          principal_amount: principal,
+          interest_amount: interest,
+          payment_date: paymentDate,
+          description: paymentDescription || "Loan payment",
+        })
+        .eq("id", editingPayment.id)
+
+      if (paymentError) throw paymentError
+
+      // Update loan balance
+      const { error: updateError } = await supabase
+        .from("loans")
+        .update({ current_balance: Math.max(0, newBalance) })
+        .eq("id", selectedLoanId)
+
+      if (updateError) throw updateError
+
+      setEditingPayment(null)
       await fetchLoans()
-      setTimeout(() => setSuccess(""), 3000)
+      await fetchPayments()
     } catch (error: any) {
-      console.error("Error deleting loan:", error)
-      setError(error.message || "Failed to delete loan")
+      setError(error.message)
+    } finally {
+      setIsAddingPayment(false)
     }
   }
 
-  const handleDeletePayment = async (id: string) => {
+  const handleDeletePayment = async (payment: Payment) => {
+    if (!confirm("Are you sure you want to delete this payment?")) return
+
     try {
-      setError("")
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("User not authenticated")
 
-      // Get the payment details before deleting
-      const paymentToDelete = payments.find((p) => p.id === id)
-      if (!paymentToDelete) {
-        setError("Payment not found")
-        return
-      }
+      // Delete payment record
+      const { error: deleteError } = await supabase.from("loan_payments").delete().eq("id", payment.id)
 
-      const { error } = await supabase.from("loan_payments").delete().eq("id", id)
+      if (deleteError) throw deleteError
 
-      if (error) {
-        handleSupabaseError(error, "delete payment")
-        return
-      }
-
-      // Recalculate loan balance after deleting payment - only add back the principal amount
-      const selectedLoan = loans.find((l) => l.id === paymentToDelete.loan_id)
-      if (selectedLoan && paymentToDelete.principal_amount) {
-        const newBalance = selectedLoan.current_balance + paymentToDelete.principal_amount
-        await supabase
+      // Restore loan balance (add back the principal amount)
+      const loan = loans.find((l) => l.id === payment.loan_id)
+      if (loan) {
+        const restoredBalance = loan.current_balance + payment.principal_amount
+        const { error: updateError } = await supabase
           .from("loans")
-          .update({
-            current_balance: newBalance,
-            status: newBalance > 0 ? "active" : "paid_off",
-          })
-          .eq("id", paymentToDelete.loan_id)
+          .update({ current_balance: restoredBalance })
+          .eq("id", payment.loan_id)
+
+        if (updateError) throw updateError
       }
 
-      setSuccess("Payment deleted successfully!")
       await fetchLoans()
       await fetchPayments()
-      setTimeout(() => setSuccess(""), 3000)
     } catch (error: any) {
-      console.error("Error deleting payment:", error)
-      setError(error.message || "Failed to delete payment")
+      setError(error.message)
     }
   }
 
-  const resetLoanForm = () => {
-    setLoanFormData({
-      loan_name: "",
-      principal_amount: "",
-      current_balance: "",
-      interest_rate: "",
-      monthly_payment: "",
-      start_date: new Date().toISOString().split("T")[0],
-      end_date: "",
-      lender: "",
-      loan_type: "",
-      status: "active",
-      currency: "INR",
-    })
-    setEditingLoan(null)
-    setError("")
+  const startEditPayment = (payment: Payment) => {
+    setEditingPayment(payment)
+    setSelectedLoanId(payment.loan_id)
+    setPaymentAmount(payment.amount.toString())
+    setPrincipalPayment(payment.principal_amount.toString())
+    setInterestPayment(payment.interest_amount.toString())
+    setPaymentDescription(payment.description)
+    setPaymentDate(payment.payment_date)
   }
 
-  const resetPaymentForm = () => {
-    setPaymentFormData({
-      loan_id: "",
-      amount: "",
-      principal_amount: "",
-      interest_amount: "",
-      payment_date: new Date().toISOString().split("T")[0],
-      payment_method: "",
-      notes: "",
-      currency: "INR",
-    })
+  const cancelEdit = () => {
     setEditingPayment(null)
-    setError("")
+    setSelectedLoanId("")
+    setPaymentAmount("")
+    setPrincipalPayment("")
+    setInterestPayment("")
+    setPaymentDescription("")
+    setPaymentDate(new Date().toISOString().split("T")[0])
   }
 
-  // Calculate totals in display currency
-  const calculateTotals = () => {
-    let totalBalance = 0
-    let totalPrincipal = 0
-    let totalInterestPaid = 0
-
-    loans.forEach((loan) => {
-      const loanCurrency = loan.currency || "INR"
-      const balanceInDisplayCurrency =
-        displayCurrency === loanCurrency
-          ? loan.current_balance
-          : convertCurrency(loan.current_balance, loanCurrency, displayCurrency)
-      const principalInDisplayCurrency =
-        displayCurrency === loanCurrency
-          ? loan.principal_amount
-          : convertCurrency(loan.principal_amount, loanCurrency, displayCurrency)
-
-      totalBalance += balanceInDisplayCurrency
-      totalPrincipal += principalInDisplayCurrency
-
-      // Calculate interest paid for this loan
-      const loanPayments = payments.filter((p) => p.loan_id === loan.id)
-      const loanInterestPaid = loanPayments.reduce((sum, payment) => {
-        const interestAmount = payment.interest_amount || 0
-        const paymentCurrency = payment.currency || "INR"
-        const interestInDisplayCurrency =
-          displayCurrency === paymentCurrency
-            ? interestAmount
-            : convertCurrency(interestAmount, paymentCurrency, displayCurrency)
-        return sum + interestInDisplayCurrency
-      }, 0)
-
-      totalInterestPaid += loanInterestPaid
-    })
-
-    return {
-      totalBalance,
-      totalPrincipal,
-      totalPaid: totalPrincipal - totalBalance,
-      totalInterestPaid,
-    }
-  }
-
-  const { totalBalance, totalPrincipal, totalPaid, totalInterestPaid } = calculateTotals()
-
-  const formatDisplayCurrency = (amount: number) => {
-    return displayCurrency === "INR" ? formatINR(amount) : formatUSD(amount)
-  }
+  // Calculate totals
+  const totalDebt = loans.reduce((sum, loan) => sum + loan.current_balance, 0)
+  const totalOriginalDebt = loans.reduce((sum, loan) => sum + loan.principal_amount, 0)
+  const totalInterestPaid = payments.reduce((sum, payment) => sum + payment.interest_amount, 0)
 
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-32 animate-pulse" />
-          <div className="h-4 bg-muted rounded w-48 animate-pulse" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-16 bg-muted rounded animate-pulse" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
+    return <div className="flex items-center justify-center p-8">Loading...</div>
   }
 
   return (
     <div className="space-y-6">
-      {/* Error and Success Messages */}
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalDebt, "INR")}</div>
+            <p className="text-xs text-muted-foreground">Current outstanding balance</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Interest Paid</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalInterestPaid, "INR")}</div>
+            <p className="text-xs text-muted-foreground">Interest payments made</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(totalOriginalDebt - totalDebt + totalInterestPaid, "INR")}
+            </div>
+            <p className="text-xs text-muted-foreground">Principal + Interest paid</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -562,628 +414,287 @@ export default function LoanTracker() {
         </Alert>
       )}
 
-      {success && (
-        <Alert>
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
+      {/* Add Loan Dialog */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Loan
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Loan</DialogTitle>
+            <DialogDescription>Enter the details of your new loan to start tracking payments.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddLoan} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="loan-name">Loan Name</Label>
+              <Input
+                id="loan-name"
+                value={loanName}
+                onChange={(e) => setLoanName(e.target.value)}
+                placeholder="e.g., Home Loan, Car Loan"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="principal">Principal Amount</Label>
+                <Input
+                  id="principal"
+                  type="number"
+                  step="0.01"
+                  value={principalAmount}
+                  onChange={(e) => setPrincipalAmount(e.target.value)}
+                  placeholder="100000"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="interest-rate">Interest Rate (%)</Label>
+                <Input
+                  id="interest-rate"
+                  type="number"
+                  step="0.01"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(e.target.value)}
+                  placeholder="8.5"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="currency">Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INR">INR (₹)</SelectItem>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isAddingLoan}>
+                {isAddingLoan ? "Adding..." : "Add Loan"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Currency Toggle */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Loan Management</h2>
-          <p className="text-muted-foreground">Track your loans and repayment progress</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Label htmlFor="currency-toggle" className="text-sm">
-            Display Currency:
-          </Label>
-          <Tabs value={displayCurrency} onValueChange={(value) => setDisplayCurrency(value as "INR" | "USD")}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="INR" className="flex items-center gap-1">
-                <IndianRupee className="h-3 w-3" />
-                INR
-              </TabsTrigger>
-              <TabsTrigger value="USD" className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                USD
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+      {/* Loans List */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {loans.map((loan) => (
+          <Card key={loan.id}>
+            <CardHeader>
+              <CardTitle className="text-lg">{loan.loan_name}</CardTitle>
+              <CardDescription>{loan.interest_rate}% interest rate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Original:</span>
+                  <span className="font-medium">{formatCurrency(loan.principal_amount, loan.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Current:</span>
+                  <span className="font-bold text-lg">{formatCurrency(loan.current_balance, loan.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Paid:</span>
+                  <span className="font-medium text-green-600">
+                    {formatCurrency(loan.principal_amount - loan.current_balance, loan.currency)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatDisplayCurrency(totalBalance)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {displayCurrency === "INR" ? "Indian Rupees" : "US Dollars"}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Add Payment Dialog */}
+      <Dialog open={!!editingPayment || false}>
+        <DialogTrigger asChild>
+          <Button variant="outline" disabled={loans.length === 0}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingPayment ? "Edit Payment" : "Record Loan Payment"}</DialogTitle>
+            <DialogDescription>Record a payment made towards one of your loans.</DialogDescription>
+          </DialogHeader>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatDisplayCurrency(totalPaid)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {displayCurrency === "INR" ? "Indian Rupees" : "US Dollars"}
-            </p>
-          </CardContent>
-        </Card>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Principal Amount:</strong> Reduces your loan balance
+              <br />
+              <strong>Interest Amount:</strong> Tracked separately, doesn't reduce balance
+            </AlertDescription>
+          </Alert>
 
-        <Card className="border-l-4 border-l-orange-500 dark:border-l-orange-400">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Interest Paid</CardTitle>
-            <Percent className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {formatDisplayCurrency(totalInterestPaid)}
+          <form onSubmit={editingPayment ? handleEditPayment : handleAddPayment} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="loan-select">Select Loan</Label>
+              <Select value={selectedLoanId} onValueChange={setSelectedLoanId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a loan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {loans.map((loan) => (
+                    <SelectItem key={loan.id} value={loan.id}>
+                      {loan.loan_name} - {formatCurrency(loan.current_balance, loan.currency)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total interest payments</p>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{loans.filter((loan) => loan.status === "active").length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Currently tracking</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Progress</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalPrincipal > 0 ? Math.round((totalPaid / totalPrincipal) * 100) : 0}%
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="principal-payment">
+                  Principal Amount
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    Reduces Balance
+                  </Badge>
+                </Label>
+                <Input
+                  id="principal-payment"
+                  type="number"
+                  step="0.01"
+                  value={principalPayment}
+                  onChange={(e) => setPrincipalPayment(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="interest-payment">
+                  Interest Amount
+                  <Badge variant="outline" className="ml-2 text-xs text-orange-600">
+                    Interest Only
+                  </Badge>
+                </Label>
+                <Input
+                  id="interest-payment"
+                  type="number"
+                  step="0.01"
+                  value={interestPayment}
+                  onChange={(e) => setInterestPayment(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Overall repayment</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Loan Management */}
+            <div className="space-y-2">
+              <Label htmlFor="total-payment">Total Payment Amount</Label>
+              <Input
+                id="total-payment"
+                type="number"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+                required
+                readOnly
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">Auto-calculated from Principal + Interest</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="payment-date">Payment Date</Label>
+                <Input
+                  id="payment-date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
+                  placeholder="Monthly payment"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              {editingPayment && (
+                <Button type="button" variant="outline" onClick={cancelEdit}>
+                  Cancel
+                </Button>
+              )}
+              <Button type="submit" disabled={isAddingPayment}>
+                {isAddingPayment ? "Processing..." : editingPayment ? "Update Payment" : "Record Payment"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <IndianRupee className="h-5 w-5" />
-                Your Loans
-              </CardTitle>
-              <CardDescription>Manage your loans in INR and USD</CardDescription>
-            </div>
-            <div className="flex space-x-2">
-              <Dialog open={loanDialogOpen} onOpenChange={setLoanDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={resetLoanForm}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Loan
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>{editingLoan ? "Edit Loan" : "Add New Loan"}</DialogTitle>
-                    <DialogDescription>
-                      {editingLoan ? "Update your loan details" : "Add a new loan to track your debt"}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleLoanSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="loan_name">Loan Name *</Label>
-                      <Input
-                        id="loan_name"
-                        placeholder="e.g., Home Loan, Car Loan, Personal Loan"
-                        value={loanFormData.loan_name}
-                        onChange={(e) => setLoanFormData({ ...loanFormData, loan_name: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="currency">Currency *</Label>
-                      <Select
-                        value={loanFormData.currency}
-                        onValueChange={(value) => setLoanFormData({ ...loanFormData, currency: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select currency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map((currency) => (
-                            <SelectItem key={currency.value} value={currency.value}>
-                              {currency.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="principal_amount">
-                          Principal Amount * ({loanFormData.currency === "INR" ? "₹" : "$"})
-                        </Label>
-                        <Input
-                          id="principal_amount"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={loanFormData.principal_amount}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, principal_amount: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="current_balance">
-                          Current Balance * ({loanFormData.currency === "INR" ? "₹" : "$"})
-                        </Label>
-                        <Input
-                          id="current_balance"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={loanFormData.current_balance}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, current_balance: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="interest_rate">Interest Rate (% per annum)</Label>
-                        <Input
-                          id="interest_rate"
-                          type="number"
-                          step="0.01"
-                          placeholder="e.g., 8.5"
-                          value={loanFormData.interest_rate}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, interest_rate: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="monthly_payment">
-                          Monthly EMI ({loanFormData.currency === "INR" ? "₹" : "$"})
-                        </Label>
-                        <Input
-                          id="monthly_payment"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={loanFormData.monthly_payment}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, monthly_payment: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="loan_type">Loan Type</Label>
-                      <Select
-                        value={loanFormData.loan_type}
-                        onValueChange={(value) => setLoanFormData({ ...loanFormData, loan_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select loan type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loanTypes.map((type) => (
-                            <SelectItem key={type} value={type.toLowerCase().replace(" ", "_")}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="lender">Lender/Bank</Label>
-                      <Input
-                        id="lender"
-                        placeholder="e.g., SBI, HDFC Bank, ICICI Bank, Axis Bank"
-                        value={loanFormData.lender}
-                        onChange={(e) => setLoanFormData({ ...loanFormData, lender: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="start_date">Start Date *</Label>
-                        <Input
-                          id="start_date"
-                          type="date"
-                          value={loanFormData.start_date}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, start_date: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="end_date">End Date (Optional)</Label>
-                        <Input
-                          id="end_date"
-                          type="date"
-                          value={loanFormData.end_date}
-                          onChange={(e) => setLoanFormData({ ...loanFormData, end_date: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setLoanDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit">{editingLoan ? "Update" : "Add"} Loan</Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" onClick={resetPaymentForm}>
-                    <IndianRupee className="mr-2 h-4 w-4" />
-                    Record Payment
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>{editingPayment ? "Edit Payment" : "Record Loan Payment"}</DialogTitle>
-                    <DialogDescription>
-                      {editingPayment ? "Update payment details" : "Record a payment made towards one of your loans"}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_loan_id">Select Loan *</Label>
-                      <Select
-                        value={paymentFormData.loan_id}
-                        onValueChange={(value) => {
-                          const selectedLoan = loans.find((l) => l.id === value)
-                          setPaymentFormData({
-                            ...paymentFormData,
-                            loan_id: value,
-                            currency: selectedLoan?.currency || "INR",
-                          })
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a loan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loans
-                            .filter((loan) => loan.status === "active")
-                            .map((loan) => (
-                              <SelectItem key={loan.id} value={loan.id}>
-                                {loan.loan_name} -{" "}
-                                {loan.currency === "INR"
-                                  ? formatINR(loan.current_balance)
-                                  : formatUSD(loan.current_balance)}{" "}
-                                remaining
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_currency">Payment Currency</Label>
-                      <Select
-                        value={paymentFormData.currency}
-                        onValueChange={(value) => setPaymentFormData({ ...paymentFormData, currency: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select currency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map((currency) => (
-                            <SelectItem key={currency.value} value={currency.value}>
-                              {currency.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_amount">
-                        Total Payment Amount * ({paymentFormData.currency === "INR" ? "₹" : "$"})
-                      </Label>
-                      <Input
-                        id="payment_amount"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={paymentFormData.amount}
-                        onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="principal_payment">
-                          Principal Amount ({paymentFormData.currency === "INR" ? "₹" : "$"})
-                        </Label>
-                        <Input
-                          id="principal_payment"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={paymentFormData.principal_amount}
-                          onChange={(e) => setPaymentFormData({ ...paymentFormData, principal_amount: e.target.value })}
-                        />
-                        <p className="text-xs text-muted-foreground">Reduces loan balance</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="interest_payment">
-                          Interest Amount ({paymentFormData.currency === "INR" ? "₹" : "$"})
-                        </Label>
-                        <Input
-                          id="interest_payment"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={paymentFormData.interest_amount}
-                          onChange={(e) => setPaymentFormData({ ...paymentFormData, interest_amount: e.target.value })}
-                        />
-                        <p className="text-xs text-muted-foreground">Tracked separately</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        <strong>Important:</strong> Only the principal amount reduces your loan balance. Interest
-                        payments are tracked separately and contribute only to the "Interest Paid" total.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_date">Payment Date *</Label>
-                      <Input
-                        id="payment_date"
-                        type="date"
-                        value={paymentFormData.payment_date}
-                        onChange={(e) => setPaymentFormData({ ...paymentFormData, payment_date: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_method">Payment Method</Label>
-                      <Select
-                        value={paymentFormData.payment_method}
-                        onValueChange={(value) => setPaymentFormData({ ...paymentFormData, payment_method: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentMethods.map((method) => (
-                            <SelectItem key={method} value={method.toLowerCase().replace(" ", "_")}>
-                              {method}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_notes">Notes (Optional)</Label>
-                      <Textarea
-                        id="payment_notes"
-                        placeholder="Additional notes about this payment"
-                        value={paymentFormData.notes}
-                        onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit">{editingPayment ? "Update" : "Record"} Payment</Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+          <CardTitle>Payment History</CardTitle>
+          <CardDescription>Recent loan payments and their breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          {loans.length === 0 ? (
-            <div className="text-center py-12">
-              <IndianRupee className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No loans recorded</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Get started by adding your first loan to track in INR or USD.
-              </p>
-              <Button onClick={() => setLoanDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Your First Loan
-              </Button>
-            </div>
+          {payments.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No payments recorded yet. Add a payment to get started.
+            </p>
           ) : (
-            <div className="space-y-6">
-              {loans.map((loan) => {
-                const progress = ((loan.principal_amount - loan.current_balance) / loan.principal_amount) * 100
-                const loanPayments = payments.filter((p) => p.loan_id === loan.id)
-                const loanCurrency = loan.currency || "INR"
-
-                return (
-                  <Card key={loan.id} className="border-l-4 border-l-blue-500">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
-                            {loan.loan_name}
-                            <Badge
-                              variant={
-                                loan.status === "active"
-                                  ? "default"
-                                  : loan.status === "paid_off"
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                            >
-                              {loan.status?.replace("_", " ").toUpperCase()}
-                            </Badge>
-                            <Badge variant="outline">{loanCurrency}</Badge>
-                          </CardTitle>
-                          <CardDescription>
-                            {loan.lender && `${loan.lender} • `}
-                            {loan.loan_type &&
-                              `${loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1).replace("_", " ")} Loan`}
-                          </CardDescription>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditLoan(loan)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteLoan(loan.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Original Amount</p>
-                          <p className="font-semibold">
-                            {loanCurrency === "INR"
-                              ? formatINR(loan.principal_amount)
-                              : formatUSD(loan.principal_amount)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Current Balance</p>
-                          <p className="font-semibold text-red-600">
-                            {loanCurrency === "INR" ? formatINR(loan.current_balance) : formatUSD(loan.current_balance)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Interest Rate</p>
-                          <p className="font-semibold">{loan.interest_rate ? `${loan.interest_rate}% p.a.` : "N/A"}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Monthly EMI</p>
-                          <p className="font-semibold">
-                            {loan.monthly_payment
-                              ? loanCurrency === "INR"
-                                ? formatINR(loan.monthly_payment)
-                                : formatUSD(loan.monthly_payment)
-                              : "N/A"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span>Repayment Progress</span>
-                          <span className="font-medium">{progress.toFixed(1)}% paid off</span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>
-                            Paid:{" "}
-                            {loanCurrency === "INR"
-                              ? formatINR(loan.principal_amount - loan.current_balance)
-                              : formatUSD(loan.principal_amount - loan.current_balance)}
+            <div className="space-y-4">
+              {payments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{payment.loans.loan_name}</span>
+                      <Badge variant="outline">{payment.payment_date}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{payment.description}</div>
+                    <div className="flex gap-4 text-sm">
+                      <span>
+                        Principal:{" "}
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(payment.principal_amount, payment.loans.currency)}
+                        </span>
+                      </span>
+                      {payment.interest_amount > 0 && (
+                        <span>
+                          Interest:{" "}
+                          <span className="font-medium text-orange-600">
+                            {formatCurrency(payment.interest_amount, payment.loans.currency)}
                           </span>
-                          <span>
-                            Remaining:{" "}
-                            {loanCurrency === "INR" ? formatINR(loan.current_balance) : formatUSD(loan.current_balance)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {loanPayments.length > 0 && (
-                        <div className="pt-4 border-t">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium flex items-center gap-2">
-                              <History className="h-4 w-4" />
-                              Recent Payments
-                            </h4>
-                            <Badge variant="outline">{loanPayments.length} payments</Badge>
-                          </div>
-                          <div className="space-y-2">
-                            {loanPayments.slice(0, 5).map((payment) => (
-                              <div
-                                key={payment.id}
-                                className="flex justify-between items-center text-sm p-2 rounded-lg bg-muted/50"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span>{new Date(payment.payment_date).toLocaleDateString("en-IN")}</span>
-                                  {payment.payment_method && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {payment.payment_method.replace("_", " ")}
-                                    </Badge>
-                                  )}
-                                  {payment.interest_amount && payment.interest_amount > 0 && (
-                                    <Badge variant="outline" className="text-xs text-orange-600">
-                                      Interest:{" "}
-                                      {loanCurrency === "INR"
-                                        ? formatINR(payment.interest_amount)
-                                        : formatUSD(payment.interest_amount)}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-green-600">
-                                    {loanCurrency === "INR" ? formatINR(payment.amount) : formatUSD(payment.amount)}
-                                  </span>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                        <MoreHorizontal className="h-3 w-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleEditPayment(payment)}>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit Payment
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => handleDeletePayment(payment.id)}
-                                        className="text-red-600"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete Payment
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </div>
-                            ))}
-                            {loanPayments.length > 5 && (
-                              <p className="text-xs text-muted-foreground text-center">
-                                +{loanPayments.length - 5} more payments
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        </span>
                       )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-bold">{formatCurrency(payment.amount, payment.loans.currency)}</div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => startEditPayment(payment)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(payment)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
