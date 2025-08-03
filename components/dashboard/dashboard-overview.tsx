@@ -11,24 +11,24 @@ import {
   DollarSign,
   CreditCard,
   TrendingUp,
-  Users,
   ArrowUpRight,
   ArrowDownRight,
   Plus,
   FileText,
   BarChart3,
   AlertCircle,
-  IndianRupee,
   Send,
   Calendar,
   History,
+  ShoppingCart,
 } from "lucide-react"
-import { formatINR, convertCurrency } from "@/lib/utils"
+import { formatINR } from "@/lib/utils"
 
 interface DashboardData {
   totalIncome: number
   totalLoans: number
   totalTransfers: number
+  totalExpenses: number
   activeLoans: number
   recentTransactions: any[]
   monthlyIncome: number
@@ -41,6 +41,7 @@ export default function DashboardOverview() {
     totalIncome: 0,
     totalLoans: 0,
     totalTransfers: 0,
+    totalExpenses: 0,
     activeLoans: 0,
     recentTransactions: [],
     monthlyIncome: 0,
@@ -65,17 +66,17 @@ export default function DashboardOverview() {
         return
       }
 
-      // Fetch income data
+      // Fetch income data (using INR equivalents)
       const { data: incomeData, error: incomeError } = await supabase
         .from("income")
-        .select("amount, currency")
+        .select("inr_equivalent")
         .eq("user_id", user.id)
 
       if (incomeError) {
         console.error("Error fetching income:", incomeError)
       }
 
-      // Fetch loans data
+      // Fetch loans data (using INR equivalents for USD loans)
       const { data: loansData, error: loansError } = await supabase
         .from("loans")
         .select("current_balance, currency, status")
@@ -85,32 +86,45 @@ export default function DashboardOverview() {
         console.error("Error fetching loans:", loansError)
       }
 
-      // Fetch transfers data
+      // Fetch transfers data (using INR equivalents)
       const { data: transfersData, error: transfersError } = await supabase
         .from("international_transfers")
-        .select("amount, currency")
+        .select("inr_equivalent")
         .eq("user_id", user.id)
 
       if (transfersError) {
         console.error("Error fetching transfers:", transfersError)
       }
 
-      // Calculate totals (convert everything to INR for consistency)
-      const totalIncome = (incomeData || []).reduce((sum, item) => {
-        const amountInINR = item.currency === "USD" ? convertCurrency(item.amount, "USD", "INR") : item.amount
-        return sum + amountInINR
-      }, 0)
+      // Fetch monthly expenses data
+      const currentDate = new Date()
+      const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+
+      const { data: expensesData, error: expensesError } = await supabase
+        .from("monthly_expenses")
+        .select("inr_equivalent")
+        .eq("user_id", user.id)
+        .gte("expense_date", firstDayOfMonth.toISOString().split("T")[0])
+        .lte("expense_date", lastDayOfMonth.toISOString().split("T")[0])
+
+      if (expensesError) {
+        console.error("Error fetching expenses:", expensesError)
+      }
+
+      // Calculate totals using INR equivalents for accurate conversion
+      const totalIncome = (incomeData || []).reduce((sum, item) => sum + (item.inr_equivalent || 0), 0)
 
       const totalLoans = (loansData || []).reduce((sum, item) => {
-        const amountInINR =
-          item.currency === "USD" ? convertCurrency(item.current_balance, "USD", "INR") : item.current_balance
+        // For loans, we need to convert USD to INR if needed
+        // Since we don't have stored INR equivalent for loans, we'll use a reasonable current rate
+        const amountInINR = item.currency === "USD" ? item.current_balance * 83.25 : item.current_balance
         return sum + amountInINR
       }, 0)
 
-      const totalTransfers = (transfersData || []).reduce((sum, item) => {
-        const amountInINR = item.currency === "USD" ? convertCurrency(item.amount, "USD", "INR") : item.amount
-        return sum + amountInINR
-      }, 0)
+      const totalTransfers = (transfersData || []).reduce((sum, item) => sum + (item.inr_equivalent || 0), 0)
+
+      const totalExpenses = (expensesData || []).reduce((sum, item) => sum + (item.inr_equivalent || 0), 0)
 
       const activeLoans = (loansData || []).filter((loan) => loan.status === "active").length
 
@@ -118,10 +132,11 @@ export default function DashboardOverview() {
         totalIncome,
         totalLoans,
         totalTransfers,
+        totalExpenses,
         activeLoans,
         recentTransactions: [],
         monthlyIncome: totalIncome,
-        monthlyExpenses: totalLoans,
+        monthlyExpenses: totalExpenses,
       })
     } catch (error: any) {
       console.error("Error fetching dashboard data:", error)
@@ -229,21 +244,52 @@ export default function DashboardOverview() {
 
         <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-l-4 border-l-purple-500"
-          onClick={() => handleNavigation("/dashboard/payments")}
+          onClick={() => handleNavigation("/dashboard/expenses")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
+            <CardTitle className="text-sm font-medium">Monthly Expenses</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{formatINR(data.totalIncome - data.totalLoans)}</div>
+            <div className="text-2xl font-bold text-purple-600">{formatINR(data.totalExpenses)}</div>
             <p className="text-xs text-muted-foreground">
-              <Users className="inline h-3 w-3 mr-1" />
-              Income minus debt
+              <Calendar className="inline h-3 w-3 mr-1" />
+              Current month spending
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Financial Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Financial Summary
+          </CardTitle>
+          <CardDescription>Your overall financial position</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="text-2xl font-bold text-green-600">{formatINR(data.totalIncome)}</div>
+              <div className="text-sm text-muted-foreground">Total Income</div>
+            </div>
+            <div className="text-center p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="text-2xl font-bold text-red-600">{formatINR(data.totalLoans + data.totalExpenses)}</div>
+              <div className="text-sm text-muted-foreground">Total Obligations</div>
+            </div>
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div
+                className={`text-2xl font-bold ${data.totalIncome - data.totalLoans - data.totalExpenses >= 0 ? "text-green-600" : "text-red-600"}`}
+              >
+                {formatINR(data.totalIncome - data.totalLoans - data.totalExpenses)}
+              </div>
+              <div className="text-sm text-muted-foreground">Net Position</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card>
@@ -295,12 +341,12 @@ export default function DashboardOverview() {
             <Button
               variant="outline"
               className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-950/20 bg-transparent"
-              onClick={() => handleNavigation("/dashboard/payments")}
+              onClick={() => handleNavigation("/dashboard/expenses")}
             >
-              <IndianRupee className="h-6 w-6 text-purple-600" />
+              <ShoppingCart className="h-6 w-6 text-purple-600" />
               <div className="text-center">
-                <div className="font-medium">Record Payment</div>
-                <div className="text-xs text-muted-foreground">Log loan payments</div>
+                <div className="font-medium">Track Expenses</div>
+                <div className="text-xs text-muted-foreground">Monthly spending</div>
               </div>
             </Button>
 
@@ -343,12 +389,12 @@ export default function DashboardOverview() {
             <Button
               variant="outline"
               className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-indigo-50 hover:border-indigo-200 dark:hover:bg-indigo-950/20 bg-transparent"
-              onClick={() => handleNavigation("/dashboard/settings")}
+              onClick={() => handleNavigation("/dashboard/payments")}
             >
               <Calendar className="h-6 w-6 text-indigo-600" />
               <div className="text-center">
-                <div className="font-medium">Settings</div>
-                <div className="text-xs text-muted-foreground">Account settings</div>
+                <div className="font-medium">Scheduled Payments</div>
+                <div className="text-xs text-muted-foreground">Future payments</div>
               </div>
             </Button>
           </div>
@@ -373,7 +419,7 @@ export default function DashboardOverview() {
                 </div>
                 <div>
                   <p className="font-medium">Income Management</p>
-                  <p className="text-sm text-muted-foreground">Track your earnings in USD</p>
+                  <p className="text-sm text-muted-foreground">Track earnings with accurate exchange rates</p>
                 </div>
               </div>
               <Badge variant="outline">Active</Badge>
@@ -386,7 +432,7 @@ export default function DashboardOverview() {
                 </div>
                 <div>
                   <p className="font-medium">Loan Tracking</p>
-                  <p className="text-sm text-muted-foreground">Monitor debt in INR</p>
+                  <p className="text-sm text-muted-foreground">Monitor debt with payment history</p>
                 </div>
               </div>
               <Badge variant="outline">{data.activeLoans} loans</Badge>
@@ -399,10 +445,23 @@ export default function DashboardOverview() {
                 </div>
                 <div>
                   <p className="font-medium">International Transfers</p>
-                  <p className="text-sm text-muted-foreground">Send money globally</p>
+                  <p className="text-sm text-muted-foreground">Send money globally with accurate rates</p>
                 </div>
               </div>
               <Badge variant="outline">Available</Badge>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                  <ShoppingCart className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Monthly Expense Tracker</p>
+                  <p className="text-sm text-muted-foreground">Track current month spending</p>
+                </div>
+              </div>
+              <Badge variant="outline">New</Badge>
             </div>
           </div>
         </CardContent>

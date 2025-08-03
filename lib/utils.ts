@@ -65,45 +65,30 @@ export function generateReferenceNumber(): string {
   return "TXN" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 5).toUpperCase()
 }
 
-// Live exchange rates - you can update these or fetch from an API
-export const EXCHANGE_RATES = {
-  USD_TO_INR: 83.25,
-  INR_TO_USD: 0.012,
+// Helper function to calculate INR equivalent with manual exchange rate
+export function calculateINREquivalent(usdAmount: number, exchangeRate: number): number {
+  return usdAmount * exchangeRate
 }
 
-export function convertUSDToINR(usdAmount: number): number {
-  return usdAmount * EXCHANGE_RATES.USD_TO_INR
+// Helper function to format dual currency display with custom rate
+export function formatDualCurrency(usdAmount: number, exchangeRate: number): string {
+  const inrAmount = calculateINREquivalent(usdAmount, exchangeRate)
+  return `${formatUSD(usdAmount)} (₹${inrAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })} @ ₹${exchangeRate})`
 }
 
-export function convertINRToUSD(inrAmount: number): number {
-  return inrAmount * EXCHANGE_RATES.INR_TO_USD
-}
-
-export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
-  if (fromCurrency === toCurrency) return amount
-
-  if (fromCurrency === "USD" && toCurrency === "INR") {
-    return convertUSDToINR(amount)
+// Helper function to get current exchange rate from API
+export async function getCurrentExchangeRate(): Promise<number> {
+  try {
+    const response = await fetch("https://api.exchangerate-api.com/v4/latest/USD")
+    const data = await response.json()
+    return data.rates.INR || 83.25 // fallback rate
+  } catch (error) {
+    console.error("Failed to fetch exchange rate:", error)
+    return 83.25 // fallback rate
   }
-
-  if (fromCurrency === "INR" && toCurrency === "USD") {
-    return convertINRToUSD(amount)
-  }
-
-  return amount
 }
 
-// Format dual currency display (USD primary with INR equivalent)
-export function formatDualCurrency(usdAmount: number): string {
-  const inrAmount = convertUSDToINR(usdAmount)
-  return `${formatUSD(usdAmount)} (${formatINR(inrAmount)})`
-}
-
-// Format dual currency for transfers (USD primary with optional INR)
-export function formatTransferCurrency(amount: number, currency: string, showINR = true): string {
-  if (currency === "USD" && showINR) {
-    const inrAmount = convertUSDToINR(amount)
-    return `${formatUSD(amount)} (≈ ${formatINR(inrAmount)})`
-  }
-  return formatCurrency(amount, currency)
+// Helper function to validate exchange rate
+export function isValidExchangeRate(rate: number): boolean {
+  return rate > 0 && rate < 200 // reasonable bounds for USD to INR
 }

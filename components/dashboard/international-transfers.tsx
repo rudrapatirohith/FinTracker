@@ -31,8 +31,9 @@ import {
   AlertCircle,
   DollarSign,
   IndianRupee,
+  Info,
 } from "lucide-react"
-import { formatUSD, formatINR, formatTransferCurrency, convertUSDToINR } from "@/lib/utils"
+import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, isValidExchangeRate } from "@/lib/utils"
 
 interface Transfer {
   id: string
@@ -50,6 +51,8 @@ interface Transfer {
   transfer_date: string
   completion_date: string | null
   reference_number: string | null
+  usd_to_inr_rate: number | null
+  inr_equivalent: number | null
 }
 
 // Countries with focus on India
@@ -87,8 +90,8 @@ export default function InternationalTransfers() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null)
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
-  const [loadingRates, setLoadingRates] = useState(false)
+  const [currentExchangeRate, setCurrentExchangeRate] = useState<number>(83.25)
+  const [fetchingRate, setFetchingRate] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -106,12 +109,30 @@ export default function InternationalTransfers() {
     status: "pending",
     transfer_date: new Date().toISOString().split("T")[0],
     reference_number: "",
+    usd_to_inr_rate: "",
   })
 
   useEffect(() => {
     fetchTransfers()
-    fetchExchangeRates()
+    fetchCurrentExchangeRate()
   }, [])
+
+  const fetchCurrentExchangeRate = async () => {
+    setFetchingRate(true)
+    try {
+      const rate = await getCurrentExchangeRate()
+      setCurrentExchangeRate(rate)
+      setFormData((prev) => ({
+        ...prev,
+        exchange_rate: rate.toString(),
+        usd_to_inr_rate: rate.toString(),
+      }))
+    } catch (error) {
+      console.error("Failed to fetch exchange rate:", error)
+    } finally {
+      setFetchingRate(false)
+    }
+  }
 
   const fetchTransfers = async () => {
     try {
@@ -148,38 +169,6 @@ export default function InternationalTransfers() {
     }
   }
 
-  const fetchExchangeRates = async () => {
-    setLoadingRates(true)
-    try {
-      // Using a free exchange rate API for USD to various currencies
-      const response = await fetch("https://api.exchangerate-api.com/v4/latest/USD")
-      const data = await response.json()
-
-      // Focus on currencies we support
-      const filteredRates = {
-        INR: data.rates.INR || 83.12,
-        EUR: data.rates.EUR || 0.85,
-        CAD: data.rates.CAD || 1.25,
-        GBP: data.rates.GBP || 0.79,
-        AUD: data.rates.AUD || 1.35,
-      }
-
-      setExchangeRates(filteredRates)
-    } catch (error) {
-      console.error("Error fetching exchange rates:", error)
-      // Fallback rates
-      setExchangeRates({
-        INR: 83.12, // India - Primary focus
-        EUR: 0.85, // Italy
-        CAD: 1.25, // Canada
-        GBP: 0.79, // London/UK
-        AUD: 1.35, // Australia
-      })
-    } finally {
-      setLoadingRates(false)
-    }
-  }
-
   const calculateReceived = (sent: string, rate: string) => {
     const sentAmount = Number.parseFloat(sent)
     const exchangeRate = Number.parseFloat(rate)
@@ -204,6 +193,27 @@ export default function InternationalTransfers() {
         return
       }
 
+      // Validate exchange rates
+      const exchangeRate = Number.parseFloat(formData.exchange_rate)
+      if (!isValidExchangeRate(exchangeRate)) {
+        setError("Please enter a valid exchange rate")
+        return
+      }
+
+      let usdToInrRate = null
+      let inrEquivalent = null
+
+      // Calculate USD to INR rate and INR equivalent
+      if (formData.currency_sent === "USD") {
+        const rate = Number.parseFloat(formData.usd_to_inr_rate)
+        if (!isValidExchangeRate(rate)) {
+          setError("Please enter a valid USD to INR rate")
+          return
+        }
+        usdToInrRate = rate
+        inrEquivalent = calculateINREquivalent(Number.parseFloat(formData.amount_sent), rate)
+      }
+
       console.log("Submitting transfer data...")
 
       const transferData = {
@@ -214,13 +224,15 @@ export default function InternationalTransfers() {
         currency_sent: formData.currency_sent,
         amount_received: Number.parseFloat(formData.amount_received),
         currency_received: formData.currency_received,
-        exchange_rate: Number.parseFloat(formData.exchange_rate),
+        exchange_rate: exchangeRate,
         transfer_fee: Number.parseFloat(formData.transfer_fee) || 0,
         transfer_method: formData.transfer_method || null,
         purpose: formData.purpose || null,
         status: formData.status,
         transfer_date: formData.transfer_date,
         reference_number: formData.reference_number || null,
+        usd_to_inr_rate: usdToInrRate,
+        inr_equivalent: inrEquivalent,
       }
 
       console.log("Transfer data to submit:", transferData)
@@ -271,6 +283,7 @@ export default function InternationalTransfers() {
       status: transfer.status,
       transfer_date: transfer.transfer_date,
       reference_number: transfer.reference_number || "",
+      usd_to_inr_rate: transfer.usd_to_inr_rate?.toString() || "",
     })
     setDialogOpen(true)
   }
@@ -302,25 +315,29 @@ export default function InternationalTransfers() {
       currency_sent: "USD",
       amount_received: "",
       currency_received: "INR",
-      exchange_rate: "",
+      exchange_rate: currentExchangeRate.toString(),
       transfer_fee: "",
       transfer_method: "",
       purpose: "",
       status: "pending",
       transfer_date: new Date().toISOString().split("T")[0],
       reference_number: "",
+      usd_to_inr_rate: currentExchangeRate.toString(),
     })
     setEditingTransfer(null)
     setError("")
   }
 
-  // Calculate totals (primarily in USD)
-  const totalSentUSD = transfers.reduce((sum, transfer) => {
-    return sum + (transfer.currency_sent === "USD" ? transfer.amount_sent : 0)
+  // Calculate totals using INR equivalents
+  const totalSentINR = transfers.reduce((sum, transfer) => {
+    return sum + (transfer.inr_equivalent || 0)
   }, 0)
 
-  const totalFeesUSD = transfers.reduce((sum, transfer) => {
-    return sum + (transfer.currency_sent === "USD" ? transfer.transfer_fee : 0)
+  const totalFeesINR = transfers.reduce((sum, transfer) => {
+    if (transfer.currency_sent === "USD" && transfer.usd_to_inr_rate) {
+      return sum + calculateINREquivalent(transfer.transfer_fee, transfer.usd_to_inr_rate)
+    }
+    return sum + transfer.transfer_fee
   }, 0)
 
   const pendingTransfers = transfers.filter((t) => t.status === "pending").length
@@ -362,21 +379,25 @@ export default function InternationalTransfers() {
         </Alert>
       )}
 
-      {/* Summary Cards - USD focused with INR conversion */}
+      {/* Exchange Rate Info */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Exchange Rate Policy:</strong> Enter the actual exchange rate used for each transfer to maintain
+          historical accuracy. Current live USD to INR rate: ₹{currentExchangeRate} per $1.
+        </AlertDescription>
+      </Alert>
+
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
-            <div className="flex items-center gap-1">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <IndianRupee className="h-3 w-3 text-muted-foreground" />
-            </div>
+            <CardTitle className="text-sm font-medium">Total Sent (INR)</CardTitle>
+            <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-blue-600">{formatUSD(totalSentUSD)}</div>
-              <div className="text-sm text-muted-foreground">≈ {formatINR(convertUSDToINR(totalSentUSD))}</div>
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{formatINR(totalSentINR)}</div>
+            <div className="text-sm text-muted-foreground">All transfers in INR equivalent</div>
           </CardContent>
         </Card>
 
@@ -386,25 +407,21 @@ export default function InternationalTransfers() {
             <span className="text-lg">🇮🇳</span>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-green-600">
-                ₹{totalToIndia.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-              </div>
-              <div className="text-sm text-muted-foreground">Indian Rupees</div>
+            <div className="text-2xl font-bold text-green-600">
+              ₹{totalToIndia.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
             </div>
+            <div className="text-sm text-muted-foreground">Indian Rupees received</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transfer Fees</CardTitle>
+            <CardTitle className="text-sm font-medium">Transfer Fees (INR)</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-orange-600">{formatUSD(totalFeesUSD)}</div>
-              <div className="text-sm text-muted-foreground">≈ {formatINR(convertUSDToINR(totalFeesUSD))}</div>
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{formatINR(totalFeesINR)}</div>
+            <div className="text-sm text-muted-foreground">Total fees paid</div>
           </CardContent>
         </Card>
 
@@ -420,55 +437,17 @@ export default function InternationalTransfers() {
         </Card>
       </div>
 
-      {/* Exchange Rates Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Live Exchange Rates (USD Base)
-              </CardTitle>
-              <CardDescription>Current rates for international transfers</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchExchangeRates} disabled={loadingRates}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loadingRates ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {countries.map((country) => {
-              const rate = exchangeRates[country.currency]
-              return (
-                <div key={country.code} className="text-center p-4 bg-muted/50 rounded-lg border">
-                  <div className="text-2xl mb-1">{country.flag}</div>
-                  <p className="text-sm font-medium">{country.name}</p>
-                  <p className="text-xs text-muted-foreground">USD → {country.currency}</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {country.currency === "INR" ? "₹" : ""}
-                    {rate?.toFixed(country.currency === "INR" ? 2 : 4)}
-                  </p>
-                  {country.currency === "INR" && <p className="text-xs text-blue-600 font-medium">Primary Focus</p>}
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Transfer Management */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <Send className="h-5 w-5" />
                 International Money Transfers
               </CardTitle>
               <CardDescription>
-                Track your international money transfers in USD with currency conversion
+                Track international transfers with accurate exchange rates for historical transparency
               </CardDescription>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -482,7 +461,9 @@ export default function InternationalTransfers() {
                 <DialogHeader>
                   <DialogTitle>{editingTransfer ? "Edit Transfer" : "Add New Transfer"}</DialogTitle>
                   <DialogDescription>
-                    {editingTransfer ? "Update transfer details" : "Record a new international money transfer"}
+                    {editingTransfer
+                      ? "Update transfer details"
+                      : "Record a new international money transfer with accurate exchange rates"}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -551,15 +532,10 @@ export default function InternationalTransfers() {
                           required
                         />
                       </div>
-                      {formData.amount_sent && Number.parseFloat(formData.amount_sent) > 0 && (
-                        <div className="text-sm text-muted-foreground">
-                          ≈ {formatINR(convertUSDToINR(Number.parseFloat(formData.amount_sent)))}
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="exchange_rate">Exchange Rate *</Label>
+                      <Label htmlFor="exchange_rate">Exchange Rate (USD to {formData.currency_received}) *</Label>
                       <div className="flex gap-2">
                         <Input
                           id="exchange_rate"
@@ -580,22 +556,49 @@ export default function InternationalTransfers() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const rate = exchangeRates[formData.currency_received]
-                            if (rate) {
-                              const newFormData = { ...formData, exchange_rate: rate.toString() }
-                              if (formData.amount_sent) {
-                                newFormData.amount_received = calculateReceived(formData.amount_sent, rate.toString())
-                              }
-                              setFormData(newFormData)
-                            }
-                          }}
+                          onClick={fetchCurrentExchangeRate}
+                          disabled={fetchingRate}
                         >
-                          Use Live Rate
+                          <RefreshCw className={`mr-2 h-4 w-4 ${fetchingRate ? "animate-spin" : ""}`} />
+                          Live
                         </Button>
                       </div>
                     </div>
                   </div>
+
+                  {formData.currency_sent === "USD" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="usd_to_inr_rate">USD to INR Rate (for tracking) *</Label>
+                      <Input
+                        id="usd_to_inr_rate"
+                        type="number"
+                        step="0.000001"
+                        placeholder="83.25"
+                        value={formData.usd_to_inr_rate}
+                        onChange={(e) => setFormData({ ...formData, usd_to_inr_rate: e.target.value })}
+                        required
+                      />
+                      {formData.amount_sent &&
+                        formData.usd_to_inr_rate &&
+                        Number.parseFloat(formData.amount_sent) > 0 &&
+                        Number.parseFloat(formData.usd_to_inr_rate) > 0 && (
+                          <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                            <div className="flex items-center gap-1">
+                              <IndianRupee className="h-3 w-3" />
+                              <span>
+                                INR Equivalent:{" "}
+                                {formatINR(
+                                  calculateINREquivalent(
+                                    Number.parseFloat(formData.amount_sent),
+                                    Number.parseFloat(formData.usd_to_inr_rate),
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -728,10 +731,9 @@ export default function InternationalTransfers() {
         <CardContent>
           {transfers.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4">💸</div>
               <Send className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No transfers recorded</h3>
-              <p className="text-sm text-gray-500 mb-4">Start tracking your international money transfers in USD</p>
+              <p className="text-sm text-gray-500 mb-4">Start tracking your international money transfers</p>
               <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Your First Transfer
@@ -743,10 +745,10 @@ export default function InternationalTransfers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Recipient & Country</TableHead>
-                    <TableHead>Amount Sent (USD)</TableHead>
+                    <TableHead>Amount Sent</TableHead>
                     <TableHead>Amount Received</TableHead>
                     <TableHead>Exchange Rate</TableHead>
-                    <TableHead>Fee (USD)</TableHead>
+                    <TableHead>INR Equivalent</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -766,31 +768,19 @@ export default function InternationalTransfers() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-red-600 font-semibold">{formatUSD(transfer.amount_sent)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              ≈ {formatINR(convertUSDToINR(transfer.amount_sent))}
-                            </div>
-                          </div>
-                        </TableCell>
+                        <TableCell className="text-red-600 font-semibold">{formatUSD(transfer.amount_sent)}</TableCell>
                         <TableCell className="text-green-600 font-semibold">
                           {transfer.currency_received === "INR"
                             ? `₹${transfer.amount_received.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
-                            : formatTransferCurrency(transfer.amount_received, transfer.currency_received, false)}
+                            : `${transfer.currency_received} ${transfer.amount_received.toLocaleString()}`}
                         </TableCell>
                         <TableCell>
-                          <span className="font-mono text-sm">
+                          <Badge variant="outline">
                             {transfer.exchange_rate.toFixed(transfer.currency_received === "INR" ? 2 : 4)}
-                          </span>
+                          </Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-orange-600 font-semibold">{formatUSD(transfer.transfer_fee)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              ≈ {formatINR(convertUSDToINR(transfer.transfer_fee))}
-                            </div>
-                          </div>
+                        <TableCell className="text-blue-600 font-semibold">
+                          {transfer.inr_equivalent ? formatINR(transfer.inr_equivalent) : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge

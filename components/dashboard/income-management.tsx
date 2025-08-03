@@ -22,8 +22,19 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Plus, Edit, Trash2, DollarSign, Calendar, Repeat, AlertCircle, IndianRupee, Info } from "lucide-react"
-import { formatUSD, formatINR, convertUSDToINR, EXCHANGE_RATES } from "@/lib/utils"
+import {
+  Plus,
+  Edit,
+  Trash2,
+  DollarSign,
+  Calendar,
+  Repeat,
+  AlertCircle,
+  IndianRupee,
+  Info,
+  RefreshCw,
+} from "lucide-react"
+import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, isValidExchangeRate } from "@/lib/utils"
 
 interface Income {
   id: string
@@ -35,6 +46,8 @@ interface Income {
   date: string
   is_recurring: boolean
   recurring_frequency: string | null
+  exchange_rate: number | null
+  inr_equivalent: number | null
 }
 
 const incomeCategories = ["Salary", "Freelance", "Business", "Investment", "Rental", "Bonus", "Commission", "Other"]
@@ -53,20 +66,38 @@ export default function IncomeManagement() {
   const [editingIncome, setEditingIncome] = useState<Income | null>(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [currentExchangeRate, setCurrentExchangeRate] = useState<number>(83.25)
+  const [fetchingRate, setFetchingRate] = useState(false)
 
   const [formData, setFormData] = useState({
     source: "",
     amount: "",
+    currency: "USD",
     category: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
     is_recurring: false,
     recurring_frequency: "",
+    exchange_rate: "",
   })
 
   useEffect(() => {
     fetchIncomes()
+    fetchCurrentExchangeRate()
   }, [])
+
+  const fetchCurrentExchangeRate = async () => {
+    setFetchingRate(true)
+    try {
+      const rate = await getCurrentExchangeRate()
+      setCurrentExchangeRate(rate)
+      setFormData((prev) => ({ ...prev, exchange_rate: rate.toString() }))
+    } catch (error) {
+      console.error("Failed to fetch exchange rate:", error)
+    } finally {
+      setFetchingRate(false)
+    }
+  }
 
   const fetchIncomes = async () => {
     try {
@@ -118,19 +149,38 @@ export default function IncomeManagement() {
         return
       }
 
+      const amount = Number.parseFloat(formData.amount)
+      let exchangeRate = null
+      let inrEquivalent = null
+
+      // Handle exchange rate for USD income
+      if (formData.currency === "USD") {
+        const rate = Number.parseFloat(formData.exchange_rate)
+        if (!isValidExchangeRate(rate)) {
+          setError("Please enter a valid exchange rate between 1 and 200")
+          return
+        }
+        exchangeRate = rate
+        inrEquivalent = calculateINREquivalent(amount, rate)
+      } else {
+        // For INR income, the amount is already in INR
+        inrEquivalent = amount
+      }
+
       console.log("Submitting income data...")
 
-      // Always store income in USD
       const incomeData = {
         user_id: user.id,
         source: formData.source,
-        amount: Number.parseFloat(formData.amount), // This is USD amount
-        currency: "USD", // Always USD for income
+        amount: amount,
+        currency: formData.currency,
         category: formData.category || null,
         description: formData.description || null,
         date: formData.date,
         is_recurring: formData.is_recurring,
         recurring_frequency: formData.is_recurring ? formData.recurring_frequency : null,
+        exchange_rate: exchangeRate,
+        inr_equivalent: inrEquivalent,
       }
 
       console.log("Income data to submit:", incomeData)
@@ -165,12 +215,14 @@ export default function IncomeManagement() {
     setEditingIncome(income)
     setFormData({
       source: income.source,
-      amount: income.amount.toString(), // This is the USD amount
+      amount: income.amount.toString(),
+      currency: income.currency,
       category: income.category || "",
       description: income.description || "",
       date: income.date,
       is_recurring: income.is_recurring,
       recurring_frequency: income.recurring_frequency || "",
+      exchange_rate: income.exchange_rate?.toString() || "",
     })
     setDialogOpen(true)
   }
@@ -198,21 +250,23 @@ export default function IncomeManagement() {
     setFormData({
       source: "",
       amount: "",
+      currency: "USD",
       category: "",
       description: "",
       date: new Date().toISOString().split("T")[0],
       is_recurring: false,
       recurring_frequency: "",
+      exchange_rate: currentExchangeRate.toString(),
     })
     setEditingIncome(null)
     setError("")
   }
 
-  // Calculate totals in USD (all income is stored in USD)
-  const totalIncomeUSD = incomes.reduce((sum, income) => sum + income.amount, 0)
-  const monthlyRecurringUSD = incomes
+  // Calculate totals in INR using stored INR equivalents
+  const totalIncomeINR = incomes.reduce((sum, income) => sum + (income.inr_equivalent || 0), 0)
+  const monthlyRecurringINR = incomes
     .filter((income) => income.is_recurring && income.recurring_frequency === "monthly")
-    .reduce((sum, income) => sum + income.amount, 0)
+    .reduce((sum, income) => sum + (income.inr_equivalent || 0), 0)
 
   if (loading) {
     return (
@@ -252,8 +306,8 @@ export default function IncomeManagement() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Currency Info:</strong> All income is tracked in USD ($) and automatically converted to INR (₹) using
-          the current exchange rate of ₹{EXCHANGE_RATES.USD_TO_INR} per $1.
+          <strong>Exchange Rate Policy:</strong> For USD income, you must enter the exchange rate used at the time of
+          earning. This ensures historical accuracy and transparency. Current live rate: ₹{currentExchangeRate} per $1.
         </AlertDescription>
       </Alert>
 
@@ -261,30 +315,23 @@ export default function IncomeManagement() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-            <div className="flex items-center gap-1">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <IndianRupee className="h-3 w-3 text-muted-foreground" />
-            </div>
+            <CardTitle className="text-sm font-medium">Total Income (INR)</CardTitle>
+            <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-green-600">{formatUSD(totalIncomeUSD)}</div>
-              <div className="text-sm text-muted-foreground">≈ {formatINR(convertUSDToINR(totalIncomeUSD))}</div>
-            </div>
+            <div className="text-2xl font-bold text-green-600">{formatINR(totalIncomeINR)}</div>
+            <div className="text-sm text-muted-foreground">All income converted to INR</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring</CardTitle>
+            <CardTitle className="text-sm font-medium">Monthly Recurring (INR)</CardTitle>
             <Repeat className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-blue-600">{formatUSD(monthlyRecurringUSD)}</div>
-              <div className="text-sm text-muted-foreground">≈ {formatINR(convertUSDToINR(monthlyRecurringUSD))}</div>
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{formatINR(monthlyRecurringINR)}</div>
+            <div className="text-sm text-muted-foreground">Monthly recurring income</div>
           </CardContent>
         </Card>
 
@@ -309,7 +356,7 @@ export default function IncomeManagement() {
                 <DollarSign className="h-5 w-5" />
                 Income Management
               </CardTitle>
-              <CardDescription>Track and manage your income sources in USD with INR conversion</CardDescription>
+              <CardDescription>Track income with accurate exchange rates for historical transparency</CardDescription>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -322,7 +369,9 @@ export default function IncomeManagement() {
                 <DialogHeader>
                   <DialogTitle>{editingIncome ? "Edit Income" : "Add New Income"}</DialogTitle>
                   <DialogDescription>
-                    {editingIncome ? "Update your income details" : "Add a new income source in USD"}
+                    {editingIncome
+                      ? "Update your income details"
+                      : "Add a new income source with accurate exchange rate"}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -337,31 +386,84 @@ export default function IncomeManagement() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount in USD ($) *</Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount *</Label>
                       <Input
                         id="amount"
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        className="pl-10"
                         value={formData.amount}
                         onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                         required
                       />
                     </div>
-                    {formData.amount && Number.parseFloat(formData.amount) > 0 && (
-                      <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
-                        <div className="flex items-center gap-1">
-                          <IndianRupee className="h-3 w-3" />
-                          <span>Equivalent: {formatINR(convertUSDToINR(Number.parseFloat(formData.amount)))}</span>
-                        </div>
-                        <div className="text-xs mt-1">Exchange rate: ₹{EXCHANGE_RATES.USD_TO_INR} per $1</div>
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency *</Label>
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD ($)</SelectItem>
+                          <SelectItem value="INR">INR (₹)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+
+                  {formData.currency === "USD" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="exchange_rate">USD to INR Exchange Rate *</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchCurrentExchangeRate}
+                          disabled={fetchingRate}
+                        >
+                          <RefreshCw className={`mr-2 h-4 w-4 ${fetchingRate ? "animate-spin" : ""}`} />
+                          Get Live Rate
+                        </Button>
+                      </div>
+                      <Input
+                        id="exchange_rate"
+                        type="number"
+                        step="0.000001"
+                        placeholder="83.25"
+                        value={formData.exchange_rate}
+                        onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
+                        required
+                      />
+                      {formData.amount &&
+                        formData.exchange_rate &&
+                        Number.parseFloat(formData.amount) > 0 &&
+                        Number.parseFloat(formData.exchange_rate) > 0 && (
+                          <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                            <div className="flex items-center gap-1">
+                              <IndianRupee className="h-3 w-3" />
+                              <span>
+                                INR Equivalent:{" "}
+                                {formatINR(
+                                  calculateINREquivalent(
+                                    Number.parseFloat(formData.amount),
+                                    Number.parseFloat(formData.exchange_rate),
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                            <div className="text-xs mt-1">
+                              Rate: ₹{formData.exchange_rate} per $1 (Live: ₹{currentExchangeRate})
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
@@ -449,7 +551,7 @@ export default function IncomeManagement() {
             <div className="text-center py-12">
               <DollarSign className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No income recorded</h3>
-              <p className="text-sm text-gray-500 mb-4">Get started by adding your first income source in USD.</p>
+              <p className="text-sm text-gray-500 mb-4">Get started by adding your first income source.</p>
               <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Your First Income
@@ -462,8 +564,9 @@ export default function IncomeManagement() {
                   <TableRow>
                     <TableHead>Source</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Amount (USD)</TableHead>
-                    <TableHead>Amount (INR)</TableHead>
+                    <TableHead>Original Amount</TableHead>
+                    <TableHead>INR Equivalent</TableHead>
+                    <TableHead>Exchange Rate</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -474,9 +577,18 @@ export default function IncomeManagement() {
                     <TableRow key={income.id}>
                       <TableCell className="font-medium">{income.source}</TableCell>
                       <TableCell>{income.category && <Badge variant="secondary">{income.category}</Badge>}</TableCell>
-                      <TableCell className="text-green-600 font-semibold">{formatUSD(income.amount)}</TableCell>
-                      <TableCell className="text-blue-600 font-semibold">
-                        {formatINR(convertUSDToINR(income.amount))}
+                      <TableCell className="font-semibold">
+                        {income.currency === "USD" ? formatUSD(income.amount) : formatINR(income.amount)}
+                      </TableCell>
+                      <TableCell className="text-green-600 font-semibold">
+                        {formatINR(income.inr_equivalent || 0)}
+                      </TableCell>
+                      <TableCell>
+                        {income.currency === "USD" && income.exchange_rate ? (
+                          <Badge variant="outline">₹{income.exchange_rate}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>{new Date(income.date).toLocaleDateString()}</TableCell>
                       <TableCell>
