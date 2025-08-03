@@ -123,18 +123,18 @@ export function AppSidebar({ user }: AppSidebarProps) {
   }
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <div className="flex h-16 shrink-0 items-center gap-2 px-4">
+    <Sidebar collapsible="icon" className="border-r">
+      <SidebarHeader className="border-b">
+        <div className="flex h-16 items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <div className="flex items-center gap-2 flex-1">
-            <div className="bg-primary rounded-lg p-2">
+          <div className="flex items-center gap-2 flex-1 group-data-[collapsible=icon]:hidden">
+            <div className="bg-primary rounded-lg p-2 flex-shrink-0">
               <DollarSign className="h-5 w-5 text-primary-foreground" />
             </div>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="font-semibold text-sidebar-foreground flex items-center gap-1">FinanceTracker</span>
-              <span className="text-xs text-sidebar-foreground/70">Personal Finance</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-semibold text-sidebar-foreground truncate">FinanceTracker</span>
+              <span className="text-xs text-sidebar-foreground/70 truncate">Personal Finance</span>
             </div>
           </div>
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
@@ -143,18 +143,25 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         {navigationGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="px-2 py-2 text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+              {group.label}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={pathname === item.url}>
-                      <a href={item.url} className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.url}
+                      className="w-full justify-start"
+                      tooltip={item.title}
+                    >
+                      <a href={item.url} className="flex items-center gap-3 px-3 py-2">
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{item.title}</span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -165,27 +172,27 @@ export function AppSidebar({ user }: AppSidebarProps) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground w-full"
                 >
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
                     <AvatarImage
                       src={user.user_metadata?.avatar_url || "/placeholder.svg"}
                       alt={getUserDisplayName()}
                     />
-                    <AvatarFallback className="rounded-lg">{getUserInitials(user.email || "")}</AvatarFallback>
+                    <AvatarFallback className="rounded-lg text-xs">{getUserInitials(user.email || "")}</AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
+                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold">{getUserDisplayName()}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+                    <span className="truncate text-xs text-sidebar-foreground/70">{user.email}</span>
                   </div>
-                  <ChevronUp className="ml-auto size-4" />
+                  <ChevronUp className="ml-auto size-4 flex-shrink-0 group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

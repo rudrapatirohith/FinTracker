@@ -1,13 +1,12 @@
 "use client"
 
 import type React from "react"
-
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import type { User } from "@supabase/supabase-js"
-import { useRouter } from "next/navigation"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { Loader2 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -62,10 +61,14 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user} />
-      <SidebarInset>
-        <main className="flex-1 overflow-auto">{children}</main>
-      </SidebarInset>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar user={user} />
+        <SidebarInset className="flex-1">
+          <div className="flex flex-col min-h-screen">
+            <main className="flex-1 p-6 overflow-auto">{children}</main>
+          </div>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   )
 }
