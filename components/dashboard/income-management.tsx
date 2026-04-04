@@ -34,7 +34,7 @@ import {
   Info,
   RefreshCw,
 } from "lucide-react"
-import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, isValidExchangeRate } from "@/lib/utils"
+import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, isValidExchangeRate, toUSD, formatUSDDisplay } from "@/lib/utils"
 
 interface Income {
   id: string
@@ -306,8 +306,7 @@ export default function IncomeManagement() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Exchange Rate Policy:</strong> For USD income, you must enter the exchange rate used at the time of
-          earning. This ensures historical accuracy and transparency. Current live rate: ₹{currentExchangeRate} per $1.
+          <strong>Exchange Rate Policy:</strong> For USD income, enter the exchange rate at time of earning for historical accuracy. All totals are displayed in USD. Current live rate: ₹{currentExchangeRate} per $1.
         </AlertDescription>
       </Alert>
 
@@ -315,22 +314,22 @@ export default function IncomeManagement() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Income (INR)</CardTitle>
-            <IndianRupee className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Income (USD)</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatINR(totalIncomeINR)}</div>
-            <div className="text-sm text-muted-foreground">All income converted to INR</div>
+            <div className="text-2xl font-bold text-green-600">{formatUSDDisplay(toUSD(totalIncomeINR, "INR"))}</div>
+            <div className="text-sm text-muted-foreground">All income converted to USD</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring (INR)</CardTitle>
+            <CardTitle className="text-sm font-medium">Monthly Recurring (USD)</CardTitle>
             <Repeat className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatINR(monthlyRecurringINR)}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatUSDDisplay(toUSD(monthlyRecurringINR, "INR"))}</div>
             <div className="text-sm text-muted-foreground">Monthly recurring income</div>
           </CardContent>
         </Card>

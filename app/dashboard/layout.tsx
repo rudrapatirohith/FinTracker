@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import type { User } from "@supabase/supabase-js"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import AIAssistant from "@/components/dashboard/ai-assistant"
 import { Loader2 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -69,6 +70,7 @@ export default function DashboardLayout({
           </div>
         </SidebarInset>
       </div>
+      <AIAssistant />
     </SidebarProvider>
   )
 }
