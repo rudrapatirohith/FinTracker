@@ -1,9 +1,36 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+let supabaseClient: ReturnType<typeof createClient> | null = null
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const getSupabase = () => {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      if (typeof window !== "undefined") {
+        console.warn("[v0] Supabase credentials not configured")
+      }
+      return null
+    }
+
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+  }
+
+  return supabaseClient
+}
+
+// For backward compatibility, export a lazy getter
+export const supabase = new Proxy({} as any, {
+  get(target, prop) {
+    const client = getSupabase()
+    if (!client) {
+      console.warn("[v0] Supabase is not initialized - missing environment variables")
+      return null
+    }
+    return client[prop as keyof typeof client]
+  },
+})
 
 // Enhanced error handling function
 export const handleSupabaseError = (error: any, operation: string) => {
