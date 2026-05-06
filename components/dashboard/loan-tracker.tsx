@@ -33,7 +33,7 @@ import {
   Info,
   IndianRupee,
 } from "lucide-react"
-import { formatINR, convertCurrency } from "@/lib/utils"
+import { formatINR, toUSD, formatUSDDisplay } from "@/lib/utils"
 
 interface Loan {
   id: string
@@ -150,7 +150,7 @@ export default function LoanTracker() {
       const totalInterest = (paymentsData || []).reduce((sum, payment) => {
         const interestInINR =
           payment.loan?.currency === "USD"
-            ? convertCurrency(payment.interest_amount, "USD", "INR")
+                ? formatUSDDisplay(toUSD(payment.interest_amount, "USD"))
             : payment.interest_amount
         return sum + interestInINR
       }, 0)
@@ -469,7 +469,7 @@ export default function LoanTracker() {
   const getTotalDebt = () => {
     return loans.reduce((sum, loan) => {
       const balanceInINR =
-        loan.currency === "USD" ? convertCurrency(loan.current_balance, "USD", "INR") : loan.current_balance
+            formatUSDDisplay(toUSD(loan.current_balance, loan.currency))
       return sum + balanceInINR
     }, 0)
   }
