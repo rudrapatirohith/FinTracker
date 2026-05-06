@@ -22,7 +22,7 @@ import {
   History,
   ShoppingCart,
 } from "lucide-react"
-import { formatINR } from "@/lib/utils"
+import { toUSD, formatUSDDisplay } from "@/lib/utils"
 
 interface DashboardData {
   totalIncome: number
@@ -181,14 +181,6 @@ export default function DashboardOverview() {
         </Alert>
       )}
 
-      {/* Welcome Section */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's an overview of your financial status.</p>
-        </div>
-      </div>
-
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card
@@ -200,90 +192,18 @@ export default function DashboardOverview() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatINR(data.totalIncome)}</div>
-            <p className="text-xs text-muted-foreground">
-              <ArrowUpRight className="inline h-3 w-3 mr-1" />
-              Click to manage income
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-l-4 border-l-red-500"
-          onClick={() => handleNavigation("/dashboard/loans")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
-            <CreditCard className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatINR(data.totalLoans)}</div>
-            <p className="text-xs text-muted-foreground">
-              <ArrowDownRight className="inline h-3 w-3 mr-1" />
-              {data.activeLoans} active loans
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-l-4 border-l-blue-500"
-          onClick={() => handleNavigation("/dashboard/transfers")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transfers</CardTitle>
-            <Send className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatINR(data.totalTransfers)}</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 mr-1" />
-              International transfers
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-l-4 border-l-purple-500"
-          onClick={() => handleNavigation("/dashboard/expenses")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Expenses</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{formatINR(data.totalExpenses)}</div>
-            <p className="text-xs text-muted-foreground">
-              <Calendar className="inline h-3 w-3 mr-1" />
-              Current month spending
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Financial Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Financial Summary
-          </CardTitle>
-          <CardDescription>Your overall financial position</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="text-2xl font-bold text-green-600">{formatINR(data.totalIncome)}</div>
+              <div className="text-2xl font-bold text-green-600">{formatUSDDisplay(toUSD(data.totalIncome, "INR"))}</div>
               <div className="text-sm text-muted-foreground">Total Income</div>
             </div>
             <div className="text-center p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-              <div className="text-2xl font-bold text-red-600">{formatINR(data.totalLoans + data.totalExpenses)}</div>
+              <div className="text-2xl font-bold text-red-600">{formatUSDDisplay(toUSD(data.totalLoans + data.totalExpenses, "INR"))}</div>
               <div className="text-sm text-muted-foreground">Total Obligations</div>
             </div>
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div
                 className={`text-2xl font-bold ${data.totalIncome - data.totalLoans - data.totalExpenses >= 0 ? "text-green-600" : "text-red-600"}`}
               >
-                {formatINR(data.totalIncome - data.totalLoans - data.totalExpenses)}
+                {formatUSDDisplay(toUSD(data.totalIncome - data.totalLoans - data.totalExpenses, "INR"))}
               </div>
               <div className="text-sm text-muted-foreground">Net Position</div>
             </div>

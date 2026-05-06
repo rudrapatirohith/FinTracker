@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Download, FileText, CalendarIcon, TrendingUp, TrendingDown, PieChart, BarChart3 } from "lucide-react"
-import { formatCurrency, cn } from "@/lib/utils"
+import { cn, toUSD, formatUSDDisplay } from "@/lib/utils"
 import { format } from "date-fns"
 
 interface ReportData {
@@ -397,7 +397,7 @@ export default function ExportReportsPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(reportData.totalIncome)}</div>
+                <div className="text-2xl font-bold text-green-600">{formatUSDDisplay(toUSD(reportData.totalIncome, "USD"))}</div>
               </CardContent>
             </Card>
 
@@ -407,7 +407,7 @@ export default function ExportReportsPage() {
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">{formatCurrency(reportData.totalExpenses)}</div>
+                <div className="text-2xl font-bold text-red-600">{formatUSDDisplay(toUSD(reportData.totalExpenses, "USD"))}</div>
               </CardContent>
             </Card>
 
@@ -417,9 +417,9 @@ export default function ExportReportsPage() {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${reportData.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {formatCurrency(reportData.netIncome)}
-                </div>
+            <div className={`text-2xl font-bold ${reportData.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {formatUSDDisplay(toUSD(reportData.netIncome, "USD"))}
+            </div>
               </CardContent>
             </Card>
           </div>
@@ -441,7 +441,7 @@ export default function ExportReportsPage() {
                       <span className="font-medium">{category.category}</span>
                       <div className="text-right">
                         <span className={`font-semibold ${category.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatCurrency(category.amount)}
+                          {formatUSDDisplay(toUSD(category.amount, "USD"))}
                         </span>
                         <Badge variant="outline" className="ml-2">
                           {category.percentage.toFixed(1)}%
@@ -465,12 +465,12 @@ export default function ExportReportsPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span>Total Debt Remaining</span>
-                  <span className="font-semibold text-red-600">{formatCurrency(reportData.loanSummary.totalDebt)}</span>
+                  <span className="font-semibold text-red-600">{formatUSDDisplay(toUSD(reportData.loanSummary.totalDebt, "USD"))}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>Total Paid Off</span>
                   <span className="font-semibold text-green-600">
-                    {formatCurrency(reportData.loanSummary.totalPaid)}
+                    {formatUSDDisplay(toUSD(reportData.transferSummary.totalSent, "USD"))}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -498,7 +498,7 @@ export default function ExportReportsPage() {
                 <div className="flex justify-between items-center">
                   <span>Total Fees</span>
                   <span className="font-semibold text-orange-600">
-                    {formatCurrency(reportData.transferSummary.totalFees)}
+                    {formatUSDDisplay(toUSD(reportData.transferSummary.totalFees, "USD"))}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

@@ -34,6 +34,7 @@ import {
   ChevronUp,
   History,
   PieChart,
+  Receipt,
 } from "lucide-react"
 
 interface AppSidebarProps {
@@ -78,6 +79,11 @@ const navigationGroups = [
         title: "Transaction History",
         url: "/dashboard/history",
         icon: History,
+      },
+      {
+        title: "Expense Tracker",
+        url: "/dashboard/expenses",
+        icon: Receipt,
       },
     ],
   },

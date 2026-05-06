@@ -92,3 +92,28 @@ export async function getCurrentExchangeRate(): Promise<number> {
 export function isValidExchangeRate(rate: number): boolean {
   return rate > 0 && rate < 200 // reasonable bounds for USD to INR
 }
+
+// Fallback INR-to-USD rate (1 USD = 83 INR)
+const INR_TO_USD_RATE = 83
+
+/**
+ * Convert an amount to USD.
+ * If currency is already USD (or omitted), returns the amount unchanged.
+ * If currency is INR, divides by the fallback rate.
+ */
+export function toUSD(amount: number, currency: string = "USD"): number {
+  if (currency === "INR") {
+    return amount / INR_TO_USD_RATE
+  }
+  return amount
+}
+
+/** Format a number as a USD string, e.g. "$1,234.56" */
+export function formatUSDDisplay(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}

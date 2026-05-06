@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Search, Filter, Download, CalendarIcon, TrendingUp, TrendingDown } from "lucide-react"
-import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import { formatDate, cn, toUSD, formatUSDDisplay } from "@/lib/utils"
 import { format } from "date-fns"
 
 interface Transaction {
@@ -234,7 +234,7 @@ export default function TransactionHistoryPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome)}</div>
+            <div className="text-2xl font-bold text-green-600">{formatUSDDisplay(toUSD(totalIncome, "USD"))}</div>
           </CardContent>
         </Card>
 
@@ -244,7 +244,7 @@ export default function TransactionHistoryPage() {
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
+            <div className="text-2xl font-bold text-red-600">{formatUSDDisplay(toUSD(totalExpenses, "USD"))}</div>
           </CardContent>
         </Card>
 
@@ -255,7 +255,7 @@ export default function TransactionHistoryPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netAmount >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {formatCurrency(netAmount)}
+              {formatUSDDisplay(toUSD(netAmount, "USD"))}
             </div>
           </CardContent>
         </Card>
@@ -395,8 +395,8 @@ export default function TransactionHistoryPage() {
           {filteredTransactions.length === 0 ? (
             <div className="text-center py-8">
               <Search className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No transactions found</h3>
-              <p className="mt-1 text-sm text-gray-500">Try adjusting your filters or search terms.</p>
+              <h3 className="mt-2 text-sm font-semibold text-foreground">No transactions found</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters or search terms.</p>
             </div>
           ) : (
             <Table>
@@ -434,7 +434,7 @@ export default function TransactionHistoryPage() {
                     <TableCell>
                       <span className={`font-semibold ${transaction.amount > 0 ? "text-green-600" : "text-red-600"}`}>
                         {transaction.amount > 0 ? "+" : ""}
-                        {formatCurrency(transaction.amount, transaction.currency)}
+                        {formatUSDDisplay(toUSD(transaction.amount, transaction.currency))}
                       </span>
                     </TableCell>
                     <TableCell>

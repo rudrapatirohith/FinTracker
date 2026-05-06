@@ -24,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Plus, Edit, Trash2, CalendarIcon, Clock, Bell, CheckCircle } from "lucide-react"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, toUSD, formatUSDDisplay } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 
@@ -256,7 +256,7 @@ export default function ScheduledPaymentsPage() {
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalUpcoming)}</div>
+            <div className="text-2xl font-bold text-orange-600">{formatUSDDisplay(toUSD(totalUpcoming, "USD"))}</div>
           </CardContent>
         </Card>
 
@@ -499,8 +499,8 @@ export default function ScheduledPaymentsPage() {
           {payments.length === 0 ? (
             <div className="text-center py-8">
               <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No payments scheduled</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by scheduling your first payment.</p>
+              <h3 className="mt-2 text-sm font-semibold text-foreground">No payments scheduled</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Get started by scheduling your first payment.</p>
             </div>
           ) : (
             <Table>
@@ -523,7 +523,7 @@ export default function ScheduledPaymentsPage() {
                     payment.status === "pending"
 
                   return (
-                    <TableRow key={payment.id} className={isOverdue ? "bg-red-50" : isDueSoon ? "bg-yellow-50" : ""}>
+                    <TableRow key={payment.id} className={isOverdue ? "bg-red-50 dark:bg-red-950/30" : isDueSoon ? "bg-yellow-50 dark:bg-yellow-950/30" : ""}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{payment.payment_name}</p>
@@ -532,7 +532,7 @@ export default function ScheduledPaymentsPage() {
                       </TableCell>
                       <TableCell>{payment.recipient || "—"}</TableCell>
                       <TableCell className="font-semibold">
-                        {formatCurrency(payment.amount, payment.currency)}
+                        {formatUSDDisplay(toUSD(payment.amount, payment.currency))}
                       </TableCell>
                       <TableCell>
                         <div>
