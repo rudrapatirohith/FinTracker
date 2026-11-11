@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "user_sessions")
@@ -22,9 +24,14 @@ public class UserSession {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
-    @Column(name = "refresh_token_hash", nullable = false,
-            unique = true, length = 64)
-    private String refreshTokenHash;
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(
+        name = "refresh_token_hash",
+        nullable = false,
+        unique = true,
+        length = 64
+    )
+    private String refreshTokenHash;   
 
     @Column(name = "token_family_id", nullable = false)
     private UUID tokenFamilyId;

@@ -1,4 +1,4 @@
-package com.fintracker.coreapi.controller.health;
+package com.fintracker.coreapi.health.controller;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;

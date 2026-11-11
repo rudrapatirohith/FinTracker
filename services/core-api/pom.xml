@@ -103,7 +103,12 @@
 			<artifactId>h2</artifactId>
 			<scope>test</scope>
 		</dependency>
-
+        <!-- Bouncy Castle provider required by Argon2PasswordEncoder -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.80</version>
+        </dependency>
     </dependencies>
 
     <build>

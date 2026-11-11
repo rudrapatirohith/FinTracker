@@ -1,4 +1,4 @@
-package com.fintracker.coreapi.controller;
+package com.fintracker.coreapi.health.controller;
 
 import java.util.Map;
 
