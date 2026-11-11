@@ -1,0 +1,28 @@
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Archives & Temporary Zip files
+*.zip
+*.tar.gz
+
+# Environment secrets at root level
+.env
+.env.local
+.env.example
+
+__pycache__*
+
+
+
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
