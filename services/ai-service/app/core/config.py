@@ -1,13 +1,15 @@
 from functools import lru_cache
-
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Get the directory where config.py lives, then go 4 levels up to the root
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent
+ENV_PATH = ROOT_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    # The .env file lives at the repository root. We run Uvicorn from /backend,
-    # so ../.env points back to that root file.
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_PATH),
         env_file_encoding="utf-8",
         extra="ignore",
     )

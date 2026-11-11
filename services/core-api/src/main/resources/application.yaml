@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: core-api
+  datasource:
+    url: jdbc:h2:mem:fintracker_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  flyway:
+    enabled: false
