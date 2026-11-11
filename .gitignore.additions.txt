@@ -1,0 +1,10 @@
+# Add these lines to the existing repository .gitignore if they are not already present.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
