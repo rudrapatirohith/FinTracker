@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.fintracker.coreapi.identity.exception.EmailAlreadyRegisteredException;
+import com.fintracker.coreapi.identity.exception.InvalidCredentialsException;
 
 /**
  * Centralized handling of REST API exceptions.
@@ -63,5 +64,22 @@ public class GlobalExceptionHandler {
         problem.setTitle("Database constraint violation");
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidCredentials(
+            InvalidCredentialsException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.UNAUTHORIZED,
+            exception.getMessage()
+        );
+
+        problem.setTitle("Authentication failed");
+
+        return ResponseEntity
+            .status(HttpStatus.UNAUTHORIZED)
+            .body(problem);
     }
 }

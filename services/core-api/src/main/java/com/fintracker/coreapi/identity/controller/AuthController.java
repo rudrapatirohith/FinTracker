@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fintracker.coreapi.identity.dto.request.RegisterRequest;
 import com.fintracker.coreapi.identity.dto.response.RegisterResponse;
 import com.fintracker.coreapi.identity.service.RegistrationService;
+import com.fintracker.coreapi.identity.dto.request.LoginRequest;
+import com.fintracker.coreapi.identity.dto.response.LoginResponse;
+import com.fintracker.coreapi.identity.service.LoginService;
 
 import jakarta.validation.Valid;
 
@@ -23,9 +26,13 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final RegistrationService registrationService;
+    private final LoginService loginService;
 
-    public AuthController(RegistrationService registrationService) {
+    public AuthController(
+            RegistrationService registrationService,
+            LoginService loginService) {
         this.registrationService = registrationService;
+        this.loginService = loginService;
     }
 
     /**
@@ -40,5 +47,13 @@ public class AuthController {
         return ResponseEntity
             .status(HttpStatus.CREATED)
             .body(response);
+    }
+
+    /* Login FinTracker user */
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        return ResponseEntity.ok(loginService.login(request));
     }
 }
