@@ -114,4 +114,33 @@ public class UserSession {
     public UserSession getReplacedBySession() {
         return replacedBySession;
     }
+
+
+    /**
+     * Marks this session as rotated and links it to its replacement.
+     */
+    public void markRotated(Instant now, UserSession replacement) {
+        if (this.revokedAt != null) {
+            throw new IllegalStateException("Session is already revoked.");
+        }
+
+        if (replacement == null) {
+            throw new IllegalArgumentException("Replacement session is required.");
+        }
+
+        this.lastUsedAt = now;
+        this.revokedAt = now;
+        this.revocationReason = "ROTATED";
+        this.replacedBySession = replacement;
+    }
+
+    /**
+     * Revokes this session with a controlled reason.
+     */
+    public void revoke(Instant now, String reason) {
+        if (this.revokedAt == null) {
+            this.revokedAt = now;
+            this.revocationReason = reason;
+        }
+    }
 }

@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.fintracker.coreapi.identity.exception.EmailAlreadyRegisteredException;
 import com.fintracker.coreapi.identity.exception.InvalidCredentialsException;
+import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
+import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 
 /**
  * Centralized handling of REST API exceptions.
@@ -81,5 +83,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body(problem);
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ProblemDetail handleInvalidRefreshToken(
+        InvalidRefreshTokenException exception
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Unauthorized");
+        problem.setDetail("Refresh token is invalid or expired.");
+        return problem;
+    }
+
+    @ExceptionHandler(RefreshTokenReuseException.class)
+    public ProblemDetail handleRefreshTokenReuse(
+        RefreshTokenReuseException exception
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Session revoked");
+        problem.setDetail(
+            "Refresh token reuse detected. Please authenticate again."
+        );
+        return problem;
     }
 }
