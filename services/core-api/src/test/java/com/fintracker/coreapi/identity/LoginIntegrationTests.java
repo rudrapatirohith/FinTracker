@@ -29,6 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -80,11 +81,10 @@ class LoginIntegrationTests {
             PASSWORD
         );
 
-        mockMvc.perform(
-                post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
+        mockMvc.perform(post("/api/v1/auth/login")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.tokenType").value("Bearer"))
@@ -105,11 +105,10 @@ class LoginIntegrationTests {
             PASSWORD
         );
 
-        MvcResult result = mockMvc.perform(
-                post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.refreshToken").doesNotExist())
@@ -149,12 +148,11 @@ class LoginIntegrationTests {
             EMAIL,
             "WrongPassword123!"
         );
-
-        mockMvc.perform(
-                post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
+        
+        mockMvc.perform(post("/api/v1/auth/login")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.detail")
                 .value("Invalid email or password."));
@@ -168,11 +166,10 @@ class LoginIntegrationTests {
             PASSWORD
         );
 
-        mockMvc.perform(
-                post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
+        mockMvc.perform(post("/api/v1/auth/login")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.detail")
                 .value("Invalid email or password."));
@@ -186,11 +183,10 @@ class LoginIntegrationTests {
             ""
         );
 
-        mockMvc.perform(
-                post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
+        mockMvc.perform(post("/api/v1/auth/login")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest());
     }
 }

@@ -115,6 +115,9 @@ public class UserSession {
         return replacedBySession;
     }
 
+    public String  getRevocationReason() {
+        return revocationReason;
+    }
 
     /**
      * Marks this session as rotated and links it to its replacement.
