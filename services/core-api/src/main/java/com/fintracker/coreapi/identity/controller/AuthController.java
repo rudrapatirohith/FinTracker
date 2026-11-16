@@ -142,6 +142,20 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(
+                name = "${fintracker.security.refresh-token.cookie-name}",
+                required = false
+            ) String rawRefreshToken) {
+
+        refreshSessionService.logout(rawRefreshToken);
+
+        return ResponseEntity.noContent()
+            .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
+            .build();
+    }
+
     /**
      * Builds the HttpOnly refresh-token cookie.
      */

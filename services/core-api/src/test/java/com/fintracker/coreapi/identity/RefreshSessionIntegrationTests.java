@@ -419,4 +419,61 @@ class RefreshSessionIntegrationTests {
         assertThat(setCookie).contains("HttpOnly");
     }
 
+    @Test
+    void shouldLogoutAndRevokeRefreshSession() throws Exception {
+        createTestUser();
+        String refreshToken = loginAndGetRefreshToken();
+
+        String tokenHash = refreshTokenService.hashToken(refreshToken);
+        UserSession session = userSessionRepository
+            .findByRefreshTokenHash(tokenHash)
+            .orElseThrow();
+
+        UUID familyId = session.getTokenFamilyId();
+
+        MvcResult result = mockMvc.perform(
+                post("/api/v1/auth/logout")
+                    .with(csrf())
+                    .cookie(new Cookie("fintracker_refresh", refreshToken))
+            )
+            .andExpect(status().isNoContent())
+            .andReturn();
+
+        assertThat(result.getResponse().getHeader("Set-Cookie"))
+            .contains("HttpOnly")
+            .contains("Max-Age=0");
+
+        Integer activeSessions = jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM user_sessions
+            WHERE token_family_id = ?
+            AND revoked_at IS NULL
+            """,
+            Integer.class,
+            familyId
+        );
+
+        assertThat(activeSessions).isZero();
+
+        UserSession loggedOutSession = userSessionRepository
+            .findByRefreshTokenHash(tokenHash)
+            .orElseThrow();
+
+        assertThat(loggedOutSession.getRevokedAt()).isNotNull();
+        assertThat(loggedOutSession.getRevocationReason()).isEqualTo("LOGOUT");
+    }
+
+    @Test
+    void shouldClearCookieEvenWhenLogoutHasNoRefreshCookie() throws Exception {
+        MvcResult result = mockMvc.perform(
+                post("/api/v1/auth/logout")
+                    .with(csrf())
+            )
+            .andExpect(status().isNoContent())
+            .andReturn();
+
+        assertThat(result.getResponse().getHeader("Set-Cookie"))
+            .contains("Max-Age=0");
+    }
 }

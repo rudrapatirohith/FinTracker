@@ -189,4 +189,32 @@ public class RefreshSessionService {
         // The controller will place this raw token in an HttpOnly cookie.
         return new LoginResult(response, replacementRawToken);
     }
+
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        // A missing cookie is not an error during logout.
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            return;
+        }
+
+        String tokenHash = refreshTokenService.hashToken(rawRefreshToken);
+
+        // Lock the matching session so logout cannot race with token rotation.
+        UserSession session = userSessionRepository
+            .findByRefreshTokenHashForUpdate(tokenHash)
+            .orElse(null);
+
+        // Unknown tokens cannot identify a session family.
+        if (session == null) {
+            return;
+        }
+
+        // Revoke every active session in this device's rotation family.
+        userSessionRepository.revokeActiveByTokenFamilyId(
+            session.getTokenFamilyId(),
+            Instant.now(),
+            "LOGOUT"
+        );
+    }
 }
