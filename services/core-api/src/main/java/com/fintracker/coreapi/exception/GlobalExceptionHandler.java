@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.fintracker.coreapi.identity.exception.EmailAlreadyRegisteredException;
 import com.fintracker.coreapi.identity.exception.InvalidCredentialsException;
+import com.fintracker.coreapi.identity.exception.InvalidOAuthHandoffException;
 import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
 import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 
@@ -105,5 +106,18 @@ public class GlobalExceptionHandler {
             "Refresh token reuse detected. Please authenticate again."
         );
         return problem;
+    }
+
+    @ExceptionHandler(InvalidOAuthHandoffException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidOAuthHandoff(
+            InvalidOAuthHandoffException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage());
+
+        problem.setTitle("OAuth authentication failed");
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 }

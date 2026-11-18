@@ -65,6 +65,17 @@ public class AppUser {
         this.updatedAt = this.createdAt;
     }
 
+    public void markEmailVerified(Instant verifiedAt) {
+        if (verifiedAt == null) {
+            throw new IllegalArgumentException(
+                "Verification timestamp is required."
+            );
+        }
+
+        this.emailVerifiedAt = verifiedAt;
+        this.updatedAt = verifiedAt;
+    }
+
     public UUID getId() {
         return id;
     }

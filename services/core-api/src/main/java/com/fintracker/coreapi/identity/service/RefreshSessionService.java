@@ -217,4 +217,59 @@ public class RefreshSessionService {
             "LOGOUT"
         );
     }
+
+    /**
+     * Creates a new FinTracker session for a user who has already
+     * been authenticated by a trusted authentication mechanism.
+     *
+     * The caller is responsible for verifying the user's identity.
+     * This service creates our application's own JWT and refresh token.
+     */
+    @Transactional
+    public LoginResult createSessionForAuthenticatedUser(AppUser user) {
+
+        if (user == null || user.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalArgumentException(
+                "An active authenticated user is required."
+            );
+        }
+
+        Instant now = Instant.now();
+
+        // Generate a cryptographically random refresh token.
+        String rawRefreshToken = refreshTokenService.generateToken();
+
+        // Store only its SHA-256 hash.
+        String refreshTokenHash =
+            refreshTokenService.hashToken(rawRefreshToken);
+
+        // A new login creates a new independent token family.
+        UUID tokenFamilyId = UUID.randomUUID();
+
+        UserSession session = new UserSession(
+            UUID.randomUUID(),
+            user,
+            refreshTokenHash,
+            tokenFamilyId,
+            now.plus(refreshTokenTtl)
+        );
+
+        userSessionRepository.saveAndFlush(session);
+
+        // Issue our own FinTracker access JWT.
+        String accessToken =
+            jwtTokenService.createAccessToken(user.getId());
+
+        LoginResponse response = new LoginResponse(
+            accessToken,
+            "Bearer",
+            accessTokenTtl.toSeconds(),
+            user.getId(),
+            user.getEmail()
+        );
+
+        return new LoginResult(response, rawRefreshToken);
+    }
 }
+
+

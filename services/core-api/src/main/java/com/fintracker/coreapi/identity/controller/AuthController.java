@@ -22,8 +22,12 @@ import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
 import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 import com.fintracker.coreapi.identity.service.LoginResult;
 import com.fintracker.coreapi.identity.service.LoginService;
+import com.fintracker.coreapi.identity.service.OAuthLoginExchangeService;
 import com.fintracker.coreapi.identity.service.RefreshSessionService;
 import com.fintracker.coreapi.identity.service.RegistrationService;
+import org.springframework.web.bind.annotation.CookieValue;
+import com.fintracker.coreapi.identity.dto.request.OAuthExchangeRequest;
+import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 
 import jakarta.validation.Valid;
 
@@ -38,6 +42,7 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final LoginService loginService;
     private final RefreshSessionService refreshSessionService;
+    private final OAuthLoginExchangeService oauthLoginExchangeService;
 
     @Value("${fintracker.security.refresh-token.cookie-name}")
     private String cookieName;
@@ -51,11 +56,13 @@ public class AuthController {
     public AuthController(
             RegistrationService registrationService,
             LoginService loginService,
-            RefreshSessionService refreshSessionService) {
+            RefreshSessionService refreshSessionService,
+            OAuthLoginExchangeService oauthLoginExchangeService) {
 
         this.registrationService = registrationService;
         this.loginService = loginService;
         this.refreshSessionService = refreshSessionService;
+        this.oauthLoginExchangeService = oauthLoginExchangeService;
     }
 
     /**
@@ -185,4 +192,23 @@ public class AuthController {
             .maxAge(Duration.ZERO)
             .build();
     }
+
+    /**
+     * Exchanges a one-time Google OAuth handoff code for an access token.
+     *
+     * The matching refresh token must be present in the HttpOnly cookie.
+     */
+    @PostMapping("/oauth/exchange")
+    public ResponseEntity<LoginResponse> exchangeOAuthHandoff(
+            @Valid @RequestBody OAuthExchangeRequest request,
+            @CookieValue(name = "${fintracker.security.refresh-token.cookie-name}",
+                        required = false) String rawRefreshToken) {
+
+        LoginResponse response = oauthLoginExchangeService.exchange(
+                request.code(),
+                rawRefreshToken);
+
+        return ResponseEntity.ok(response);
+    }
+
 }
