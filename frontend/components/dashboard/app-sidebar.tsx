@@ -1,9 +1,13 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
-import { supabase } from "@/lib/supabase"
+import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+
+import {
+  useAuth,
+  type AuthUser,
+} from "@/components/auth/auth-provider";
+
 import {
   Sidebar,
   SidebarContent,
@@ -16,11 +20,24 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/sidebar";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Separator } from "@/components/ui/separator";
+
 import {
   Home,
   DollarSign,
@@ -35,12 +52,18 @@ import {
   History,
   PieChart,
   Receipt,
-} from "lucide-react"
+} from "lucide-react";
 
+/**
+ * The sidebar receives our own backend AuthUser type.
+ *
+ * We no longer depend on the Supabase User type.
+ */
 interface AppSidebarProps {
-  user: User
+  user: AuthUser;
 }
 
+// Navigation configuration for the dashboard.
 const navigationGroups = [
   {
     label: "Overview",
@@ -107,42 +130,78 @@ const navigationGroups = [
       },
     ],
   },
-]
+];
 
 export function AppSidebar({ user }: AppSidebarProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
 
+  // Get the backend sign-out operation from our global auth context.
+  const { signOut } = useAuth();
+
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  /**
+   * Sign out through Spring Boot rather than Supabase.
+   *
+   * The backend invalidates the refresh session and clears its cookie.
+   * We navigate to the sign-in page even if the request reports an error,
+   * because the AuthProvider clears local authentication state in finally.
+   */
   const handleSignOut = async () => {
-    setIsLoggingOut(true)
-    await supabase.auth.signOut()
-    router.push("/")
-  }
+    if (isLoggingOut) {
+      return;
+    }
 
+    setIsLoggingOut(true);
+
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Backend sign-out failed:", error);
+    } finally {
+      router.replace("/");
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Generate a simple avatar fallback from the email address.
   const getUserInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase()
-  }
+    return email.substring(0, 2).toUpperCase();
+  };
 
+  // The backend currently supplies an email-derived display name.
   const getUserDisplayName = () => {
-    return user.user_metadata?.full_name || user.email?.split("@")[0] || "User"
-  }
+    return user.displayName || "User";
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="border-b">
         <div className="flex h-16 items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <div className="flex items-center gap-2 flex-1 group-data-[collapsible=icon]:hidden">
-            <div className="bg-primary rounded-lg p-2 flex-shrink-0">
+
+          <Separator
+            orientation="vertical"
+            className="mr-2 h-4"
+          />
+
+          <div className="flex flex-1 items-center gap-2 group-data-[collapsible=icon]:hidden">
+            <div className="flex-shrink-0 rounded-lg bg-primary p-2">
               <DollarSign className="h-5 w-5 text-primary-foreground" />
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-sidebar-foreground truncate">FinanceTracker</span>
-              <span className="text-xs text-sidebar-foreground/70 truncate">Personal Finance</span>
+
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-semibold text-sidebar-foreground">
+                FinanceTracker
+              </span>
+
+              <span className="truncate text-xs text-sidebar-foreground/70">
+                Personal Finance
+              </span>
             </div>
           </div>
+
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
             <ThemeToggle />
           </div>
@@ -155,6 +214,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
             <SidebarGroupLabel className="px-2 py-2 text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               {group.label}
             </SidebarGroupLabel>
+
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
@@ -165,9 +225,14 @@ export function AppSidebar({ user }: AppSidebarProps) {
                       className="w-full justify-start"
                       tooltip={item.title}
                     >
-                      <a href={item.url} className="flex items-center gap-3 px-3 py-2">
+                      <a
+                        href={item.url}
+                        className="flex items-center gap-3 px-3 py-2"
+                      >
                         <item.icon className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate">
+                          {item.title}
+                        </span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -185,30 +250,46 @@ export function AppSidebar({ user }: AppSidebarProps) {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground w-full"
+                  className="w-full data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
+                  <Avatar className="h-8 w-8 flex-shrink-0 rounded-lg">
                     <AvatarImage
-                      src={user.user_metadata?.avatar_url || "/placeholder.svg"}
+                      src={user.avatarUrl || "/placeholder.svg"}
                       alt={getUserDisplayName()}
                     />
-                    <AvatarFallback className="rounded-lg text-xs">{getUserInitials(user.email || "")}</AvatarFallback>
+
+                    <AvatarFallback className="rounded-lg text-xs">
+                      {getUserInitials(user.email)}
+                    </AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
-                    <span className="truncate font-semibold">{getUserDisplayName()}</span>
-                    <span className="truncate text-xs text-sidebar-foreground/70">{user.email}</span>
+
+                  <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                    <span className="truncate font-semibold">
+                      {getUserDisplayName()}
+                    </span>
+
+                    <span className="truncate text-xs text-sidebar-foreground/70">
+                      {user.email}
+                    </span>
                   </div>
+
                   <ChevronUp className="ml-auto size-4 flex-shrink-0 group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent
                 className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
                 side="bottom"
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem onClick={handleSignOut} disabled={isLoggingOut} className="cursor-pointer">
-                  <LogOut className="h-4 w-4 mr-2" />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  disabled={isLoggingOut}
+                  className="cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+
                   {isLoggingOut ? "Signing out..." : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -217,5 +298,5 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

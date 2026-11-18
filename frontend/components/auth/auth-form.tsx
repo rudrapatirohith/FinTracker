@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { API_BASE_URL } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -38,33 +39,45 @@ export default function AuthForm() {
     return url
   }
 
+  
+  /**
+   * Starts Google authentication through our Spring Boot backend.
+   *
+   * Spring Security handles:
+   *   - Redirecting the user to Google.
+   *   - OAuth Authorization Code flow.
+   *   - PKCE verification.
+   *   - Validating Google's identity response.
+   *   - Creating our application session.
+   *
+   * After successful authentication, the backend redirects the browser
+   * to our frontend OAuth callback page.
+   */
   const handleGoogleSignIn = async () => {
     try {
-      setGoogleLoading(true)
-      setError("")
+      setGoogleLoading(true);
+      setError("");
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${getURL()}dashboard`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      })
+      // Start OAuth directly through our Java backend.
+      //
+      // We use a full browser redirect because OAuth authentication
+      // requires navigation between our application and Google's login page.
+      window.location.assign(
+        `${API_BASE_URL}/oauth2/authorization/google`
+      );
+    } catch (error: unknown) {
+      console.error("Google sign-in error:", error);
 
-      if (error) {
-        console.error("Google OAuth error:", error)
-        setError(error.message || "Failed to sign in with Google")
-      }
-    } catch (error: any) {
-      console.error("Google sign-in error:", error)
-      setError(error.message || "An unexpected error occurred")
-    } finally {
-      setGoogleLoading(false)
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred during Google sign-in."
+      );
+
+      setGoogleLoading(false);
     }
-  }
+  };
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()

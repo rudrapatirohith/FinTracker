@@ -1,78 +1,68 @@
-"use client"
+"use client";
 
-export const dynamic = "force-dynamic"
+import type React from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-import type React from "react"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
-import type { User } from "@supabase/supabase-js"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
-import AIAssistant from "@/components/dashboard/ai-assistant"
-import { Loader2 } from "lucide-react"
+import { useAuth } from "@/components/auth/auth-provider";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import AIAssistant from "@/components/dashboard/ai-assistant";
 
+import { Loader2 } from "lucide-react";
+
+/**
+ * Dashboard Layout
+ *
+ * This layout protects every route under /dashboard.
+ *
+ * It reads the authentication state from the global AuthProvider.
+ * Unauthenticated users are redirected to the sign-in page.
+ */
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
 
+  // Redirect only after the provider finishes restoring the session.
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        router.push("/")
-        return
-      }
-      setUser(user)
-      setLoading(false)
+    if (!isLoading && !user) {
+      router.replace("/");
     }
+  }, [isLoading, user, router]);
 
-    getUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session) {
-        router.push("/")
-      } else if (session?.user) {
-        setUser(session.user)
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [router])
-
-  if (loading) {
+  // Show a loading indicator while checking the backend session.
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
-    )
+    );
   }
 
+  // Do not display protected dashboard content without a user.
   if (!user) {
-    return null
+    return null;
   }
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="flex min-h-screen w-full">
         <AppSidebar user={user} />
+
         <SidebarInset className="flex-1">
-          <div className="flex flex-col min-h-screen">
-            <main className="flex-1 p-6 overflow-auto">{children}</main>
+          <div className="flex min-h-screen flex-col">
+            <main className="flex-1 overflow-auto p-6">
+              {children}
+            </main>
           </div>
         </SidebarInset>
       </div>
+
       <AIAssistant />
     </SidebarProvider>
-  )
+  );
 }
