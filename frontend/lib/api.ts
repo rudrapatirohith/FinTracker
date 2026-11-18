@@ -28,6 +28,8 @@ export const API_BASE_URL =
  */
 export const AUTH_API = {
   csrf: "/api/v1/auth/csrf",
+  register: "/api/v1/auth/register",
+  login: "/api/v1/auth/login",
   refresh: "/api/v1/auth/refresh",
   logout: "/api/v1/auth/logout",
   oauthExchange: "/api/v1/auth/oauth/exchange",
@@ -60,6 +62,30 @@ export interface LoginResponse {
   expiresInSeconds: number;
   userId: string;
   email: string;
+}
+
+/**
+ * Shape returned by successful registration.
+ *
+ * Registration does not log the user in. It only creates the account
+ * and returns safe account information.
+ */
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  fullName: string;
+  status: string;
+}
+
+/**
+ * Standard error response returned by Spring Boot ProblemDetail.
+ *
+ * We use detail as the primary user-facing error message.
+ */
+export interface ApiProblemDetail {
+  title?: string;
+  detail?: string;
+  status?: number;
 }
 
 /**
@@ -126,8 +152,12 @@ export async function getCsrfToken(): Promise<CsrfTokenResponse> {
  *
  * Example:
  *
- * const response = await fetchWithCsrf(AUTH_API.logout, {
+ * const response = await fetchWithCsrf(AUTH_API.login, {
  *   method: "POST",
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *   },
+ *   body: JSON.stringify({ email, password }),
  * });
  *
  * This helper automatically:

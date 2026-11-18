@@ -27,7 +27,6 @@ import com.fintracker.coreapi.identity.service.RefreshSessionService;
 import com.fintracker.coreapi.identity.service.RegistrationService;
 import org.springframework.web.bind.annotation.CookieValue;
 import com.fintracker.coreapi.identity.dto.request.OAuthExchangeRequest;
-import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 
 import jakarta.validation.Valid;
 
