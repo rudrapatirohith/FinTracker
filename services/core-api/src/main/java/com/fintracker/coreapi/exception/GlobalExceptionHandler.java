@@ -15,6 +15,7 @@ import com.fintracker.coreapi.identity.exception.InvalidOAuthHandoffException;
 import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
 import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 import com.fintracker.coreapi.financial.exception.IncomeNotFoundException;
+import com.fintracker.coreapi.financial.exception.TransactionNotFoundException;
 
 /**
  * Centralized handling of REST API exceptions.
@@ -137,6 +138,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
     
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleTransactionNotFound(
+            TransactionNotFoundException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, exception.getMessage());
+        problem.setTitle("Transaction record not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+    }
+
     @ExceptionHandler(IncomeNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleIncomeNotFound(
             IncomeNotFoundException exception) {
