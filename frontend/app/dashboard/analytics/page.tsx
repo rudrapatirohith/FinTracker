@@ -63,6 +63,12 @@ interface AnalyticsState {
   categoryBreakdown: CategoryData[]
 }
 
+type IncomeAnalyticsRow = { amount: number; currency: string | null; inr_equivalent: number | null; date: string; category: string | null }
+type TransferAnalyticsRow = { amount_sent: number; currency_sent: string | null; inr_equivalent: number | null; transfer_date: string }
+type LoanPaymentAnalyticsRow = { amount: number; payment_date: string }
+type ScheduledAnalyticsRow = { amount: number; currency: string | null; category: string | null; due_date: string }
+type ExpenseAnalyticsRow = { inr_equivalent: number | null; category: string | null; expense_date: string }
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsState | null>(null)
   const [loading, setLoading] = useState(true)
@@ -115,11 +121,11 @@ export default function AnalyticsPage() {
       ])
 
       // Helper to get USD value from a record with inr_equivalent or direct amount
-      const incomeItems = incomeRes.data || []
-      const transferItems = transferRes.data || []
-      const loanPayItems = loanPayRes.data || []
-      const scheduledItems = scheduledRes.data || []
-      const expenseItems = expensesRes.data || []
+      const incomeItems = (incomeRes.data || []) as IncomeAnalyticsRow[]
+      const transferItems = (transferRes.data || []) as TransferAnalyticsRow[]
+      const loanPayItems = (loanPayRes.data || []) as LoanPaymentAnalyticsRow[]
+      const scheduledItems = (scheduledRes.data || []) as ScheduledAnalyticsRow[]
+      const expenseItems = (expensesRes.data || []) as ExpenseAnalyticsRow[]
 
       // Build per-month buckets
       const monthBuckets: Record<string, { income: number; expenses: number }> = {}
