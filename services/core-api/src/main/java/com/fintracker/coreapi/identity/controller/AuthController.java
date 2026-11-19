@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fintracker.coreapi.identity.dto.request.LoginRequest;
+import com.fintracker.coreapi.identity.dto.request.OAuthExchangeRequest;
 import com.fintracker.coreapi.identity.dto.request.RegisterRequest;
 import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 import com.fintracker.coreapi.identity.dto.response.RegisterResponse;
@@ -25,16 +26,13 @@ import com.fintracker.coreapi.identity.service.LoginService;
 import com.fintracker.coreapi.identity.service.OAuthLoginExchangeService;
 import com.fintracker.coreapi.identity.service.RefreshSessionService;
 import com.fintracker.coreapi.identity.service.RegistrationService;
-import org.springframework.web.bind.annotation.CookieValue;
-import com.fintracker.coreapi.identity.dto.request.OAuthExchangeRequest;
-import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 
 import jakarta.validation.Valid;
 
 /**
  * Authentication-related REST endpoints.
  */
-@RestController // Combination of @Contoller and @Requestbody
+@RestController // Marks this class as a REST controller that handles HTTP requests. Combination of @Contoller and @Requestbody
 @RequestMapping("/api/v1/auth")
 @Validated
 public class AuthController {

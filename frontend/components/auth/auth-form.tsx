@@ -1,47 +1,166 @@
-"use client"
+"use client";
 
-import type React from "react"
+/**
+ * Authentication Form
+ *
+ * Responsibilities:
+ *   1. Authenticate email/password users through Spring Boot.
+ *   2. Register new users through Spring Boot.
+ *   3. Start Google OAuth through the Spring Boot backend.
+ *
+ * Important:
+ *   - This component no longer uses Supabase Auth.
+ *   - AuthProvider owns the authenticated frontend session.
+ *   - The backend manages refresh tokens using HttpOnly cookies.
+ */
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
-import { API_BASE_URL } from "@/lib/api"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
-import { DollarSign, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
+import type React from "react";
 
-export default function AuthForm() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [message, setMessage] = useState("")
-  const router = useRouter()
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-  const getURL = () => {
-    let url =
-      process?.env?.NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production env.
-      process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel.
-      "http://localhost:3000/"
-    // Make sure to include `https://` when not localhost.
-    url = url.startsWith("http") ? url : `https://${url}`
-    // Make sure to include a trailing `/`.
-    url = url.endsWith("/") ? url : `${url}/`
-    return url
+import {
+  API_BASE_URL,
+  AUTH_API,
+  fetchWithCsrf,
+  type ApiProblemDetail,
+  type LoginResponse,
+} from "@/lib/api";
+
+import { useAuth } from "@/components/auth/auth-provider";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+
+import {
+  DollarSign,
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
+
+// -----------------------------------------------------------------------------
+// 1. Backend error handling
+// -----------------------------------------------------------------------------
+
+/**
+ * Converts a Spring Boot ProblemDetail response into a readable message.
+ *
+ * Our GlobalExceptionHandler returns responses containing fields such as:
+ *
+ * {
+ *   "title": "Authentication failed",
+ *   "detail": "Invalid email or password.",
+ *   "status": 401
+ * }
+ *
+ * We prefer the detail field because it contains the actual explanation.
+ */
+async function getBackendErrorMessage(
+  response: Response
+): Promise<string> {
+  try {
+    const problem =
+      (await response.json()) as ApiProblemDetail;
+
+    if (problem.detail) {
+      return problem.detail;
+    }
+
+    if (problem.title) {
+      return problem.title;
+    }
+  } catch {
+    // The response might not contain JSON.
+    // In that case, use the HTTP status as a fallback.
   }
 
-  
+  return `The request failed. HTTP status: ${response.status}`;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Authentication form component
+// -----------------------------------------------------------------------------
+
+export default function AuthForm() {
+  // ---------------------------------------------------------------------------
+  // Form state
+  // ---------------------------------------------------------------------------
+
+  // Registration requires a full name.
+  const [fullName, setFullName] = useState("");
+
+  // Email is shared between the Sign In and Sign Up tabs.
+  const [email, setEmail] = useState("");
+
+  // Password is shared between both tabs.
+  const [password, setPassword] = useState("");
+
+  // Registration requires password confirmation.
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Controls whether the password is visible.
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Controls whether the confirmation password is visible.
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Tracks email/password requests.
+  const [loading, setLoading] = useState(false);
+
+  // Tracks Google OAuth redirection.
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // User-facing error and success messages.
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  // Controls which authentication tab is currently visible.
+  const [activeTab, setActiveTab] = useState("signin");
+
+  // Next.js navigation.
+  const router = useRouter();
+
+  // ---------------------------------------------------------------------------
+  // Authentication provider
+  // ---------------------------------------------------------------------------
+
+  /**
+   * completeLogin is provided by AuthProvider.
+   *
+   * It validates the backend access token through /api/v1/auth/me
+   * and then stores the authenticated user and access token in React memory.
+   */
+  const { completeLogin } = useAuth();
+
+  // ---------------------------------------------------------------------------
+  // 3. Google authentication
+  // ---------------------------------------------------------------------------
+
   /**
    * Starts Google authentication through our Spring Boot backend.
+   *
+   * We intentionally preserve the existing working Google OAuth flow.
    *
    * Spring Security handles:
    *   - Redirecting the user to Google.
@@ -57,11 +176,12 @@ export default function AuthForm() {
     try {
       setGoogleLoading(true);
       setError("");
+      setMessage("");
 
       // Start OAuth directly through our Java backend.
       //
-      // We use a full browser redirect because OAuth authentication
-      // requires navigation between our application and Google's login page.
+      // A full browser redirect is required because OAuth navigates
+      // between our application and Google's authentication page.
       window.location.assign(
         `${API_BASE_URL}/oauth2/authorization/google`
       );
@@ -78,66 +198,197 @@ export default function AuthForm() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // 4. Email/password login
+  // ---------------------------------------------------------------------------
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+  /**
+   * Authenticates an existing user through Spring Boot.
+   *
+   * Complete flow:
+   *
+   *   1. Send email and password to POST /api/v1/auth/login.
+   *   2. Backend validates the credentials.
+   *   3. Backend returns an access token in JSON.
+   *   4. Backend sets the refresh token in an HttpOnly cookie.
+   *   5. Pass the login response to AuthProvider.
+   *   6. AuthProvider validates the access token through /me.
+   *   7. Navigate to the dashboard.
+   */
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        setError(error.message)
-      } else if (data.user) {
-        router.push("/dashboard")
-      }
-    } catch (error: any) {
-      setError(error.message || "An unexpected error occurred")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    setMessage("")
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setLoading(false)
-      return
-    }
+    setLoading(true);
+    setError("");
+    setMessage("");
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${getURL()}dashboard`,
-        },
-      })
-
-      if (error) {
-        setError(error.message)
-      } else if (data.user) {
-        if (data.user.email_confirmed_at) {
-          router.push("/dashboard")
-        } else {
-          setMessage("Please check your email for a confirmation link.")
+      // Send the credentials to the Spring Boot login endpoint.
+      //
+      // fetchWithCsrf obtains a CSRF token, adds the expected header,
+      // and includes cookies in the request.
+      const response = await fetchWithCsrf(
+        AUTH_API.login,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+          }),
         }
+      );
+
+      // Invalid credentials or another backend error.
+      if (!response.ok) {
+        throw new Error(
+          await getBackendErrorMessage(response)
+        );
       }
-    } catch (error: any) {
-      setError(error.message || "An unexpected error occurred")
+
+      // Read the successful backend login response.
+      const loginResponse =
+        (await response.json()) as LoginResponse;
+
+      // Establish the authenticated session in our global AuthProvider.
+      //
+      // This also validates the access token against the backend /me endpoint.
+      await completeLogin(loginResponse);
+
+      // The dashboard is protected by AuthProvider.
+      router.push("/dashboard");
+    } catch (error: unknown) {
+      console.error("Email/password sign-in failed:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred during sign-in."
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  // ---------------------------------------------------------------------------
+  // 5. User registration
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a new account through Spring Boot.
+   *
+   * The backend RegistrationService:
+   *   - Normalizes the email.
+   *   - Checks whether the email is already registered.
+   *   - Hashes the password.
+   *   - Creates the application user.
+   *   - Creates the associated user profile.
+   *   - Returns safe registration information.
+   *
+   * Important:
+   *
+   * Registration does NOT return an access token or create a login session.
+   * Therefore, after successful registration, we ask the user to sign in.
+   */
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    // Make sure both password fields contain the same value.
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    // The backend requires passwords between 12 and 128 characters.
+    if (password.length < 12 || password.length > 128) {
+      setError("Password must contain between 12 and 128 characters.");
+      setLoading(false);
+      return;
+    }
+
+    // The backend requires a non-empty full name.
+    if (!fullName.trim()) {
+      setError("Please enter your full name.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Send registration details to the Spring Boot backend.
+      const response = await fetchWithCsrf(
+        AUTH_API.register,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fullName: fullName.trim(),
+            email: email.trim(),
+            password,
+          }),
+        }
+      );
+
+      // For example:
+      // HTTP 409 means the email is already registered.
+      // HTTP 400 means request validation failed.
+      if (!response.ok) {
+        throw new Error(
+          await getBackendErrorMessage(response)
+        );
+      }
+
+      // Registration succeeded.
+      //
+      // The backend returns account information, not authentication tokens.
+      // We do not call completeLogin() here.
+      setMessage(
+        "Your account was created successfully. Please sign in with your new credentials."
+      );
+
+      // Clear password fields after successful registration.
+      setPassword("");
+      setConfirmPassword("");
+
+      // Move the user to the Sign In tab.
+      setActiveTab("signin");
+    } catch (error: unknown) {
+      console.error("Account registration failed:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred during registration."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // 6. Tab changes
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Clears old messages when the user switches between Sign In and Sign Up.
+   */
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setError("");
+    setMessage("");
+  };
+
+  // ---------------------------------------------------------------------------
+  // 7. User interface
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
@@ -147,18 +398,28 @@ export default function AuthForm() {
             <div className="bg-primary rounded-lg p-2">
               <DollarSign className="h-6 w-6 text-primary-foreground" />
             </div>
+
             <div className="flex items-center gap-1">
               <DollarSign className="h-5 w-5 text-primary" />
-              <span className="text-2xl font-bold">FinanceTracker</span>
+              <span className="text-2xl font-bold">
+                FinanceTracker
+              </span>
             </div>
           </div>
+
           <div>
-            <CardTitle className="text-2xl">Welcome</CardTitle>
-            <CardDescription>Sign in to your account or create a new one</CardDescription>
+            <CardTitle className="text-2xl">
+              Welcome
+            </CardTitle>
+
+            <CardDescription>
+              Sign in to your account or create a new one
+            </CardDescription>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
+
           {/* Google Sign In Button */}
           <Button
             onClick={handleGoogleSignIn}
@@ -188,6 +449,7 @@ export default function AuthForm() {
                 />
               </svg>
             )}
+
             Continue with Google
           </Button>
 
@@ -195,38 +457,68 @@ export default function AuthForm() {
             <div className="absolute inset-0 flex items-center">
               <Separator className="w-full" />
             </div>
+
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with email
+              </span>
             </div>
           </div>
 
-          {/* Error and Success Messages */}
+          {/* Error Message */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                {error}
+              </AlertDescription>
             </Alert>
           )}
 
+          {/* Success Message */}
           {message && (
             <Alert>
               <Mail className="h-4 w-4" />
-              <AlertDescription>{message}</AlertDescription>
+              <AlertDescription>
+                {message}
+              </AlertDescription>
             </Alert>
           )}
 
-          <Tabs defaultValue="signin" className="w-full">
+          {/* Sign In / Sign Up Tabs */}
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="signin">
+                Sign In
+              </TabsTrigger>
+
+              <TabsTrigger value="signup">
+                Sign Up
+              </TabsTrigger>
             </TabsList>
 
+            {/* ------------------------------------------------------------- */}
+            {/* Sign In */}
+            {/* ------------------------------------------------------------- */}
+
             <TabsContent value="signin" className="space-y-4">
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form
+                onSubmit={handleSignIn}
+                className="space-y-4"
+              >
+                {/* Email */}
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
+                  <Label htmlFor="signin-email">
+                    Email
+                  </Label>
+
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
                     <Input
                       id="signin-email"
                       type="email"
@@ -240,10 +532,15 @@ export default function AuthForm() {
                   </div>
                 </div>
 
+                {/* Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
+                  <Label htmlFor="signin-password">
+                    Password
+                  </Label>
+
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
                     <Input
                       id="signin-password"
                       type={showPassword ? "text" : "password"}
@@ -254,6 +551,7 @@ export default function AuthForm() {
                       required
                       disabled={loading || googleLoading}
                     />
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -271,7 +569,12 @@ export default function AuthForm() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading || googleLoading}>
+                {/* Submit */}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || googleLoading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -284,12 +587,47 @@ export default function AuthForm() {
               </form>
             </TabsContent>
 
+            {/* ------------------------------------------------------------- */}
+            {/* Sign Up */}
+            {/* ------------------------------------------------------------- */}
+
             <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form
+                onSubmit={handleSignUp}
+                className="space-y-4"
+              >
+                {/* Full Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-full-name">
+                    Full Name
+                  </Label>
+
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
+                    <Input
+                      id="signup-full-name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="pl-10"
+                      maxLength={200}
+                      required
+                      disabled={loading || googleLoading}
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">
+                    Email
+                  </Label>
+
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
                     <Input
                       id="signup-email"
                       type="email"
@@ -303,10 +641,15 @@ export default function AuthForm() {
                   </div>
                 </div>
 
+                {/* Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password">
+                    Password
+                  </Label>
+
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
                     <Input
                       id="signup-password"
                       type={showPassword ? "text" : "password"}
@@ -314,9 +657,12 @@ export default function AuthForm() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10"
+                      minLength={12}
+                      maxLength={128}
                       required
                       disabled={loading || googleLoading}
                     />
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -332,12 +678,21 @@ export default function AuthForm() {
                       )}
                     </Button>
                   </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Use between 12 and 128 characters.
+                  </p>
                 </div>
 
+                {/* Confirm Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Label htmlFor="confirm-password">
+                    Confirm Password
+                  </Label>
+
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
                     <Input
                       id="confirm-password"
                       type={showConfirmPassword ? "text" : "password"}
@@ -348,12 +703,15 @@ export default function AuthForm() {
                       required
                       disabled={loading || googleLoading}
                     />
+
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       disabled={loading || googleLoading}
                     >
                       {showConfirmPassword ? (
@@ -365,7 +723,12 @@ export default function AuthForm() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading || googleLoading}>
+                {/* Submit */}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || googleLoading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -381,5 +744,5 @@ export default function AuthForm() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
