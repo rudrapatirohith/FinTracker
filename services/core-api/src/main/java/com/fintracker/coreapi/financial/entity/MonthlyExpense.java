@@ -102,4 +102,27 @@ public class MonthlyExpense {
     public String getNotes() { return notes; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    /** Updates mutable expense fields without allowing reassignment of its owner. */
+    public void updateDetails(
+            String expenseName,
+            BigDecimal amount,
+            String currency,
+            BigDecimal exchangeRate,
+            BigDecimal inrEquivalent,
+            String category,
+            LocalDate expenseDate,
+            String paymentMethod,
+            String notes
+    ) {
+        this.expenseName = expenseName;
+        this.amount = amount;
+        this.currency = currency;
+        this.exchangeRate = exchangeRate;
+        this.inrEquivalent = inrEquivalent;
+        this.category = category;
+        this.expenseDate = expenseDate;
+        this.paymentMethod = paymentMethod;
+        this.notes = notes;
+    }
 }
