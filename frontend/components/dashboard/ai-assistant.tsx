@@ -68,7 +68,7 @@ export default function AIAssistant() {
     if (open && !financialContext) {
       buildFinancialContext()
     }
-  }, [open])
+  }, [open, financialContext]
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
