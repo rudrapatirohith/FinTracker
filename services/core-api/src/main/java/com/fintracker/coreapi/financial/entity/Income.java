@@ -106,4 +106,27 @@ public class Income {
     public Instant getUpdatedAt() { return updatedAt; }
     public BigDecimal getExchangeRate() { return exchangeRate; }
     public BigDecimal getInrEquivalent() { return inrEquivalent; }
-}
+
+    public void updateDetails(
+            String source,
+            BigDecimal amount,
+            String currency,
+            String category,
+            String description,
+            LocalDate date,
+            Boolean recurring,
+            String recurringFrequency,
+            BigDecimal exchangeRate,
+            BigDecimal inrEquivalent
+    ) {
+        this.source = source;
+        this.amount = amount;
+        this.currency = currency;
+        this.category = category;
+        this.description = description;
+        this.date = date;
+        this.recurring = recurring;
+        this.recurringFrequency = recurringFrequency;
+        this.exchangeRate = exchangeRate;
+        this.inrEquivalent = inrEquivalent;
+    }}

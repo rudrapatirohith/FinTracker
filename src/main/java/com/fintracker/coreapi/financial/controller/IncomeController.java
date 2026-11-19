@@ -1,0 +1,76 @@
+package com.fintracker.coreapi.financial.controller;
+
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.fintracker.coreapi.financial.dto.request.IncomeRequest;
+import com.fintracker.coreapi.financial.dto.response.IncomeResponse;
+import com.fintracker.coreapi.financial.service.IncomeService;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/api/v1/income")
+public class IncomeController {
+
+    private final IncomeService incomeService;
+
+    public IncomeController(IncomeService incomeService) {
+        this.incomeService = incomeService;
+    }
+
+    @PostMapping
+    public ResponseEntity<IncomeResponse> create(
+            @Valid @RequestBody IncomeRequest request) {
+
+        IncomeResponse response = incomeService.create(request);
+
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(response);
+    }
+
+    @GetMapping
+    public Page<IncomeResponse> getAll(
+            @PageableDefault(
+                size = 20,
+                sort = "date",
+                direction = Sort.Direction.DESC
+            ) Pageable pageable) {
+
+        return incomeService.getAll(pageable);
+    }
+
+    @GetMapping("/{id}")
+    public IncomeResponse getById(@PathVariable UUID id) {
+        return incomeService.getById(id);
+    }
+
+    @PutMapping("/{id}")
+    public IncomeResponse update(
+            @PathVariable UUID id,
+            @Valid @RequestBody IncomeRequest request) {
+
+        return incomeService.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        incomeService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}

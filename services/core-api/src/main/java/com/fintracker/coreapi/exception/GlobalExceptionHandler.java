@@ -9,10 +9,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.fintracker.coreapi.identity.exception.EmailAlreadyRegisteredException;
+import com.fintracker.coreapi.identity.exception.InvalidAuthenticatedUserException;
 import com.fintracker.coreapi.identity.exception.InvalidCredentialsException;
 import com.fintracker.coreapi.identity.exception.InvalidOAuthHandoffException;
 import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
 import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
+import com.fintracker.coreapi.financial.exception.IncomeNotFoundException;
 
 /**
  * Centralized handling of REST API exceptions.
@@ -119,5 +121,33 @@ public class GlobalExceptionHandler {
         problem.setTitle("OAuth authentication failed");
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+    }
+
+    @ExceptionHandler(InvalidAuthenticatedUserException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidAuthenticatedUser(
+            InvalidAuthenticatedUserException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.UNAUTHORIZED,
+            exception.getMessage()
+        );
+
+        problem.setTitle("Invalid authenticated identity");
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+    }
+    
+    @ExceptionHandler(IncomeNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleIncomeNotFound(
+            IncomeNotFoundException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.NOT_FOUND,
+            exception.getMessage()
+        );
+
+        problem.setTitle("Income record not found");
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
     }
 }
