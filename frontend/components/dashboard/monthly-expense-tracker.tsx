@@ -120,7 +120,7 @@ export default function MonthlyExpenseTracker() {
         return
       }
 
-      // Get current month's expenses
+      // Get current month&apos;s expenses
       const currentDate = new Date()
       const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
       const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
@@ -329,7 +329,7 @@ export default function MonthlyExpenseTracker() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Monthly Expense Tracking:</strong> Track your current month's expenses with accurate exchange rates.
+          <strong>Monthly Expense Tracking:</strong> Track your current month&apos;s expenses with accurate exchange rates.
           For USD expenses, enter the exchange rate used at the time of purchase. Current rate: ₹{currentExchangeRate}{" "}
           per $1.
         </AlertDescription>
@@ -465,7 +465,7 @@ export default function MonthlyExpenseTracker() {
                 <CreditCard className="h-5 w-5" />
                 Monthly Expense Tracker
               </CardTitle>
-              <CardDescription>Track your current month's expenses with accurate exchange rates</CardDescription>
+              <CardDescription>Track your current month&apos;s expenses with accurate exchange rates</CardDescription>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
