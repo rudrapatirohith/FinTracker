@@ -114,4 +114,33 @@ public class ScheduledPayment {
     public String getNotes() { return notes; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    /** Applies editable payment fields while preserving database ID and owner. */
+    public void updateDetails(
+            String paymentName,
+            BigDecimal amount,
+            String currency,
+            String category,
+            String recipient,
+            LocalDate dueDate,
+            String frequency,
+            Boolean recurring,
+            Boolean autoPay,
+            String status,
+            Integer reminderDays,
+            String notes
+    ) {
+        this.paymentName = paymentName;
+        this.amount = amount;
+        this.currency = currency;
+        this.category = category;
+        this.recipient = recipient;
+        this.dueDate = dueDate;
+        this.frequency = frequency;
+        this.recurring = recurring;
+        this.autoPay = autoPay;
+        this.status = status;
+        this.reminderDays = reminderDays;
+        this.notes = notes;
+    }
 }
