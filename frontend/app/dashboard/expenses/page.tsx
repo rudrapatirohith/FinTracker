@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -76,12 +76,7 @@ export default function ExpenseTrackerPage() {
     setNewExpense((prev) => ({ ...prev, exchangeRate: rate.toString() }))
   }, [])
 
-  // Fetch expenses for current month
-  useEffect(() => {
-    fetchExpensesForMonth()
-  }, [currentDate])
-
-  const fetchExpensesForMonth = async () => {
+  const fetchExpensesForMonth = useCallback(async () => {
     setLoading(true)
     try {
       const start = startOfMonth(currentDate)
@@ -105,7 +100,12 @@ export default function ExpenseTrackerPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentDate])
+
+  // Fetch expenses for current month
+  useEffect(() => {
+    void fetchExpensesForMonth()
+  }, [fetchExpensesForMonth])
 
   const calculateMonthlyStats = (expenseList: Expense[]) => {
     let totalSpent = 0
