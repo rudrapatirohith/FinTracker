@@ -67,7 +67,38 @@ export default function TransactionHistoryPage() {
   }, [])
 
   useEffect(() => {
-    filterTransactions()
+    let filtered = [...transactions]
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (transaction) =>
+          transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          transaction.source?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          transaction.recipient?.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
+
+    // Filter by type
+    if (selectedType !== "All") {
+      filtered = filtered.filter((transaction) => transaction.type === selectedType)
+    }
+
+    // Filter by category
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((transaction) => transaction.category === selectedCategory)
+    }
+
+    // Filter by date range
+    if (dateFrom) {
+      filtered = filtered.filter((transaction) => new Date(transaction.date) >= dateFrom)
+    }
+    if (dateTo) {
+      filtered = filtered.filter((transaction) => new Date(transaction.date) <= dateTo)
+    }
+
+    setFilteredTransactions(filtered)
   }, [transactions, searchTerm, selectedType, selectedCategory, dateFrom, dateTo])
 
   const fetchTransactions = async () => {
@@ -160,41 +191,6 @@ export default function TransactionHistoryPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const filterTransactions = () => {
-    let filtered = [...transactions]
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (transaction) =>
-          transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          transaction.source?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          transaction.recipient?.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    }
-
-    // Filter by type
-    if (selectedType !== "All") {
-      filtered = filtered.filter((transaction) => transaction.type === selectedType)
-    }
-
-    // Filter by category
-    if (selectedCategory !== "All") {
-      filtered = filtered.filter((transaction) => transaction.category === selectedCategory)
-    }
-
-    // Filter by date range
-    if (dateFrom) {
-      filtered = filtered.filter((transaction) => new Date(transaction.date) >= dateFrom)
-    }
-    if (dateTo) {
-      filtered = filtered.filter((transaction) => new Date(transaction.date) <= dateTo)
-    }
-
-    setFilteredTransactions(filtered)
   }
 
   const totalIncome = filteredTransactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
