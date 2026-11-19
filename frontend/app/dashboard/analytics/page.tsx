@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -74,11 +74,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState("6months")
 
-  useEffect(() => {
-    fetchAnalyticsData()
-  }, [selectedPeriod])
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     setLoading(true)
     try {
       const {
@@ -274,7 +270,11 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedPeriod])
+
+  useEffect(() => {
+    void fetchAnalyticsData()
+  }, [fetchAnalyticsData])
 
   const formatDollar = (value: number) => `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
 
