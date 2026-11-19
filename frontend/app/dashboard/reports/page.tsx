@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Download, FileText, CalendarIcon, TrendingUp, TrendingDown, PieChart, BarChart3 } from "lucide-react"
-import { cn, toUSD, formatUSDDisplay } from "@/lib/utils"
+import { cn, formatCurrency, toUSD, formatUSDDisplay } from "@/lib/utils"
 import { format } from "date-fns"
 
 interface ReportData {
