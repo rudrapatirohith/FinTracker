@@ -47,6 +47,11 @@ const categories = [
   "Other",
 ]
 
+type IncomeHistoryRow = { id: string; category: string | null; amount: number; currency: string | null; description: string | null; date: string; source: string }
+type TransferHistoryRow = { id: string; amount_sent: number; currency_sent: string; recipient_name: string; recipient_country: string; transfer_date: string; status: string }
+type LoanPaymentHistoryRow = { id: string; amount: number; payment_date: string; loans: { loan_name: string } | null }
+type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; payment_name: string; due_date: string; recipient: string | null }
+
 export default function TransactionHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
@@ -84,7 +89,7 @@ export default function TransactionHistoryPage() {
 
       // Add income transactions
       if (incomeData.data) {
-        incomeData.data.forEach((income) => {
+        incomeData.data.forEach((income: IncomeHistoryRow) => {
           allTransactions.push({
             id: income.id,
             type: "Income",
@@ -100,7 +105,7 @@ export default function TransactionHistoryPage() {
 
       // Add transfer transactions
       if (transferData.data) {
-        transferData.data.forEach((transfer) => {
+        transferData.data.forEach((transfer: TransferHistoryRow) => {
           allTransactions.push({
             id: transfer.id,
             type: "International Transfer",
@@ -117,7 +122,7 @@ export default function TransactionHistoryPage() {
 
       // Add loan payment transactions
       if (loanPaymentData.data) {
-        loanPaymentData.data.forEach((payment: any) => {
+        loanPaymentData.data.forEach((payment: LoanPaymentHistoryRow) => {
           allTransactions.push({
             id: payment.id,
             type: "Loan Payment",
@@ -132,7 +137,7 @@ export default function TransactionHistoryPage() {
 
       // Add scheduled payments that were paid
       if (scheduledPaymentData.data) {
-        scheduledPaymentData.data.forEach((payment) => {
+        scheduledPaymentData.data.forEach((payment: ScheduledPaymentHistoryRow) => {
           allTransactions.push({
             id: payment.id,
             type: "Expense",
