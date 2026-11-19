@@ -97,6 +97,12 @@ public class Loan {
         updatedAt = Instant.now();
     }
 
+    /** Updates loan terms without changing the owning user or loan identity. */
+    public void updateDetails(String name,BigDecimal principal,BigDecimal balance,BigDecimal rate,BigDecimal payment,LocalDate start,LocalDate end,String lender,String type,String status,String currency) {
+        loanName=name; principalAmount=principal; currentBalance=balance; interestRate=rate; monthlyPayment=payment;
+        startDate=start; endDate=end; this.lender=lender; loanType=type; this.status=status; this.currency=currency;
+    }
+
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public String getLoanName() { return loanName; }

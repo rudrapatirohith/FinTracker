@@ -78,6 +78,12 @@ public class LoanPayment {
         }
     }
 
+    /** Updates payment data; loan and owner linkage remain immutable. */
+    public void updateDetails(BigDecimal amount,BigDecimal principal,BigDecimal interest,LocalDate date,String method,String notes,String currency,BigDecimal rate,BigDecimal inr) {
+        this.amount=amount; principalAmount=principal; interestAmount=interest; paymentDate=date;
+        paymentMethod=method; this.notes=notes; this.currency=currency; exchangeRate=rate; inrEquivalent=inr;
+    }
+
     public UUID getId() { return id; }
     public UUID getLoanId() { return loanId; }
     public UUID getUserId() { return userId; }

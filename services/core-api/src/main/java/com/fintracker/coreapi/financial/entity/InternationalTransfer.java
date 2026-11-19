@@ -122,6 +122,14 @@ public class InternationalTransfer {
         updatedAt = Instant.now();
     }
 
+    /** Updates transfer details while preserving immutable ownership and identity. */
+    public void updateDetails(String name,String country,BigDecimal sent,String sentCode,BigDecimal received,String receivedCode,BigDecimal rate,BigDecimal fee,String method,String purpose,String status,LocalDate date,LocalDate completed,String reference,BigDecimal usdRate,BigDecimal inr) {
+        recipientName=name; recipientCountry=country; amountSent=sent; currencySent=sentCode; sentCurrency=sentCode;
+        amountReceived=received; currencyReceived=receivedCode; receivedCurrency=receivedCode; exchangeRate=rate;
+        transferFee=fee; transferMethod=method; this.purpose=purpose; this.status=status; transferDate=date;
+        completionDate=completed; referenceNumber=reference; usdToInrRate=usdRate; inrEquivalent=inr;
+    }
+
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public String getRecipientName() { return recipientName; }
