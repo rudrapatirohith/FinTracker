@@ -26,7 +26,7 @@ interface Transaction {
   description: string | null
   date: string
   source?: string
-  recipient?: string
+  recipient?: string | null
   status?: string
 }
 
@@ -47,6 +47,11 @@ const categories = [
   "Other",
 ]
 
+type IncomeHistoryRow = { id: string; category: string | null; amount: number; currency: string | null; description: string | null; date: string; source: string }
+type TransferHistoryRow = { id: string; amount_sent: number; currency_sent: string; recipient_name: string; recipient_country: string; transfer_date: string; status: string }
+type LoanPaymentHistoryRow = { id: string; amount: number; payment_date: string; loans: { loan_name: string } | null }
+type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; payment_name: string; due_date: string; recipient: string | null }
+
 export default function TransactionHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
@@ -62,102 +67,6 @@ export default function TransactionHistoryPage() {
   }, [])
 
   useEffect(() => {
-    filterTransactions()
-  }, [transactions, searchTerm, selectedType, selectedCategory, dateFrom, dateTo])
-
-  const fetchTransactions = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Fetch from multiple tables and combine
-      const [incomeData, transferData, loanPaymentData, scheduledPaymentData] = await Promise.all([
-        supabase.from("income").select("*").eq("user_id", user.id),
-        supabase.from("international_transfers").select("*").eq("user_id", user.id),
-        supabase.from("loan_payments").select("*, loans(loan_name)").eq("user_id", user.id),
-        supabase.from("scheduled_payments").select("*").eq("user_id", user.id).eq("status", "paid"),
-      ])
-
-      const allTransactions: Transaction[] = []
-
-      // Add income transactions
-      if (incomeData.data) {
-        incomeData.data.forEach((income) => {
-          allTransactions.push({
-            id: income.id,
-            type: "Income",
-            category: income.category || "Income",
-            amount: income.amount,
-            currency: income.currency || "USD",
-            description: income.description,
-            date: income.date,
-            source: income.source,
-          })
-        })
-      }
-
-      // Add transfer transactions
-      if (transferData.data) {
-        transferData.data.forEach((transfer) => {
-          allTransactions.push({
-            id: transfer.id,
-            type: "International Transfer",
-            category: "Transfer",
-            amount: -transfer.amount_sent, // Negative because it's money going out
-            currency: transfer.currency_sent,
-            description: `Transfer to ${transfer.recipient_name} in ${transfer.recipient_country}`,
-            date: transfer.transfer_date,
-            recipient: transfer.recipient_name,
-            status: transfer.status,
-          })
-        })
-      }
-
-      // Add loan payment transactions
-      if (loanPaymentData.data) {
-        loanPaymentData.data.forEach((payment: any) => {
-          allTransactions.push({
-            id: payment.id,
-            type: "Loan Payment",
-            category: "Loan Payment",
-            amount: -payment.amount, // Negative because it's money going out
-            currency: "USD",
-            description: `Payment for ${payment.loans?.loan_name || "Loan"}`,
-            date: payment.payment_date,
-          })
-        })
-      }
-
-      // Add scheduled payments that were paid
-      if (scheduledPaymentData.data) {
-        scheduledPaymentData.data.forEach((payment) => {
-          allTransactions.push({
-            id: payment.id,
-            type: "Expense",
-            category: payment.category || "Other",
-            amount: -payment.amount, // Negative because it's money going out
-            currency: payment.currency,
-            description: payment.payment_name,
-            date: payment.due_date,
-            recipient: payment.recipient,
-          })
-        })
-      }
-
-      // Sort by date (newest first)
-      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-      setTransactions(allTransactions)
-    } catch (error) {
-      console.error("Error fetching transactions:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterTransactions = () => {
     let filtered = [...transactions]
 
     // Filter by search term
@@ -190,6 +99,98 @@ export default function TransactionHistoryPage() {
     }
 
     setFilteredTransactions(filtered)
+  }, [transactions, searchTerm, selectedType, selectedCategory, dateFrom, dateTo])
+
+  const fetchTransactions = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Fetch from multiple tables and combine
+      const [incomeData, transferData, loanPaymentData, scheduledPaymentData] = await Promise.all([
+        supabase.from("income").select("*").eq("user_id", user.id),
+        supabase.from("international_transfers").select("*").eq("user_id", user.id),
+        supabase.from("loan_payments").select("*, loans(loan_name)").eq("user_id", user.id),
+        supabase.from("scheduled_payments").select("*").eq("user_id", user.id).eq("status", "paid"),
+      ])
+
+      const allTransactions: Transaction[] = []
+
+      // Add income transactions
+      if (incomeData.data) {
+        incomeData.data.forEach((income: IncomeHistoryRow) => {
+          allTransactions.push({
+            id: income.id,
+            type: "Income",
+            category: income.category || "Income",
+            amount: income.amount,
+            currency: income.currency || "USD",
+            description: income.description,
+            date: income.date,
+            source: income.source,
+          })
+        })
+      }
+
+      // Add transfer transactions
+      if (transferData.data) {
+        transferData.data.forEach((transfer: TransferHistoryRow) => {
+          allTransactions.push({
+            id: transfer.id,
+            type: "International Transfer",
+            category: "Transfer",
+            amount: -transfer.amount_sent, // Negative because it's money going out
+            currency: transfer.currency_sent,
+            description: `Transfer to ${transfer.recipient_name} in ${transfer.recipient_country}`,
+            date: transfer.transfer_date,
+            recipient: transfer.recipient_name,
+            status: transfer.status,
+          })
+        })
+      }
+
+      // Add loan payment transactions
+      if (loanPaymentData.data) {
+        loanPaymentData.data.forEach((payment: LoanPaymentHistoryRow) => {
+          allTransactions.push({
+            id: payment.id,
+            type: "Loan Payment",
+            category: "Loan Payment",
+            amount: -payment.amount, // Negative because it's money going out
+            currency: "USD",
+            description: `Payment for ${payment.loans?.loan_name || "Loan"}`,
+            date: payment.payment_date,
+          })
+        })
+      }
+
+      // Add scheduled payments that were paid
+      if (scheduledPaymentData.data) {
+        scheduledPaymentData.data.forEach((payment: ScheduledPaymentHistoryRow) => {
+          allTransactions.push({
+            id: payment.id,
+            type: "Expense",
+            category: payment.category || "Other",
+            amount: -payment.amount, // Negative because it's money going out
+            currency: payment.currency,
+            description: payment.payment_name,
+            date: payment.due_date,
+            recipient: payment.recipient,
+          })
+        })
+      }
+
+      // Sort by date (newest first)
+      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      setTransactions(allTransactions)
+    } catch (error) {
+      console.error("Error fetching transactions:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const totalIncome = filteredTransactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)

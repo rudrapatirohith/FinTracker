@@ -33,7 +33,7 @@ import {
   Info,
   IndianRupee,
 } from "lucide-react"
-import { formatINR, toUSD, formatUSDDisplay } from "@/lib/utils"
+import { formatINR } from "@/lib/utils"
 
 interface Loan {
   id: string
@@ -56,6 +56,8 @@ interface Payment {
   notes?: string
   loan?: Loan
 }
+
+type LoanPaymentWithLoan = { interest_amount: number; loan: { currency: string } | null }
 
 export default function LoanTracker() {
   const [loans, setLoans] = useState<Loan[]>([])
@@ -146,11 +148,12 @@ export default function LoanTracker() {
       setLoans(loansData || [])
       setPayments(paymentsData || [])
 
-      // Calculate total interest paid (convert to INR for consistency)
-      const totalInterest = (paymentsData || []).reduce((sum, payment) => {
+      // Keep the aggregate numeric and normalize USD loans to INR.
+      // This matches the existing dashboard conversion convention.
+      const totalInterest = (paymentsData || []).reduce((sum: number, payment: LoanPaymentWithLoan) => {
         const interestInINR =
           payment.loan?.currency === "USD"
-                ? formatUSDDisplay(toUSD(payment.interest_amount, "USD"))
+            ? payment.interest_amount * 83.25
             : payment.interest_amount
         return sum + interestInINR
       }, 0)
@@ -466,10 +469,12 @@ export default function LoanTracker() {
     })
   }
 
-  const getTotalDebt = () => {
+  const getTotalDebt = (): number => {
     return loans.reduce((sum, loan) => {
       const balanceInINR =
-            formatUSDDisplay(toUSD(loan.current_balance, loan.currency))
+        loan.currency === "USD"
+          ? loan.current_balance * 83.25
+          : loan.current_balance
       return sum + balanceInINR
     }, 0)
   }
@@ -597,7 +602,7 @@ export default function LoanTracker() {
                 <Info className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Principal</strong> reduces your loan balance. <strong>Interest</strong> is tracked separately
-                  and doesn't reduce the balance.
+                  and doesn&apos;t reduce the balance.
                 </AlertDescription>
               </Alert>
 

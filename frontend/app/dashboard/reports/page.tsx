@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Download, FileText, CalendarIcon, TrendingUp, TrendingDown, PieChart, BarChart3 } from "lucide-react"
-import { cn, toUSD, formatUSDDisplay } from "@/lib/utils"
+import { cn, formatCurrency, toUSD, formatUSDDisplay } from "@/lib/utils"
 import { format } from "date-fns"
 
 interface ReportData {
@@ -46,6 +46,12 @@ const exportFormats = [
   { value: "csv", label: "CSV Data", icon: TrendingUp },
 ]
 
+type IncomeReportRow = { amount: number; category: string | null }
+type TransferReportRow = { transfer_fee: number; amount_sent: number; exchange_rate: number }
+type LoanReportRow = { current_balance: number; principal_amount: number }
+type LoanPaymentReportRow = { amount: number }
+type ScheduledPaymentReportRow = { amount: number; category: string | null }
+
 export default function ExportReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,11 +61,7 @@ export default function ExportReportsPage() {
   const [dateFrom, setDateFrom] = useState<Date>()
   const [dateTo, setDateTo] = useState<Date>()
 
-  useEffect(() => {
-    generateReport()
-  }, [selectedReportType, dateFrom, dateTo])
-
-  const generateReport = async () => {
+  const generateReport = useCallback(async () => {
     setLoading(true)
     try {
       const {
@@ -121,11 +123,11 @@ export default function ExportReportsPage() {
       ])
 
       // Calculate totals
-      const totalIncome = incomeData.data?.reduce((sum, item) => sum + Number(item.amount), 0) || 0
-      const totalTransferFees = transferData.data?.reduce((sum, item) => sum + Number(item.transfer_fee), 0) || 0
-      const totalLoanPayments = loanPaymentData.data?.reduce((sum, item) => sum + Number(item.amount), 0) || 0
-      const totalScheduledPayments = scheduledPaymentData.data?.reduce((sum, item) => sum + Number(item.amount), 0) || 0
-      const totalTransfersSent = transferData.data?.reduce((sum, item) => sum + Number(item.amount_sent), 0) || 0
+      const totalIncome = incomeData.data?.reduce((sum: number, item: IncomeReportRow) => sum + Number(item.amount), 0) || 0
+      const totalTransferFees = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.transfer_fee), 0) || 0
+      const totalLoanPayments = loanPaymentData.data?.reduce((sum: number, item: LoanPaymentReportRow) => sum + Number(item.amount), 0) || 0
+      const totalScheduledPayments = scheduledPaymentData.data?.reduce((sum: number, item: ScheduledPaymentReportRow) => sum + Number(item.amount), 0) || 0
+      const totalTransfersSent = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.amount_sent), 0) || 0
 
       const totalExpenses = totalTransferFees + totalLoanPayments + totalScheduledPayments + totalTransfersSent
       const netIncome = totalIncome - totalExpenses
@@ -134,24 +136,24 @@ export default function ExportReportsPage() {
       const categoryMap = new Map<string, number>()
 
       // Add income categories
-      incomeData.data?.forEach((item) => {
+      incomeData.data?.forEach((item: IncomeReportRow) => {
         const category = item.category || "Other Income"
         categoryMap.set(category, (categoryMap.get(category) || 0) + Number(item.amount))
       })
 
       // Add expense categories
-      transferData.data?.forEach((item) => {
+      transferData.data?.forEach((item: TransferReportRow) => {
         categoryMap.set(
           "International Transfers",
           (categoryMap.get("International Transfers") || 0) + Number(item.amount_sent),
         )
       })
 
-      loanPaymentData.data?.forEach((item) => {
+      loanPaymentData.data?.forEach((item: LoanPaymentReportRow) => {
         categoryMap.set("Loan Payments", (categoryMap.get("Loan Payments") || 0) + Number(item.amount))
       })
 
-      scheduledPaymentData.data?.forEach((item) => {
+      scheduledPaymentData.data?.forEach((item: ScheduledPaymentReportRow) => {
         const category = item.category || "Other Expenses"
         categoryMap.set(category, (categoryMap.get(category) || 0) + Number(item.amount))
       })
@@ -166,17 +168,17 @@ export default function ExportReportsPage() {
         .slice(0, 5)
 
       // Calculate loan summary
-      const totalDebt = loanData.data?.reduce((sum, loan) => sum + Number(loan.current_balance), 0) || 0
-      const totalPrincipal = loanData.data?.reduce((sum, loan) => sum + Number(loan.principal_amount), 0) || 0
+      const totalDebt = loanData.data?.reduce((sum: number, loan: LoanReportRow) => sum + Number(loan.current_balance), 0) || 0
+      const totalPrincipal = loanData.data?.reduce((sum: number, loan: LoanReportRow) => sum + Number(loan.principal_amount), 0) || 0
       const totalPaid = totalPrincipal - totalDebt
       const averageProgress = totalPrincipal > 0 ? (totalPaid / totalPrincipal) * 100 : 0
 
       // Calculate transfer summary
-      const totalSent = transferData.data?.reduce((sum, item) => sum + Number(item.amount_sent), 0) || 0
-      const totalFees = transferData.data?.reduce((sum, item) => sum + Number(item.transfer_fee), 0) || 0
+      const totalSent = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.amount_sent), 0) || 0
+      const totalFees = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.transfer_fee), 0) || 0
       const averageRate =
         transferData.data?.length > 0
-          ? transferData.data.reduce((sum, item) => sum + Number(item.exchange_rate), 0) / transferData.data.length
+          ? transferData.data.reduce((sum: number, item: TransferReportRow) => sum + Number(item.exchange_rate), 0) / transferData.data.length
           : 0
 
       // Generate monthly trends (simplified for demo)
@@ -208,7 +210,11 @@ export default function ExportReportsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedReportType, dateFrom, dateTo])
+
+  useEffect(() => {
+    void generateReport()
+  }, [generateReport])
 
   const handleExport = async () => {
     setGenerating(true)
