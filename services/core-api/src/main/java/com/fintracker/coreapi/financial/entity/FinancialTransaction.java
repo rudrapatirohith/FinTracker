@@ -116,4 +116,34 @@ public class FinancialTransaction {
     public String[] getTags() { return tags == null ? null : tags.clone(); }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    /**
+     * Applies a complete replacement of mutable transaction fields.
+     * The owning user and database identity are intentionally immutable here.
+     */
+    public void updateDetails(
+            String type,
+            String category,
+            String subcategory,
+            BigDecimal amount,
+            String currency,
+            String description,
+            String merchant,
+            LocalDate transactionDate,
+            String paymentMethod,
+            UUID referenceId,
+            String[] tags
+    ) {
+        this.type = type;
+        this.category = category;
+        this.subcategory = subcategory;
+        this.amount = amount;
+        this.currency = currency;
+        this.description = description;
+        this.merchant = merchant;
+        this.transactionDate = transactionDate;
+        this.paymentMethod = paymentMethod;
+        this.referenceId = referenceId;
+        this.tags = tags == null ? null : tags.clone();
+    }
 }
