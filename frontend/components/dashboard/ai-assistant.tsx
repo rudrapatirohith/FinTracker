@@ -15,11 +15,31 @@ interface Message {
   content: string
 }
 
-// Extend window type for SpeechRecognition
+// The Web Speech API is not included in TypeScript's standard DOM
+// declarations, and is not supported by every browser.
+interface SpeechRecognitionResultLike {
+  readonly 0: { readonly transcript: string }
+}
+
+interface SpeechRecognitionEventLike extends Event {
+  readonly results: ArrayLike<SpeechRecognitionResultLike>
+}
+
+interface SpeechRecognitionLike {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: Event) => void) | null
+  onend: (() => void) | null
+  start(): void
+  stop(): void
+}
+
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
+    SpeechRecognition?: new () => SpeechRecognitionLike
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike
   }
 }
 
@@ -30,7 +50,7 @@ export default function AIAssistant() {
   const [loading, setLoading] = useState(false)
   const [listening, setListening] = useState(false)
   const [financialContext, setFinancialContext] = useState("")
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
