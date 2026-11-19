@@ -63,13 +63,6 @@ export default function AIAssistant() {
 
   const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
-  // Fetch financial context once panel opens
-  useEffect(() => {
-    if (open && !financialContext) {
-      buildFinancialContext()
-    }
-  }, [open, financialContext]
-
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -77,7 +70,7 @@ export default function AIAssistant() {
     }
   }, [messages, loading])
 
-  const buildFinancialContext = async () => {
+  const buildFinancialContext = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -150,7 +143,14 @@ User Financial Summary (all values in USD):
     } catch (err) {
       console.error("Error building financial context:", err)
     }
-  }
+  }, [])
+
+  // Fetch financial context once panel opens
+  useEffect(() => {
+    if (open && !financialContext) {
+      void buildFinancialContext()
+    }
+  }, [open, financialContext, buildFinancialContext])
 
   const sendMessage = useCallback(
     async (text: string) => {
