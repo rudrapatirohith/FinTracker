@@ -67,6 +67,11 @@ interface DashboardData {
 // 2. Dashboard component
 // -----------------------------------------------------------------------------
 
+type DashboardIncomeRow = { inr_equivalent: number | null }
+type DashboardLoanRow = { current_balance: number; currency: string; status: string }
+type DashboardTransferRow = { inr_equivalent: number | null }
+type DashboardExpenseRow = { inr_equivalent: number | null }
+
 export default function DashboardOverview() {
   const router = useRouter();
 
@@ -214,12 +219,12 @@ export default function DashboardOverview() {
 
       // Income is already represented using INR equivalents.
       const totalIncome = (incomeData || []).reduce(
-        (sum, item) => sum + (item.inr_equivalent || 0),
+        (sum: number, item: DashboardIncomeRow) => sum + (item.inr_equivalent || 0),
         0
       );
 
       // Preserve the existing USD-to-INR loan conversion logic.
-      const totalLoans = (loansData || []).reduce((sum, item) => {
+      const totalLoans = (loansData || []).reduce((sum: number, item: DashboardLoanRow) => {
         const amountInINR =
           item.currency === "USD"
             ? item.current_balance * 83.25
@@ -229,17 +234,17 @@ export default function DashboardOverview() {
       }, 0);
 
       const totalTransfers = (transfersData || []).reduce(
-        (sum, item) => sum + (item.inr_equivalent || 0),
+        (sum: number, item: DashboardTransferRow) => sum + (item.inr_equivalent || 0),
         0
       );
 
       const totalExpenses = (expensesData || []).reduce(
-        (sum, item) => sum + (item.inr_equivalent || 0),
+        (sum: number, item: DashboardExpenseRow) => sum + (item.inr_equivalent || 0),
         0
       );
 
       const activeLoans = (loansData || []).filter(
-        (loan) => loan.status === "active"
+        (loan: DashboardLoanRow) => loan.status === "active"
       ).length;
 
       // Update the dashboard with the calculated values.
