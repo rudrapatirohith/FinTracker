@@ -602,7 +602,7 @@ export default function LoanTracker() {
                 <Info className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Principal</strong> reduces your loan balance. <strong>Interest</strong> is tracked separately
-                  and doesn't reduce the balance.
+                  and doesn&apos;t reduce the balance.
                 </AlertDescription>
               </Alert>
 
