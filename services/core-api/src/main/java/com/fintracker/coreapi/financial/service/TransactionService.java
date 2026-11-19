@@ -36,8 +36,7 @@ public class TransactionService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         FinancialTransaction entity = new FinancialTransaction(
                 userId, request.type().trim(), request.category().trim(),
-                request.amount(), normalizedCurrency(request.currency()),
-                request.transactionDate()
+                request.amount(), request.transactionDate()
         );
         apply(entity, request);
         return TransactionResponse.from(repository.save(entity));
