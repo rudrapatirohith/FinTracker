@@ -17,6 +17,7 @@ import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 import com.fintracker.coreapi.financial.exception.IncomeNotFoundException;
 import com.fintracker.coreapi.financial.exception.TransactionNotFoundException;
 import com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundException;
+import com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException;
 
 /**
  * Centralized handling of REST API exceptions.
@@ -139,6 +140,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
     
+    @ExceptionHandler(ScheduledPaymentNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleScheduledPaymentNotFound(
+            ScheduledPaymentNotFoundException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, exception.getMessage());
+        problem.setTitle("Scheduled payment not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+    }
+
     @ExceptionHandler(MonthlyExpenseNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleMonthlyExpenseNotFound(
             MonthlyExpenseNotFoundException exception) {
