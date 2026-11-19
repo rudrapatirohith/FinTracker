@@ -57,6 +57,8 @@ interface Payment {
   loan?: Loan
 }
 
+type LoanPaymentWithLoan = { interest_amount: number; loan: { currency: string } | null }
+
 export default function LoanTracker() {
   const [loans, setLoans] = useState<Loan[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
@@ -148,7 +150,7 @@ export default function LoanTracker() {
 
       // Keep the aggregate numeric and normalize USD loans to INR.
       // This matches the existing dashboard conversion convention.
-      const totalInterest = (paymentsData || []).reduce((sum, payment) => {
+      const totalInterest = (paymentsData || []).reduce((sum: number, payment: LoanPaymentWithLoan) => {
         const interestInINR =
           payment.loan?.currency === "USD"
             ? payment.interest_amount * 83.25
