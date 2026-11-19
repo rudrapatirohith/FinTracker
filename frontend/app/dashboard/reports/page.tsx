@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -61,11 +61,7 @@ export default function ExportReportsPage() {
   const [dateFrom, setDateFrom] = useState<Date>()
   const [dateTo, setDateTo] = useState<Date>()
 
-  useEffect(() => {
-    generateReport()
-  }, [selectedReportType, dateFrom, dateTo])
-
-  const generateReport = async () => {
+  const generateReport = useCallback(async () => {
     setLoading(true)
     try {
       const {
@@ -214,7 +210,11 @@ export default function ExportReportsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedReportType, dateFrom, dateTo])
+
+  useEffect(() => {
+    void generateReport()
+  }, [generateReport])
 
   const handleExport = async () => {
     setGenerating(true)
