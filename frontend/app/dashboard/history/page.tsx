@@ -26,7 +26,7 @@ interface Transaction {
   description: string | null
   date: string
   source?: string
-  recipient?: string
+  recipient?: string | null
   status?: string
 }
 
