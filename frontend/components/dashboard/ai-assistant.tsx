@@ -43,6 +43,13 @@ declare global {
   }
 }
 
+type AIIncomeRow = { amount: number; currency: string | null; inr_equivalent: number | null; category: string | null; date: string }
+type AITransferRow = { amount_sent: number; currency_sent: string | null; inr_equivalent: number | null; transfer_date: string }
+type AILoanRow = { loan_name: string; current_balance: number; currency: string | null; status: string }
+type AILoanPaymentRow = { amount: number; payment_date: string }
+type AIScheduledPaymentRow = { payment_name: string; amount: number; currency: string | null; category: string | null; due_date: string; status: string }
+type AIExpenseRow = { inr_equivalent: number | null; category: string | null; expense_date: string }
+
 export default function AIAssistant() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -91,27 +98,27 @@ export default function AIAssistant() {
         supabase.from("monthly_expenses").select("inr_equivalent, category, expense_date").eq("user_id", user.id).gte("expense_date", firstOfMonth),
       ])
 
-      const totalIncomeUSD = (incomeRes.data || []).reduce((s, i) => {
+      const totalIncomeUSD = (incomeRes.data || []).reduce((s: number, i: AIIncomeRow) => {
         return s + (i.inr_equivalent ? toUSD(i.inr_equivalent, "INR") : toUSD(Number(i.amount), i.currency || "USD"))
       }, 0)
 
-      const totalTransfersUSD = (transferRes.data || []).reduce((s, i) => {
+      const totalTransfersUSD = (transferRes.data || []).reduce((s: number, i: AITransferRow) => {
         return s + (i.inr_equivalent ? toUSD(i.inr_equivalent, "INR") : toUSD(Number(i.amount_sent), i.currency_sent || "USD"))
       }, 0)
 
-      const totalLoanPaymentsUSD = (loanPayRes.data || []).reduce((s, i) => s + toUSD(Number(i.amount), "USD"), 0)
+      const totalLoanPaymentsUSD = (loanPayRes.data || []).reduce((s: number, i: AILoanPaymentRow) => s + toUSD(Number(i.amount), "USD"), 0)
 
       const pendingPaymentsUSD = (scheduledRes.data || [])
-        .filter((p) => p.status === "pending")
-        .reduce((s, p) => s + toUSD(Number(p.amount), p.currency || "USD"), 0)
+        .filter((p: AIScheduledPaymentRow) => p.status === "pending")
+        .reduce((s: number, p: AIScheduledPaymentRow) => s + toUSD(Number(p.amount), p.currency || "USD"), 0)
 
-      const monthExpensesUSD = (expensesRes.data || []).reduce((s, e) => s + toUSD(e.inr_equivalent || 0, "INR"), 0)
+      const monthExpensesUSD = (expensesRes.data || []).reduce((s: number, e: AIExpenseRow) => s + toUSD(e.inr_equivalent || 0, "INR"), 0)
 
       const totalExpensesUSD = totalTransfersUSD + totalLoanPaymentsUSD
 
       // Category breakdown of scheduled payments
       const catMap: Record<string, number> = {}
-      ;(scheduledRes.data || []).forEach((p) => {
+      ;(scheduledRes.data || []).forEach((p: AIScheduledPaymentRow) => {
         const cat = p.category || "Other"
         catMap[cat] = (catMap[cat] || 0) + toUSD(Number(p.amount), p.currency || "USD")
       })
@@ -121,9 +128,9 @@ export default function AIAssistant() {
         .map(([cat, amt]) => `${cat}: ${formatUSDDisplay(amt)}`)
         .join(", ")
 
-      const activeLoans = (loanRes.data || []).filter((l) => l.status === "active")
+      const activeLoans = (loanRes.data || []).filter((l: AILoanRow) => l.status === "active")
       const loanSummary = activeLoans
-        .map((l) => `${l.loan_name} (${formatUSDDisplay(toUSD(Number(l.current_balance), l.currency || "USD"))} remaining)`)
+        .map((l: AILoanRow) => `${l.loan_name} (${formatUSDDisplay(toUSD(Number(l.current_balance), l.currency || "USD"))} remaining)`)
         .join("; ")
 
       const ctx = `
