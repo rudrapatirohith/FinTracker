@@ -19,9 +19,7 @@ public class LoanPaymentApiService {
     private final LoanApiService loans;
     private final AuthenticatedUserProvider users;
 
-  /**
-   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
-   */
+  
     LoanPaymentApiService(LoanPaymentRepository p, LoanApiService l, AuthenticatedUserProvider u) {
         payments = p;
         loans = l;
@@ -36,9 +34,7 @@ public class LoanPaymentApiService {
         UUID uid = users.getRequiredUserId();
         loans.requireOwned(loanId, uid);
         LoanPayment e = new LoanPayment(loanId, uid, r.amount(), r.paymentDate());
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return LoanPaymentView.from(payments.save(e));
     }
@@ -67,9 +63,7 @@ public class LoanPaymentApiService {
     @Transactional
     LoanPaymentView update(UUID loanId, UUID id, LoanPaymentRequest r) {
         LoanPayment e = owned(loanId, id);
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return LoanPaymentView.from(e);
     }
@@ -90,13 +84,9 @@ public class LoanPaymentApiService {
         loans.requireOwned(loanId, uid);
         LoanPayment e = payments.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found."));
-      /**
-       * Performs the if step for this use case.
-       */
+      
         if (!e.getLoanId().equals(loanId))
-            /**
-             * Performs the response status exception step for this use case.
-             */
+            
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found.");
         return e;
     }
