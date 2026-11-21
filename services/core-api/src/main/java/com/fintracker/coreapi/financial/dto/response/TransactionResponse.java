@@ -1,8 +1,3 @@
-/**
- * Public transaction response projection.
- * The mapper explicitly controls which persisted fields leave the service, excluding owner metadata.
- * The constructor and accessor clone the tags array because Java records are only shallowly immutable when they contain mutable arrays.
- */
 package com.fintracker.coreapi.financial.dto.response;
 
 import com.fintracker.coreapi.financial.entity.FinancialTransaction;
@@ -32,11 +27,20 @@ public record TransactionResponse(
     }
 
     @Override
+    /**
+     * Returns a defensive copy of the tags array; the caller can modify the returned array without changing the request record.
+     */
     public String[] tags() {
         return tags == null ? null : tags.clone();
     }
 
+    /**
+     * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
+     */
     public static TransactionResponse from(FinancialTransaction entity) {
+        /**
+         * Defensively copies the tags array when the response record is constructed so the returned DTO does not retain a caller-owned mutable array.
+         */
         return new TransactionResponse(
                 entity.getId(),
                 entity.getType(),
