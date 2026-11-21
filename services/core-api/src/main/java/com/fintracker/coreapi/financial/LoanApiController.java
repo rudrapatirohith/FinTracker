@@ -16,9 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class LoanApiController {
     private final LoanApiService service;
 
-  /**
-   * Receives the service dependency used by this HTTP adapter; constructor injection keeps the controller's application-service dependency explicit.
-   */
+  
     LoanApiController(LoanApiService s) {
         service = s;
     }
