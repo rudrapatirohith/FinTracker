@@ -1,10 +1,5 @@
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,7 +8,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
+/**
+ * JPA mapping for a loan account.
+ * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently; payment posting does not automatically change the balance until accounting rules are explicitly designed.
+ * updateDetails preserves the record identity and tenant owner.
+ */
 @Entity
 @Table(name = "loans")
 public class Loan {
@@ -64,16 +68,10 @@ public class Loan {
     @Column(nullable = false, columnDefinition = "text")
     private String currency = "INR";
 
-    protected Loan() {
-    }
+    protected Loan() {}
 
     public Loan(
-            UUID userId,
-            String loanName,
-            BigDecimal principalAmount,
-            BigDecimal currentBalance,
-            LocalDate startDate
-    ) {
+            UUID userId, String loanName, BigDecimal principalAmount, BigDecimal currentBalance, LocalDate startDate) {
         this.userId = userId;
         this.loanName = loanName;
         this.principalAmount = principalAmount;
@@ -81,7 +79,11 @@ public class Loan {
         this.startDate = startDate;
     }
 
+/**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     @PrePersist
+
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -92,24 +94,98 @@ public class Loan {
         }
     }
 
+/**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     @PreUpdate
+
     void onUpdate() {
         updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getLoanName() { return loanName; }
-    public BigDecimal getPrincipalAmount() { return principalAmount; }
-    public BigDecimal getCurrentBalance() { return currentBalance; }
-    public BigDecimal getInterestRate() { return interestRate; }
-    public BigDecimal getMonthlyPayment() { return monthlyPayment; }
-    public LocalDate getStartDate() { return startDate; }
-    public LocalDate getEndDate() { return endDate; }
-    public String getLender() { return lender; }
-    public String getLoanType() { return loanType; }
-    public String getStatus() { return status; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public String getCurrency() { return currency; }
+    /** Updates loan terms without changing the owning user or loan identity. */
+    public void updateDetails(
+            String name,
+            BigDecimal principal,
+            BigDecimal balance,
+            BigDecimal rate,
+            BigDecimal payment,
+            LocalDate start,
+            LocalDate end,
+            String lender,
+            String type,
+            String status,
+            String currency) {
+        loanName = name;
+        principalAmount = principal;
+        currentBalance = balance;
+        interestRate = rate;
+        monthlyPayment = payment;
+        startDate = start;
+        endDate = end;
+        this.lender = lender;
+        loanType = type;
+        this.status = status;
+        this.currency = currency;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getLoanName() {
+        return loanName;
+    }
+
+    public BigDecimal getPrincipalAmount() {
+        return principalAmount;
+    }
+
+    public BigDecimal getCurrentBalance() {
+        return currentBalance;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public BigDecimal getMonthlyPayment() {
+        return monthlyPayment;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public String getLender() {
+        return lender;
+    }
+
+    public String getLoanType() {
+        return loanType;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
 }

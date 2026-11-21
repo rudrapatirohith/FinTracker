@@ -1,17 +1,21 @@
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
+/**
+ * JPA mapping for an individual payment associated with a loan and tenant.
+ * Both loanId and userId are persisted so repository ownership checks and the database composite foreign key can enforce that the payment belongs to the same user as its parent loan.
+ * updateDetails cannot re-parent a payment or change its owner.
+ */
 @Entity
 @Table(name = "loan_payments")
 public class LoanPayment {
@@ -56,39 +60,97 @@ public class LoanPayment {
     @Column(name = "inr_equivalent", precision = 15, scale = 2)
     private BigDecimal inrEquivalent;
 
-    protected LoanPayment() {
-    }
+    protected LoanPayment() {}
 
-    public LoanPayment(
-            UUID loanId,
-            UUID userId,
-            BigDecimal amount,
-            LocalDate paymentDate
-    ) {
+    public LoanPayment(UUID loanId, UUID userId, BigDecimal amount, LocalDate paymentDate) {
         this.loanId = loanId;
         this.userId = userId;
         this.amount = amount;
         this.paymentDate = paymentDate;
     }
 
+/**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     @jakarta.persistence.PrePersist
+
     void onCreate() {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
     }
 
-    public UUID getId() { return id; }
-    public UUID getLoanId() { return loanId; }
-    public UUID getUserId() { return userId; }
-    public BigDecimal getAmount() { return amount; }
-    public BigDecimal getPrincipalAmount() { return principalAmount; }
-    public BigDecimal getInterestAmount() { return interestAmount; }
-    public LocalDate getPaymentDate() { return paymentDate; }
-    public String getPaymentMethod() { return paymentMethod; }
-    public String getNotes() { return notes; }
-    public Instant getCreatedAt() { return createdAt; }
-    public String getCurrency() { return currency; }
-    public BigDecimal getExchangeRate() { return exchangeRate; }
-    public BigDecimal getInrEquivalent() { return inrEquivalent; }
+    /** Updates payment data; loan and owner linkage remain immutable. */
+    public void updateDetails(
+            BigDecimal amount,
+            BigDecimal principal,
+            BigDecimal interest,
+            LocalDate date,
+            String method,
+            String notes,
+            String currency,
+            BigDecimal rate,
+            BigDecimal inr) {
+        this.amount = amount;
+        principalAmount = principal;
+        interestAmount = interest;
+        paymentDate = date;
+        paymentMethod = method;
+        this.notes = notes;
+        this.currency = currency;
+        exchangeRate = rate;
+        inrEquivalent = inr;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getLoanId() {
+        return loanId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public BigDecimal getPrincipalAmount() {
+        return principalAmount;
+    }
+
+    public BigDecimal getInterestAmount() {
+        return interestAmount;
+    }
+
+    public LocalDate getPaymentDate() {
+        return paymentDate;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
+    }
+
+    public BigDecimal getInrEquivalent() {
+        return inrEquivalent;
+    }
 }

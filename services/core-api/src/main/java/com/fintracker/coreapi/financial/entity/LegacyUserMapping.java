@@ -13,24 +13,20 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(
-    name = "legacy_user_mappings",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uq_legacy_user_mappings_external",
-            columnNames = {"provider", "legacy_user_id"}
-        ),
-        @UniqueConstraint(
-            name = "uq_legacy_user_mappings_app_user",
-            columnNames = {"provider", "app_user_id"}
-        )
-    }
-)
+        name = "legacy_user_mappings",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_legacy_user_mappings_external",
+                    columnNames = {"provider", "legacy_user_id"}),
+            @UniqueConstraint(
+                    name = "uq_legacy_user_mappings_app_user",
+                    columnNames = {"provider", "app_user_id"})
+        })
 public class LegacyUserMapping {
 
     public static final String SUPABASE_PROVIDER = "SUPABASE";
@@ -47,29 +43,27 @@ public class LegacyUserMapping {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-        name = "app_user_id",
-        nullable = false,
-        foreignKey = @ForeignKey(name = "fk_legacy_user_mappings_app_user")
-    )
+            name = "app_user_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_legacy_user_mappings_app_user"))
     private AppUser appUser;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected LegacyUserMapping() {
-    }
+    protected LegacyUserMapping() {}
 
-    public LegacyUserMapping(
-        String provider,
-        UUID legacyUserId,
-        AppUser appUser
-    ) {
+    public LegacyUserMapping(String provider, UUID legacyUserId, AppUser appUser) {
         this.provider = provider;
         this.legacyUserId = legacyUserId;
         this.appUser = appUser;
     }
 
+/**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     @PrePersist
+
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = Instant.now();

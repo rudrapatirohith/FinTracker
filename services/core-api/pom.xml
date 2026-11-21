@@ -152,6 +152,21 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+            <groupId>com.diffplug.spotless</groupId>
+            <artifactId>spotless-maven-plugin</artifactId>
+            <version>3.12.0</version>
+            <configuration>
+                <java>
+                    <!-- Pick the formatter matching your project style -->
+                    <palantirJavaFormat/>
+                    <!-- Or: <googleJavaFormat/> -->
+                    <removeUnusedImports/>
+                    <trimTrailingWhitespace/>
+                    <endWithNewline/>
+                </java>
+            </configuration>
+        </plugin>
         </plugins>
     </build>
 
