@@ -1,3 +1,7 @@
+/**
+ * Persistence queries for income records.
+ * Collection reads require userId and return a Page so the database limits the result set; single-record reads require both the record ID and user ID, making tenant ownership part of the SQL predicate rather than a check performed after loading the row.
+ */
 package com.fintracker.coreapi.financial.repository;
 
 import com.fintracker.coreapi.financial.entity.Income;
