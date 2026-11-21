@@ -1,3 +1,8 @@
+/**
+ * Transactional use cases for monthly expenses.
+ * Each operation resolves the current user from the security context; detail/update/delete operations use a repository query constrained by both expense ID and owner ID.
+ * Currency normalization and the INR fallback are centralized in apply so create and update share the same rules.
+ */
 package com.fintracker.coreapi.financial.service;
 
 import java.util.Locale;
