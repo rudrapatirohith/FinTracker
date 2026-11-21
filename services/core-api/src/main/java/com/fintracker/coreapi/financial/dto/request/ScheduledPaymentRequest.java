@@ -1,8 +1,3 @@
-/**
- * Validated request for a scheduled obligation.
- * Required name, amount, and due date identify the payment; optional recurrence, autopay, status, and reminder fields are defaulted by the service when omitted.
- * Reminder-day bounds prevent invalid or unreasonable values from reaching persistence.
- */
 package com.fintracker.coreapi.financial.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
