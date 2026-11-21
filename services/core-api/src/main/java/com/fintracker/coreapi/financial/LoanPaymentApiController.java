@@ -1,3 +1,8 @@
+/**
+ * Nested REST resource for payments belonging to a specific loan.
+ * The loan ID is part of every route so the service can verify the parent resource before reading or mutating a payment.
+ * This controller handles HTTP validation and status codes; it does not decide who owns either resource.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
