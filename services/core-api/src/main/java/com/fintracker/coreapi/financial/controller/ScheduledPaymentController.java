@@ -42,12 +42,18 @@ public class ScheduledPaymentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
+    /**
+     * Returns the authenticated user's scheduled payments as a page, defaulting to the earliest due date first.
+     */
     @GetMapping
     public Page<ScheduledPaymentResponse> getAll(
             @PageableDefault(size = 20, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         return service.getAll(pageable);
     }
 
+    /**
+     * Returns the requested scheduled payment through the owner-scoped service lookup; absent and foreign-owned IDs share the not-found result.
+     */
     @GetMapping("/{id}")
     public ScheduledPaymentResponse getById(@PathVariable UUID id) {
         return service.getById(id);
