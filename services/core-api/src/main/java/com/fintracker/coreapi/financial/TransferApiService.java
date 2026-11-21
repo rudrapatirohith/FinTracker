@@ -20,9 +20,7 @@ public class TransferApiService {
     private final InternationalTransferRepository repo;
     private final AuthenticatedUserProvider users;
 
-  /**
-   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
-   */
+  
     TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -42,9 +40,7 @@ public class TransferApiService {
                 r.amountReceived(),
                 r.exchangeRate(),
                 r.transferDate());
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return TransferView.from(repo.save(e));
     }
@@ -71,9 +67,7 @@ public class TransferApiService {
     @Transactional
     TransferView update(UUID id, TransferRequest r) {
         InternationalTransfer e = owned(id);
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return TransferView.from(e);
     }
