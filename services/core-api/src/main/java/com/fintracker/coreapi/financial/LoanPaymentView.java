@@ -1,7 +1,3 @@
-/**
- * Read-only API projection for a loan payment.
- * The mapper explicitly selects fields exposed to clients instead of serializing the JPA entity, keeping persistence details and tenant ownership metadata out of the response.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -15,6 +11,9 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Maps a persisted payment to the response projection, exposing the parent loan ID and payment details without serializing the JPA entity.
+ */
 public record LoanPaymentView(
         UUID id,
         UUID loanId,
@@ -27,7 +26,13 @@ public record LoanPaymentView(
         String currency,
         BigDecimal exchangeRate,
         BigDecimal inrEquivalent) {
+    /**
+     * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
+     */
     static LoanPaymentView from(LoanPayment e) {
+        /**
+         * Maps a persisted payment to the response projection, exposing the parent loan ID and payment details without serializing the JPA entity.
+         */
         return new LoanPaymentView(
                 e.getId(),
                 e.getLoanId(),
