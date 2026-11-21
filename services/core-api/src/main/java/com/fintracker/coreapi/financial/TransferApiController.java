@@ -11,12 +11,15 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * HTTP adapter for international-transfer endpoints. It validates request bodies and defines HTTP/pagination behavior while delegating tenant checks and persistence to TransferApiService.
+ */
 @RestController
 @RequestMapping("/api/v1/international-transfers")
 public class TransferApiController {
     private final TransferApiService service;
 
-  
+
     TransferApiController(TransferApiService s) {
         service = s;
     }
