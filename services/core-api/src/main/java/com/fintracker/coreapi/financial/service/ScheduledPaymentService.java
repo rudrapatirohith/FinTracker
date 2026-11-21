@@ -1,3 +1,8 @@
+/**
+ * Transactional use cases for scheduled payments.
+ * The service derives ownership from the authenticated JWT, scopes every record lookup to that owner, and centralizes defaults for currency, recurrence, autopay, status, and reminder days.
+ * Read-only transactions are used for queries; write operations execute within transactions.
+ */
 package com.fintracker.coreapi.financial.service;
 
 import java.util.Locale;
