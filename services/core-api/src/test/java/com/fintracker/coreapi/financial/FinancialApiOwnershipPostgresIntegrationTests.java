@@ -27,23 +27,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * PostgreSQL integration tests for the international-transfer, loan, and loan-payment service layer.
- * Testcontainers runs the real PostgreSQL schema and Flyway migrations so these tests exercise actual persistence constraints rather than an in-memory substitute.
- * The scenarios switch JWT subjects between two users to prove that record IDs and nested loan/payment paths cannot cross tenant boundaries.
- */
-@SpringBootTest
-@ActiveProfiles("test")
-@Testcontainers
-
-class FinancialApiOwnershipPostgresIntegrationTests {
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("fintracker_financial_api_test")
-            .withUsername("fintracker_test")
-            .withPassword("test_password");
-
-/**
-     * Registers the Testcontainers PostgreSQL connection properties and enables Flyway/schema validation for the Spring test context.
+     * Registers the Testcontainers PostgreSQL connection details and enables Flyway plus Hibernate schema validation for this integration-test context.
      */
     @DynamicPropertySource
 
@@ -71,17 +55,26 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     @Autowired
     LoanPaymentApiService payments;
 
+/**
+     * Clears the security context and deletes the test users before each scenario so prior fixtures cannot influence ownership assertions.
+     */
     @BeforeEach
     void clean() {
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM app_users");
     }
 
+/**
+     * Clears the thread-local authentication after each scenario to keep the next test isolated.
+     */
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
     }
 
+/**
+     * Verifies that a user can create, list, and delete their own transfer, while another authenticated user cannot read, update, or delete it.
+     */
     @Test
     void transferCrudIsScopedToAuthenticatedOwner() {
         AppUser owner = user("transfer.owner@example.com");
@@ -111,6 +104,9 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 .isZero();
     }
 
+/**
+     * Verifies that a user can create and update their own loan, while a different user cannot retrieve or delete that loan by ID.
+     */
     @Test
     void loanCrudIsScopedToAuthenticatedOwner() {
         AppUser owner = user("loan.owner@example.com");
@@ -140,6 +136,9 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThatThrownBy(() -> loans.delete(created.id())).isInstanceOf(ResponseStatusException.class);
     }
 
+/**
+     * Verifies that loan-payment operations require ownership of the parent loan and that payment IDs cannot be used across users.
+     */
     @Test
     void paymentRequiresOwnershipOfParentLoanAndPayment() {
         AppUser owner = user("payment.owner@example.com");
@@ -167,6 +166,9 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThat(payments.one(loan.id(), payment.id()).id()).isEqualTo(payment.id());
     }
 
+/**
+     * Persists a separate application-user fixture so the test can switch between distinct tenant identities.
+     */
     private AppUser user(String email) {
         return users.save(new AppUser(UUID.randomUUID(), email, null));
     }
