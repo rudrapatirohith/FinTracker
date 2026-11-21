@@ -1,7 +1,3 @@
-/**
- * Public monthly-expense response shape.
- * The mapper exposes business fields and audit timestamps while deliberately omitting the internal owner UUID, keeping tenant implementation details out of the API.
- */
 package com.fintracker.coreapi.financial.dto.response;
 
 import com.fintracker.coreapi.financial.entity.MonthlyExpense;
@@ -24,7 +20,13 @@ public record MonthlyExpenseResponse(
         String notes,
         Instant createdAt,
         Instant updatedAt) {
+    /**
+     * Maps persisted entity fields into the public response record; keeping this allowlist explicit prevents internal ownership and JPA state from leaking into JSON.
+     */
     public static MonthlyExpenseResponse from(MonthlyExpense entity) {
+        /**
+         * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
+         */
         return new MonthlyExpenseResponse(
                 entity.getId(),
                 entity.getExpenseName(),
