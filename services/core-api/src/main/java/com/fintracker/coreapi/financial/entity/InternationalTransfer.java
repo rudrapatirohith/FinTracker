@@ -1,3 +1,9 @@
+/**
+ * JPA mapping for an international transfer.
+ * The entity retains both the current currency fields and legacy sentCurrency/receivedCurrency columns because existing database data and application code may still depend on both representations.
+ * updateDetails synchronizes each pair so they cannot drift during API updates.
+ * The owner and generated ID are not mutable through that method.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
