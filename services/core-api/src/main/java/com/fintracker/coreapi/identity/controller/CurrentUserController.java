@@ -1,3 +1,7 @@
+/**
+ * Small identity endpoint that returns the user ID associated with the current authenticated JWT.
+ * It delegates token interpretation to AuthenticatedUserProvider instead of reading claims independently, ensuring identity resolution follows the same validation rules used by financial services.
+ */
 package com.fintracker.coreapi.identity.controller;
 
 import java.util.UUID;
