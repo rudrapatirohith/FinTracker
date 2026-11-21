@@ -1,3 +1,9 @@
+/**
+ * Transactional use cases for loan payments.
+ * Each operation first verifies that the authenticated user owns the parent loan, then verifies that the payment belongs to that same user and requested loan.
+ * This two-level check prevents a caller from reaching another user's payment by changing either path identifier.
+ * Payment creation intentionally does not recalculate loan balance because principal/interest accounting rules are not yet defined.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
