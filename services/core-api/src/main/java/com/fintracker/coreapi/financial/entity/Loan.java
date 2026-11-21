@@ -79,10 +79,11 @@ public class Loan {
         this.startDate = startDate;
     }
 
-    @PrePersist
-    /**
+/**
      * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
      */
+    @PrePersist
+
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -93,10 +94,11 @@ public class Loan {
         }
     }
 
-    @PreUpdate
-    /**
+/**
      * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
      */
+    @PreUpdate
+
     void onUpdate() {
         updatedAt = Instant.now();
     }
