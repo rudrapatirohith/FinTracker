@@ -1,3 +1,8 @@
+/**
+ * Transactional international-transfer use cases.
+ * The authenticated JWT subject determines the owner, and every ID lookup is scoped by that owner so IDs cannot be used to access another user's transfer.
+ * Currency values are normalized consistently, and both legacy currency-column pairs are synchronized by the entity update method to preserve compatibility with the existing schema.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
