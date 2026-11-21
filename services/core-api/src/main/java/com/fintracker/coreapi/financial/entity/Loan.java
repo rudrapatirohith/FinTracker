@@ -1,8 +1,3 @@
-/**
- * JPA mapping for a loan account.
- * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently; payment posting does not automatically change the balance until accounting rules are explicitly designed.
- * updateDetails preserves the record identity and tenant owner.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -18,6 +13,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * JPA mapping for a loan account.
+ * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently; payment posting does not automatically change the balance until accounting rules are explicitly designed.
+ * updateDetails preserves the record identity and tenant owner.
+ */
 @Entity
 @Table(name = "loans")
 public class Loan {
@@ -80,6 +80,9 @@ public class Loan {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -91,6 +94,9 @@ public class Loan {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
