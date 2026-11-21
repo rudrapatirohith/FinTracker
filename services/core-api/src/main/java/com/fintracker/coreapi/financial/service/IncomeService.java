@@ -41,6 +41,9 @@ public class IncomeService {
         return IncomeResponse.from(incomeRepository.save(income));
     }
 
+    /**
+     * Returns a paginated list of income records owned by the authenticated user. The repository applies the owner filter in SQL, and the response mapper prevents persistence-only fields from leaving the service.
+     */
     @Transactional(readOnly = true)
     public Page<IncomeResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
@@ -48,6 +51,9 @@ public class IncomeService {
         return incomeRepository.findAllByUserId(userId, pageable).map(IncomeResponse::from);
     }
 
+    /**
+     * Returns one income record only when its ID belongs to the current user; an unknown ID and another user's ID both raise IncomeNotFoundException.
+     */
     @Transactional(readOnly = true)
     public IncomeResponse getById(UUID incomeId) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
