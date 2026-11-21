@@ -1,8 +1,3 @@
-/**
- * REST adapter for scheduled-payment CRUD.
- * It exposes only the HTTP contract and request validation; ScheduledPaymentService derives the owner from the JWT and enforces record-level access.
- * The collection defaults to earliest due date first so upcoming obligations appear naturally.
- */
 package com.fintracker.coreapi.financial.controller;
 
 import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
@@ -32,10 +27,16 @@ public class ScheduledPaymentController {
 
     private final ScheduledPaymentService service;
 
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
     public ScheduledPaymentController(ScheduledPaymentService service) {
         this.service = service;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @PostMapping
     public ResponseEntity<ScheduledPaymentResponse> create(@Valid @RequestBody ScheduledPaymentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
@@ -52,11 +53,17 @@ public class ScheduledPaymentController {
         return service.getById(id);
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @PutMapping("/{id}")
     public ScheduledPaymentResponse update(@PathVariable UUID id, @Valid @RequestBody ScheduledPaymentRequest request) {
         return service.update(id, request);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
