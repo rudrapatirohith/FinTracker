@@ -42,12 +42,18 @@ public class MonthlyExpenseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
+    /**
+     * Returns the authenticated user's monthly expenses as a page, defaulting to the newest expense date first.
+     */
     @GetMapping
     public Page<MonthlyExpenseResponse> getAll(
             @PageableDefault(size = 20, sort = "expenseDate", direction = Sort.Direction.DESC) Pageable pageable) {
         return service.getAll(pageable);
     }
 
+    /**
+     * Returns the requested monthly expense through the owner-scoped service lookup; foreign-owned IDs are not disclosed.
+     */
     @GetMapping("/{id}")
     public MonthlyExpenseResponse getById(@PathVariable UUID id) {
         return service.getById(id);
