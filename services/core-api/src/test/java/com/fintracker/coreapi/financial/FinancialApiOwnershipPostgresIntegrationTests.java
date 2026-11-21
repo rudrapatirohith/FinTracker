@@ -97,13 +97,11 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         .getTotalElements())
                 .isEqualTo(1);
 
-
         authenticate(other);
         assertThatThrownBy(() -> transfers.one(created.id())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> transfers.update(created.id(), transferRequest("EUR", "GBP")))
                 .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> transfers.delete(created.id())).isInstanceOf(ResponseStatusException.class);
-
 
         authenticate(owner);
         transfers.delete(created.id());
@@ -137,7 +135,6 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         "INR"));
         assertThat(updated.loanName()).isEqualTo("Updated personal loan");
 
-
         authenticate(other);
         assertThatThrownBy(() -> loans.one(created.id())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> loans.delete(created.id())).isInstanceOf(ResponseStatusException.class);
@@ -157,7 +154,6 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         .getTotalElements())
                 .isEqualTo(1);
 
-
         authenticate(other);
         assertThatThrownBy(() -> payments.create(loan.id(), request)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20)))
@@ -166,7 +162,6 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThatThrownBy(() -> payments.update(loan.id(), payment.id(), request))
                 .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.delete(loan.id(), payment.id())).isInstanceOf(ResponseStatusException.class);
-
 
         authenticate(owner);
         assertThat(payments.one(loan.id(), payment.id()).id()).isEqualTo(payment.id());
