@@ -36,13 +36,9 @@ public class ScheduledPaymentService {
     public ScheduledPaymentResponse create(ScheduledPaymentRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         ScheduledPayment entity =
-                /**
-                 * Performs the scheduled payment step for this component.
-                 */
+
                 new ScheduledPayment(userId, request.paymentName().trim(), request.amount(), request.dueDate());
-      /**
-       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
-       */
+
         apply(entity, request);
         return ScheduledPaymentResponse.from(repository.save(entity));
     }
@@ -64,9 +60,7 @@ public class ScheduledPaymentService {
     @Transactional
     public ScheduledPaymentResponse update(UUID id, ScheduledPaymentRequest request) {
         ScheduledPayment entity = findOwned(id);
-      /**
-       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
-       */
+
         apply(entity, request);
         return ScheduledPaymentResponse.from(entity);
     }
