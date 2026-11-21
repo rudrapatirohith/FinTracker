@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** API representation that does not expose the internal owner UUID. */
+
 /**
  * Public response contract for a monthly expense, including its business fields and audit timestamps without exposing the internal owner UUID.
  */
@@ -27,9 +27,7 @@ public record MonthlyExpenseResponse(
      * Maps persisted entity fields into the public response record; keeping this allowlist explicit prevents internal ownership and JPA state from leaking into JSON.
      */
     public static MonthlyExpenseResponse from(MonthlyExpense entity) {
-        /**
-         * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
-         */
+
         return new MonthlyExpenseResponse(
                 entity.getId(),
                 entity.getExpenseName(),
