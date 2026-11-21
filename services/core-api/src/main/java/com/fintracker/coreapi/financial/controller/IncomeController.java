@@ -65,7 +65,9 @@ public class IncomeController {
     }
 
     /**
-     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     * Performs a full replacement of the income's editable fields rather than a partial merge. Send the complete intended
+     * income state; omitted optional values are handled by the service's defaults/null rules. The owner-scoped lookup
+     * preserves the existing record ID and owner.
      */
     @PutMapping("/{id}")
     public IncomeResponse update(@PathVariable UUID id, @Valid @RequestBody IncomeRequest request) {

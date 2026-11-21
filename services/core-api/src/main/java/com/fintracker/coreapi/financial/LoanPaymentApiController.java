@@ -50,7 +50,9 @@ public class LoanPaymentApiController {
     }
 
     /**
-     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     * Performs a full replacement of the payment's editable fields, not a partial merge. The request must describe the
+     * complete intended payment state; optional values follow the service's replacement behavior. The service also
+     * verifies ownership of the route's parent loan and payment, preserving both the payment ID and parent relationship.
      */
     @PutMapping("/{paymentId}")
     LoanPaymentView update(

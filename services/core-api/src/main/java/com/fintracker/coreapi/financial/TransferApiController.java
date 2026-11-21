@@ -49,7 +49,9 @@ public class TransferApiController {
     }
 
     /**
-     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     * Performs a full replacement of the transfer's editable fields. Clients should send the complete intended transfer
+     * state; optional conversion/reference fields are replaced according to the service's null/default rules, not merged
+     * with stored values. The owner-scoped lookup preserves the existing transfer ID and owner.
      */
     @PutMapping("/{id}")
     TransferView update(@PathVariable UUID id, @Valid @RequestBody TransferRequest r) {

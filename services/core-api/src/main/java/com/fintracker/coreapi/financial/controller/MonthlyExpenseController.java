@@ -60,7 +60,9 @@ public class MonthlyExpenseController {
     }
 
     /**
-     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     * Performs a full replacement of the expense's editable fields rather than a partial merge. Send the complete intended
+     * expense state; optional values are replaced or cleared according to the service's null/default handling. The
+     * owner-scoped lookup preserves the existing record ID and owner.
      */
     @PutMapping("/{id}")
     public MonthlyExpenseResponse update(@PathVariable UUID id, @Valid @RequestBody MonthlyExpenseRequest request) {

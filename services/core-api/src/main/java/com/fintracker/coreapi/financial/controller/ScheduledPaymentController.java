@@ -60,7 +60,9 @@ public class ScheduledPaymentController {
     }
 
     /**
-     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     * Performs a full replacement of the scheduled payment's editable fields, not a partial merge. Send the complete
+     * intended payment state; omitted optional values use the service's defaults or replacement behavior. The
+     * owner-scoped lookup preserves the existing record ID and owner.
      */
     @PutMapping("/{id}")
     public ScheduledPaymentResponse update(@PathVariable UUID id, @Valid @RequestBody ScheduledPaymentRequest request) {

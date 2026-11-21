@@ -48,7 +48,9 @@ public class LoanApiController {
     }
 
     /**
-     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     * Performs a full replacement of the loan's editable fields. The request must describe the complete intended loan state;
+     * optional values are applied using the service's replacement/default rules rather than merged with stored values.
+     * The owner-scoped service lookup preserves the existing loan ID and owner.
      */
     @PutMapping("/{id}")
     LoanView update(@PathVariable UUID id, @Valid @RequestBody LoanRequest r) {

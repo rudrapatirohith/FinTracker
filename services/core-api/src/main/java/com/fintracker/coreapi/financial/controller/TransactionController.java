@@ -60,7 +60,9 @@ public class TransactionController {
     }
 
     /**
-     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     * Performs a full replacement of the transaction's editable fields rather than a partial merge. Send the complete
+     * intended transaction state; optional fields, including tags, are replaced according to the service's null/default
+     * handling. The owner-scoped lookup preserves the existing record ID and owner.
      */
     @PutMapping("/{id}")
     public TransactionResponse update(@PathVariable UUID id, @Valid @RequestBody TransactionRequest request) {
