@@ -1,8 +1,3 @@
-/**
- * Validated input contract for an international transfer.
- * It carries both sent and received amounts/currencies, the applied exchange rate, and optional fee/reference/conversion metadata so the API can preserve the financial facts entered by the user.
- * Bean Validation checks required values, supported currency codes, lengths, and decimal precision before persistence.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -15,6 +10,9 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Validated input contract for an international transfer. It preserves the sent and received amounts/currencies plus exchange-rate and optional conversion metadata; Bean Validation enforces required values, supported currency codes, lengths, and numeric precision.
+ */
 public record TransferRequest(
         @NotBlank @Size(max = 255) String recipientName,
         @NotBlank @Size(max = 255) String recipientCountry,
