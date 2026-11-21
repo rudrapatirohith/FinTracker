@@ -1,8 +1,3 @@
-/**
- * Defines safe global pagination defaults for financial collection endpoints.
- *  * A maximum page size limits accidental or abusive requests for very large result sets; a fallback page keeps endpoints predictable when clients omit page parameters.
- *  * Controllers still declare domain-specific default sort orders.
- */
 package com.fintracker.coreapi.financial;
 
 import org.springframework.context.annotation.Bean;
@@ -17,6 +12,9 @@ import org.springframework.data.web.config.PageableHandlerMethodArgumentResolver
 @Configuration
 class FinancialPaginationConfiguration {
     @Bean
+    /**
+     * Registers the shared pagination guard: at most 100 rows per page and a fallback of page zero with 20 rows when no Pageable is supplied.
+     */
     PageableHandlerMethodArgumentResolverCustomizer financialPageableCustomizer() {
         return resolver -> {
             resolver.setMaxPageSize(100);
