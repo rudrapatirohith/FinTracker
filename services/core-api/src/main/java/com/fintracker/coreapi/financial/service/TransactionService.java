@@ -1,3 +1,8 @@
+/**
+ * Application service for financial transactions.
+ * It never accepts a tenant ID from the request: the authenticated JWT subject is the sole source of ownership.
+ * Owner-scoped queries protect detail/update/delete operations, and the shared apply method normalizes currency and defensively handles tags consistently across create and update.
+ */
 package com.fintracker.coreapi.financial.service;
 
 import java.util.UUID;
