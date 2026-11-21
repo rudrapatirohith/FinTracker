@@ -1,8 +1,3 @@
-/**
- * Validated input contract for creating or replacing a loan payment.
- * Bean Validation rejects missing dates, non-positive total amounts, negative principal/interest values, unsupported currency codes, and values that exceed database precision before the service attempts persistence.
- * Loan and owner IDs are intentionally absent because they come from the route and authenticated identity.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -15,6 +10,9 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Validated input contract for a loan payment. Bean Validation enforces the declared amount, date, currency, length, and precision constraints; the route supplies the loan ID and the authenticated security context supplies the owner, so neither is accepted from request JSON.
+ */
 public record LoanPaymentRequest(
         @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2)
         BigDecimal amount,
