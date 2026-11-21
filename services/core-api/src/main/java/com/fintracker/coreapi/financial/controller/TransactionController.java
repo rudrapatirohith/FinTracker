@@ -42,12 +42,18 @@ public class TransactionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
+    /**
+     * Returns the authenticated user's transactions as a page, defaulting to the newest transaction date first.
+     */
     @GetMapping
     public Page<TransactionResponse> getAll(
             @PageableDefault(size = 20, sort = "transactionDate", direction = Sort.Direction.DESC) Pageable pageable) {
         return service.getAll(pageable);
     }
 
+    /**
+     * Returns the requested transaction through the service's owner-scoped lookup without revealing whether a foreign user's ID exists.
+     */
     @GetMapping("/{id}")
     public TransactionResponse getById(@PathVariable UUID id) {
         return service.getById(id);
