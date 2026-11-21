@@ -1,8 +1,3 @@
-/**
- * Public response projection for a scheduled payment.
- * It returns the obligation details and audit timestamps needed by the client without exposing the internal tenant key.
- * The static mapper is the single place where the persistence entity is translated into the API contract.
- */
 package com.fintracker.coreapi.financial.dto.response;
 
 import com.fintracker.coreapi.financial.entity.ScheduledPayment;
@@ -28,6 +23,9 @@ public record ScheduledPaymentResponse(
         String notes,
         Instant createdAt,
         Instant updatedAt) {
+    /**
+     * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
+     */
     public static ScheduledPaymentResponse from(ScheduledPayment entity) {
         return new ScheduledPaymentResponse(
                 entity.getId(),
