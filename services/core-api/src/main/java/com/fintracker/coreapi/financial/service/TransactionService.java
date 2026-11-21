@@ -44,12 +44,18 @@ public class TransactionService {
         return TransactionResponse.from(repository.save(entity));
     }
 
+    /**
+     * Returns a paginated transaction list filtered by the authenticated user's UUID, keeping collection reads tenant-scoped at the repository layer.
+     */
     @Transactional(readOnly = true)
     public Page<TransactionResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         return repository.findAllByUserId(userId, pageable).map(TransactionResponse::from);
     }
 
+    /**
+     * Loads a transaction by ID and authenticated owner; foreign-owned and missing records produce the same not-found exception.
+     */
     @Transactional(readOnly = true)
     public TransactionResponse getById(UUID id) {
         return TransactionResponse.from(findOwned(id));
