@@ -8,6 +8,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Centralizes conversion of the authenticated JWT subject into the application's user UUID. It rejects missing, unauthenticated, non-JWT, blank, and malformed principals so services fail closed.
+ */
 public class AuthenticatedUserProvider {
 
     /**
