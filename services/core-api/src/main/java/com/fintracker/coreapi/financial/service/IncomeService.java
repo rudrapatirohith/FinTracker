@@ -1,3 +1,9 @@
+/**
+ * Transactional application service for income records.
+ * It obtains the owner exclusively from AuthenticatedUserProvider, uses owner-scoped repository queries for every ID operation, and maps entities to response DTOs.
+ * Write methods run inside transactions; collection/detail reads are read-only.
+ * applyRequest centralizes normalization and defaults so create and update behave consistently.
+ */
 package com.fintracker.coreapi.financial.service;
 
 import java.util.UUID;
