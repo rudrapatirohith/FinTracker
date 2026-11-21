@@ -32,7 +32,7 @@ public class CurrentUserController {
     }
 
     /**
-     * Performs the current user response step for this component.
+     * Response body for the current-user endpoint; it exposes only the authenticated application's UUID.
      */
     public record CurrentUserResponse(UUID userId) {}
 }
