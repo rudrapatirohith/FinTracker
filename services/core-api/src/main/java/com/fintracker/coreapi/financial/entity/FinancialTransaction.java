@@ -1,3 +1,9 @@
+/**
+ * JPA mapping for the transactions table.
+ * This class represents persisted transaction state, including the tenant owner and PostgreSQL text-array tags.
+ * Ownership is immutable through the public update method; tags are copied on both input and output to prevent mutation outside the entity.
+ * Lifecycle callbacks maintain audit timestamps.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
