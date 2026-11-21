@@ -60,6 +60,9 @@ public class LegacyUserMapping {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = Instant.now();
