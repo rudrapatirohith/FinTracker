@@ -30,7 +30,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
+     * Creates a payment only after confirming that the authenticated user owns the parent loan. The owner UUID comes from the security context, and creating a payment does not recalculate the loan balance.
      */
     @Transactional
     LoanPaymentView create(UUID loanId, LoanPaymentRequest r) {
@@ -43,7 +43,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
+     * First verifies ownership of the parent loan, then returns only payments matching both that loan ID and the authenticated user's UUID.
      */
     @Transactional(readOnly = true)
     Page<LoanPaymentView> all(UUID loanId, Pageable p) {
@@ -53,7 +53,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
+     * Returns a payment only when the caller owns the parent loan and the payment belongs to that same user and loan; all other cases return not found.
      */
     @Transactional(readOnly = true)
     LoanPaymentView one(UUID loanId, UUID id) {
@@ -61,7 +61,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     * Verifies both parent-loan and payment ownership, then replaces payment details without changing the payment's owner or parent loan.
      */
     @Transactional
     LoanPaymentView update(UUID loanId, UUID id, LoanPaymentRequest r) {
@@ -72,7 +72,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
+     * Deletes the payment only after verifying that the authenticated user owns the parent loan and the payment belongs to that loan.
      */
     @Transactional
     void delete(UUID loanId, UUID id) {
@@ -80,7 +80,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
+     * Checks parent-loan ownership first, then checks payment ownership and confirms the payment's loanId matches the route's loanId. A mismatch is reported as not found to avoid disclosing cross-user or cross-loan records.
      */
     private LoanPayment owned(UUID loanId, UUID id) {
         UUID uid = users.getRequiredUserId();
@@ -95,7 +95,7 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     * Copies the amount, principal/interest split, date, payment method, notes, currency, and conversion values into the payment entity. Loan-balance accounting is intentionally outside this operation.
      */
     private void apply(LoanPayment e, LoanPaymentRequest r) {
         e.updateDetails(
