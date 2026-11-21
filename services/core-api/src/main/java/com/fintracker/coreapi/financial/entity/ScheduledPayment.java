@@ -1,8 +1,3 @@
-/**
- * JPA mapping for a scheduled payment or recurring obligation.
- * Defaults such as USD, pending status, disabled recurrence/autopay, and a three-day reminder are initialized in the entity and can be overridden by the service.
- * updateDetails changes only editable payment attributes and never changes the owner or primary key.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -18,6 +13,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * JPA mapping for a scheduled payment or recurring obligation.
+ * Defaults such as USD, pending status, disabled recurrence/autopay, and a three-day reminder are initialized in the entity and can be overridden by the service.
+ * updateDetails changes only editable payment attributes and never changes the owner or primary key.
+ */
 @Entity
 @Table(name = "scheduled_payments")
 public class ScheduledPayment {
@@ -81,6 +81,9 @@ public class ScheduledPayment {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -92,6 +95,9 @@ public class ScheduledPayment {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
