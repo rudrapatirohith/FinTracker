@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Maps a persisted payment to the response projection, exposing the parent loan ID and payment details without serializing the JPA entity.
  */
+/**
+ * Public response projection for a loan payment. It exposes the payment details and parent loan ID without serializing the persistence entity or its internal owner identifier.
+ */
 public record LoanPaymentView(
         UUID id,
         UUID loanId,
