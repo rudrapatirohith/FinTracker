@@ -1,3 +1,8 @@
+/**
+ * Implements transactional loan use cases.
+ *  * Every operation derives the tenant from the authenticated JWT and scopes reads, updates, and deletes by both loan ID and owner ID.
+ *  * Updates deliberately preserve the entity ID and owner, and the service checks that an optional end date does not precede the start date.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
