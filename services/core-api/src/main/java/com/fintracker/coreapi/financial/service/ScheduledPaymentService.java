@@ -1,8 +1,3 @@
-/**
- * Transactional use cases for scheduled payments.
- * The service derives ownership from the authenticated JWT, scopes every record lookup to that owner, and centralizes defaults for currency, recurrence, autopay, status, and reminder days.
- * Read-only transactions are used for queries; write operations execute within transactions.
- */
 package com.fintracker.coreapi.financial.service;
 
 import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
@@ -25,17 +20,29 @@ public class ScheduledPaymentService {
     private final ScheduledPaymentRepository repository;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
+    /**
+     * Receives the repository and authenticated-user provider required to execute tenant-scoped use cases.
+     */
     public ScheduledPaymentService(
             ScheduledPaymentRepository repository, AuthenticatedUserProvider authenticatedUserProvider) {
         this.repository = repository;
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @Transactional
     public ScheduledPaymentResponse create(ScheduledPaymentRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         ScheduledPayment entity =
+                /**
+                 * Performs the scheduled payment step for this component.
+                 */
                 new ScheduledPayment(userId, request.paymentName().trim(), request.amount(), request.dueDate());
+      /**
+       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+       */
         apply(entity, request);
         return ScheduledPaymentResponse.from(repository.save(entity));
     }
@@ -51,23 +58,38 @@ public class ScheduledPaymentService {
         return ScheduledPaymentResponse.from(findOwned(id));
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @Transactional
     public ScheduledPaymentResponse update(UUID id, ScheduledPaymentRequest request) {
         ScheduledPayment entity = findOwned(id);
+      /**
+       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+       */
         apply(entity, request);
         return ScheduledPaymentResponse.from(entity);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @Transactional
     public void delete(UUID id) {
         repository.delete(findOwned(id));
     }
 
+    /**
+     * Uses the current authenticated UUID together with the record ID in the repository query, so ownership is enforced by the database predicate.
+     */
     private ScheduledPayment findOwned(UUID id) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         return repository.findByIdAndUserId(id, userId).orElseThrow(ScheduledPaymentNotFoundException::new);
     }
 
+    /**
+     * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+     */
     private void apply(ScheduledPayment entity, ScheduledPaymentRequest request) {
         String currency = request.currency() == null || request.currency().isBlank()
                 ? "USD"
