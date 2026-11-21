@@ -1,8 +1,3 @@
-/**
- * REST adapter for income records.
- * It defines the income endpoint contract and HTTP semantics while delegating ownership, default values, transactional behavior, and persistence to IncomeService.
- * Pageable defaults keep the newest income records first without requiring clients to send sorting parameters.
- */
 package com.fintracker.coreapi.financial.controller;
 
 import com.fintracker.coreapi.financial.dto.request.IncomeRequest;
@@ -37,10 +32,16 @@ public class IncomeController {
 
     private final IncomeService incomeService;
 
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
     public IncomeController(IncomeService incomeService) {
         this.incomeService = incomeService;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @PostMapping
     public ResponseEntity<IncomeResponse> create(@Valid @RequestBody IncomeRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(incomeService.create(request));
@@ -57,11 +58,17 @@ public class IncomeController {
         return incomeService.getById(id);
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @PutMapping("/{id}")
     public IncomeResponse update(@PathVariable UUID id, @Valid @RequestBody IncomeRequest request) {
         return incomeService.update(id, request);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         incomeService.delete(id);
