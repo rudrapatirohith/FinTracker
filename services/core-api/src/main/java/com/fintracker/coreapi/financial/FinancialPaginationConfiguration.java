@@ -11,10 +11,11 @@ import org.springframework.data.web.config.PageableHandlerMethodArgumentResolver
  */
 @Configuration
 class FinancialPaginationConfiguration {
-    @Bean
-    /**
+/**
      * Registers the shared pagination guard: at most 100 rows per page and a fallback of page zero with 20 rows when no Pageable is supplied.
      */
+    @Bean
+
     PageableHandlerMethodArgumentResolverCustomizer financialPageableCustomizer() {
         return resolver -> {
             resolver.setMaxPageSize(100);
