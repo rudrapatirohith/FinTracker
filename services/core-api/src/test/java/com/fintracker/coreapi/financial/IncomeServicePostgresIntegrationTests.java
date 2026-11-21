@@ -33,14 +33,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Testcontainers
 /**
  * PostgreSQL integration tests for income use cases.
  * These tests verify persistence, generated audit timestamps, authenticated-user scoping for collections, and rejection of another user's IDs during read, update, and delete.
  * A real PostgreSQL Testcontainer is used to validate the schema and repository predicates together.
  */
+@SpringBootTest
+@ActiveProfiles("test")
+@Testcontainers
+
 class IncomeServicePostgresIntegrationTests {
 
     @Container
@@ -49,10 +50,11 @@ class IncomeServicePostgresIntegrationTests {
             .withUsername("fintracker_test")
             .withPassword("test_password");
 
-    @DynamicPropertySource
-    /**
+/**
      * Registers the Testcontainers PostgreSQL connection properties and enables Flyway/schema validation for the Spring test context.
      */
+    @DynamicPropertySource
+
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
@@ -74,32 +76,33 @@ class IncomeServicePostgresIntegrationTests {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @BeforeEach
-    /**
+/**
      * Clears authentication and resets persisted test users before each test so records from a prior scenario cannot affect the next one.
      */
+    @BeforeEach
+
     void cleanDatabase() {
         SecurityContextHolder.clearContext();
         jdbcTemplate.update("DELETE FROM app_users");
     }
 
-    @AfterEach
-    /**
+/**
      * Clears Spring Security's thread-local context after the test to prevent authentication leaking into another test.
      */
+    @AfterEach
+
     void clearAuthentication() {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
-    /**
+/**
      * Verifies that create income for authenticated user under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
      */
+    @Test
+
     void shouldCreateIncomeForAuthenticatedUser() {
         AppUser user = createUser("income.create@example.com");
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(user);
 
         IncomeResponse response = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
@@ -118,30 +121,25 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(persisted.getUpdatedAt()).isNotNull();
     }
 
-    @Test
-    /**
+/**
      * Verifies that list only authenticated users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
      */
+    @Test
+
     void shouldListOnlyAuthenticatedUsersIncome() {
         AppUser userA = createUser("income.list.a@example.com");
         AppUser userB = createUser("income.list.b@example.com");
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
         incomeService.create(request("Freelance", "750.00", "USD", LocalDate.of(2026, 1, 5)));
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userB);
         incomeService.create(request("Consulting", "2500.00", "USD", LocalDate.of(2026, 1, 3)));
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         Page<IncomeResponse> results = incomeService.getAll(PageRequest.of(0, 20));
 
@@ -153,41 +151,37 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(results.getTotalElements()).isEqualTo(2);
     }
 
-    @Test
-    /**
+/**
      * Verifies that return owned income but hide another users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
      */
+    @Test
+
     void shouldReturnOwnedIncomeButHideAnotherUsersIncome() {
         AppUser userA = createUser("income.get.a@example.com");
         AppUser userB = createUser("income.get.b@example.com");
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
 
         assertThat(incomeService.getById(created.id()).id()).isEqualTo(created.id());
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userB);
 
         assertThatThrownBy(() -> incomeService.getById(created.id())).isInstanceOf(IncomeNotFoundException.class);
     }
 
-    @Test
-    /**
+/**
      * Verifies that update owned income and reject another users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
      */
+    @Test
+
     void shouldUpdateOwnedIncomeAndRejectAnotherUsersIncome() {
         AppUser userA = createUser("income.update.a@example.com");
         AppUser userB = createUser("income.update.b@example.com");
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
 
@@ -200,9 +194,7 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(updated.currency()).isEqualTo("EUR");
         assertThat(updated.date()).isEqualTo(LocalDate.of(2026, 2, 1));
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userB);
 
         assertThatThrownBy(() -> incomeService.update(
@@ -216,32 +208,27 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(persisted.getAmount()).isEqualByComparingTo("6200.00");
     }
 
-    @Test
-    /**
+/**
      * Verifies that delete owned income and reject another users delete under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
      */
+    @Test
+
     void shouldDeleteOwnedIncomeAndRejectAnotherUsersDelete() {
         AppUser userA = createUser("income.delete.a@example.com");
         AppUser userB = createUser("income.delete.b@example.com");
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userB);
 
         assertThatThrownBy(() -> incomeService.delete(created.id())).isInstanceOf(IncomeNotFoundException.class);
 
         assertThat(incomeRepository.existsById(created.id())).isTrue();
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticateAs(userA);
         incomeService.delete(created.id());
 
