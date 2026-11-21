@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Public response projection for an international transfer. The mapper explicitly selects the transfer and conversion fields returned to clients while keeping persistence and owner metadata private.
  */
+/**
+ * Public response projection for an international transfer. It explicitly selects transfer and conversion fields for the API response while excluding persistence-only ownership metadata.
+ */
 public record TransferView(
         UUID id,
         String recipientName,
@@ -32,6 +35,9 @@ public record TransferView(
         String referenceNumber,
         BigDecimal usdToInrRate,
         BigDecimal inrEquivalent) {
+    /**
+     * Maps the persisted entity into this public response shape, selecting only API fields and excluding internal ownership metadata.
+     */
     static TransferView from(InternationalTransfer e) {
         return new TransferView(
                 e.getId(),
