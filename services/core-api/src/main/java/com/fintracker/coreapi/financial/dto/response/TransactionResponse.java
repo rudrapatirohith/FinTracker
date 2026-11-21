@@ -7,6 +7,9 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /** API representation deliberately excludes the internal owner identifier. */
+/**
+ * Public response contract for a financial transaction. It excludes internal ownership metadata and returns a defensive copy of the tags array.
+ */
 public record TransactionResponse(
         UUID id,
         String type,
