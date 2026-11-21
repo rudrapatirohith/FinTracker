@@ -1,3 +1,8 @@
+/**
+ * JPA mapping for an income record.
+ * The userId links the row to its tenant, while currency and recurring defaults preserve expected behavior for omitted optional input.
+ * updateDetails changes only business fields and intentionally leaves the database ID and owner unchanged; lifecycle callbacks maintain timestamps.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
