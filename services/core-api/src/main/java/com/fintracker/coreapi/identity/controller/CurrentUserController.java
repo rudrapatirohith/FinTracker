@@ -19,6 +19,9 @@ public class CurrentUserController {
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
+    /**
+     * Returns the application-user UUID associated with the authenticated JWT, delegating claim validation to AuthenticatedUserProvider.
+     */
     @GetMapping("/me")
     public CurrentUserResponse getCurrentUser() {
 
