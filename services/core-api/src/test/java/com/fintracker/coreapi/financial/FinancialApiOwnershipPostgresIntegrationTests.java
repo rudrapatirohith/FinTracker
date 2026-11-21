@@ -26,14 +26,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Testcontainers
 /**
  * PostgreSQL integration tests for the international-transfer, loan, and loan-payment service layer.
  * Testcontainers runs the real PostgreSQL schema and Flyway migrations so these tests exercise actual persistence constraints rather than an in-memory substitute.
  * The scenarios switch JWT subjects between two users to prove that record IDs and nested loan/payment paths cannot cross tenant boundaries.
  */
+@SpringBootTest
+@ActiveProfiles("test")
+@Testcontainers
+
 class FinancialApiOwnershipPostgresIntegrationTests {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
@@ -41,10 +42,11 @@ class FinancialApiOwnershipPostgresIntegrationTests {
             .withUsername("fintracker_test")
             .withPassword("test_password");
 
-    @DynamicPropertySource
-    /**
+/**
      * Registers the Testcontainers PostgreSQL connection properties and enables Flyway/schema validation for the Spring test context.
      */
+    @DynamicPropertySource
+
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
@@ -84,9 +86,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     void transferCrudIsScopedToAuthenticatedOwner() {
         AppUser owner = user("transfer.owner@example.com");
         AppUser other = user("transfer.other@example.com");
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(owner);
         TransferView created = transfers.create(transferRequest("USD", "INR"));
         assertThat(created.id()).isNotNull();
@@ -97,18 +97,14 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         .getTotalElements())
                 .isEqualTo(1);
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(other);
         assertThatThrownBy(() -> transfers.one(created.id())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> transfers.update(created.id(), transferRequest("EUR", "GBP")))
                 .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> transfers.delete(created.id())).isInstanceOf(ResponseStatusException.class);
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(owner);
         transfers.delete(created.id());
         assertThat(transfers
@@ -121,9 +117,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     void loanCrudIsScopedToAuthenticatedOwner() {
         AppUser owner = user("loan.owner@example.com");
         AppUser other = user("loan.other@example.com");
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(owner);
         LoanView created = loans.create(loanRequest());
         assertThat(created.currentBalance()).isEqualByComparingTo("900.00");
@@ -143,9 +137,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         "INR"));
         assertThat(updated.loanName()).isEqualTo("Updated personal loan");
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(other);
         assertThatThrownBy(() -> loans.one(created.id())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> loans.delete(created.id())).isInstanceOf(ResponseStatusException.class);
@@ -155,9 +147,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     void paymentRequiresOwnershipOfParentLoanAndPayment() {
         AppUser owner = user("payment.owner@example.com");
         AppUser other = user("payment.other@example.com");
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(owner);
         LoanView loan = loans.create(loanRequest());
         LoanPaymentRequest request = paymentRequest();
@@ -167,9 +157,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                         .getTotalElements())
                 .isEqualTo(1);
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(other);
         assertThatThrownBy(() -> payments.create(loan.id(), request)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20)))
@@ -179,9 +167,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.delete(loan.id(), payment.id())).isInstanceOf(ResponseStatusException.class);
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(owner);
         assertThat(payments.one(loan.id(), payment.id()).id()).isEqualTo(payment.id());
     }
