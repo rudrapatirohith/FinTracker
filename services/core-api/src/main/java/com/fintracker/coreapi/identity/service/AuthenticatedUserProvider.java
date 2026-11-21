@@ -19,12 +19,10 @@ public class AuthenticatedUserProvider {
     public UUID getRequiredUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-
         if (authentication == null || !authentication.isAuthenticated()) {
 
             throw new InvalidAuthenticatedUserException();
         }
-
 
         if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
 
@@ -32,7 +30,6 @@ public class AuthenticatedUserProvider {
         }
 
         String subject = jwt.getSubject();
-
 
         if (subject == null || subject.isBlank()) {
 

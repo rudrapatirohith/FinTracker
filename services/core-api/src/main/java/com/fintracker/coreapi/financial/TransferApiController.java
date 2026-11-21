@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class TransferApiController {
     private final TransferApiService service;
 
-
     TransferApiController(TransferApiService s) {
         service = s;
     }

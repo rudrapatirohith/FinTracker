@@ -39,7 +39,7 @@ public class TransactionService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         FinancialTransaction entity = new FinancialTransaction(
                 userId, request.type().trim(), request.category().trim(), request.amount(), request.transactionDate());
-      
+
         apply(entity, request);
         return TransactionResponse.from(repository.save(entity));
     }
@@ -67,7 +67,7 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(UUID id, TransactionRequest request) {
         FinancialTransaction entity = findOwned(id);
-      
+
         apply(entity, request);
         return TransactionResponse.from(entity);
     }
@@ -97,7 +97,6 @@ public class TransactionService {
                 request.category().trim(),
                 request.subcategory(),
                 request.amount(),
-              
                 normalizedCurrency(request.currency()),
                 request.description(),
                 request.merchant(),

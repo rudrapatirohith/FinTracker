@@ -36,7 +36,6 @@ public class MonthlyExpenseService {
     public MonthlyExpenseResponse create(MonthlyExpenseRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         MonthlyExpense entity =
-
                 new MonthlyExpense(userId, request.expenseName().trim(), request.amount(), request.expenseDate());
 
         apply(entity, request);

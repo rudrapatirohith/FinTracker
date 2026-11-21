@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class LoanPaymentApiController {
     private final LoanPaymentApiService service;
 
-
     LoanPaymentApiController(LoanPaymentApiService s) {
         service = s;
     }

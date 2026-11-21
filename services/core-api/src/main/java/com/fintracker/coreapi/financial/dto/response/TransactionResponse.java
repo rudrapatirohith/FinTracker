@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-
 /**
  * Public response contract for a financial transaction. It excludes internal ownership metadata and returns a defensive copy of the tags array.
  */
@@ -29,11 +28,10 @@ public record TransactionResponse(
         tags = tags == null ? null : tags.clone();
     }
 
-/**
+    /**
      * Returns a defensive copy of the tags array; the caller can modify the returned array without changing the request record.
      */
     @Override
-
     public String[] tags() {
         return tags == null ? null : tags.clone();
     }

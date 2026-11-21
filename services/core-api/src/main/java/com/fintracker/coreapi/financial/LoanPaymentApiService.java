@@ -22,7 +22,6 @@ public class LoanPaymentApiService {
     private final LoanApiService loans;
     private final AuthenticatedUserProvider users;
 
-
     LoanPaymentApiService(LoanPaymentRepository p, LoanApiService l, AuthenticatedUserProvider u) {
         payments = p;
         loans = l;
@@ -89,7 +88,6 @@ public class LoanPaymentApiService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found."));
 
         if (!e.getLoanId().equals(loanId))
-
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found.");
         return e;
     }

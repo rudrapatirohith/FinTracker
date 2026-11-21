@@ -36,7 +36,6 @@ public class ScheduledPaymentService {
     public ScheduledPaymentResponse create(ScheduledPaymentRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         ScheduledPayment entity =
-
                 new ScheduledPayment(userId, request.paymentName().trim(), request.amount(), request.dueDate());
 
         apply(entity, request);

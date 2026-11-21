@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-
 /**
  * Public response contract for a scheduled payment, exposing obligation details and audit timestamps without exposing the internal tenant key.
  */

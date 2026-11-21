@@ -29,11 +29,10 @@ public record TransactionRequest(
         tags = tags == null ? null : tags.clone();
     }
 
-/**
+    /**
      * Returns a defensive copy of the tags array; the caller can modify the returned array without changing the request record.
      */
     @Override
-
     public String[] tags() {
         return tags == null ? null : tags.clone();
     }

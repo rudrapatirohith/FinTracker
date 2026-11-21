@@ -11,7 +11,6 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-
 /**
  * Public response projection for a loan. It defines the response fields explicitly and does not expose the JPA entity or internal owner UUID.
  */

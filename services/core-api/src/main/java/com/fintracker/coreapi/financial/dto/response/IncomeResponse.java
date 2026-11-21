@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-
 /**
  * Public response contract for an income record, including business fields, conversion metadata, and audit timestamps but excluding the internal owner UUID.
  */

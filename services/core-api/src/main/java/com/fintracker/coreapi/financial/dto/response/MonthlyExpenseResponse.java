@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-
 /**
  * Public response contract for a monthly expense, including its business fields and audit timestamps without exposing the internal owner UUID.
  */

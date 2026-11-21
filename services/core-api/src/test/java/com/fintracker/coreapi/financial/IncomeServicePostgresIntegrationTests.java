@@ -41,7 +41,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-
 class IncomeServicePostgresIntegrationTests {
 
     @Container
@@ -50,11 +49,10 @@ class IncomeServicePostgresIntegrationTests {
             .withUsername("fintracker_test")
             .withPassword("test_password");
 
-/**
+    /**
      * Registers the Testcontainers PostgreSQL connection properties and enables Flyway/schema validation for the Spring test context.
      */
     @DynamicPropertySource
-
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
@@ -76,30 +74,27 @@ class IncomeServicePostgresIntegrationTests {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-/**
+    /**
      * Clears authentication and resets persisted test users before each test so records from a prior scenario cannot affect the next one.
      */
     @BeforeEach
-
     void cleanDatabase() {
         SecurityContextHolder.clearContext();
         jdbcTemplate.update("DELETE FROM app_users");
     }
 
-/**
+    /**
      * Clears Spring Security's thread-local context after the test to prevent authentication leaking into another test.
      */
     @AfterEach
-
     void clearAuthentication() {
         SecurityContextHolder.clearContext();
     }
 
-/**
+    /**
      * Verifies that income creation persists the authenticated user's UUID, returns the supplied business fields, applies the default non-recurring value, and initializes audit timestamps.
      */
     @Test
-
     void shouldCreateIncomeForAuthenticatedUser() {
         AppUser user = createUser("income.create@example.com");
 
@@ -121,11 +116,10 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(persisted.getUpdatedAt()).isNotNull();
     }
 
-/**
+    /**
      * Verifies that a paginated income query returns only the records owned by the current JWT subject, even when another user has income rows in the same database.
      */
     @Test
-
     void shouldListOnlyAuthenticatedUsersIncome() {
         AppUser userA = createUser("income.list.a@example.com");
         AppUser userB = createUser("income.list.b@example.com");
@@ -148,11 +142,10 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(results.getTotalElements()).isEqualTo(2);
     }
 
-/**
+    /**
      * Verifies that the owner can retrieve an income record while a different authenticated user receives the same not-found exception used for an unknown ID.
      */
     @Test
-
     void shouldReturnOwnedIncomeButHideAnotherUsersIncome() {
         AppUser userA = createUser("income.get.a@example.com");
         AppUser userB = createUser("income.get.b@example.com");
@@ -167,11 +160,10 @@ class IncomeServicePostgresIntegrationTests {
         assertThatThrownBy(() -> incomeService.getById(created.id())).isInstanceOf(IncomeNotFoundException.class);
     }
 
-/**
+    /**
      * Verifies that the owner can replace income fields without changing the record ID, while another user cannot update the record and the persisted values remain unchanged.
      */
     @Test
-
     void shouldUpdateOwnedIncomeAndRejectAnotherUsersIncome() {
         AppUser userA = createUser("income.update.a@example.com");
         AppUser userB = createUser("income.update.b@example.com");
@@ -201,11 +193,10 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(persisted.getAmount()).isEqualByComparingTo("6200.00");
     }
 
-/**
+    /**
      * Verifies that a different user cannot delete the income row and that the owner can subsequently delete it successfully.
      */
     @Test
-
     void shouldDeleteOwnedIncomeAndRejectAnotherUsersDelete() {
         AppUser userA = createUser("income.delete.a@example.com");
         AppUser userB = createUser("income.delete.b@example.com");

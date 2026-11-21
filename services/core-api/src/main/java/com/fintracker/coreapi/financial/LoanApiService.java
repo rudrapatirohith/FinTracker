@@ -22,7 +22,6 @@ public class LoanApiService {
     private final LoanRepository repo;
     private final AuthenticatedUserProvider users;
 
-
     LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -97,7 +96,6 @@ public class LoanApiService {
     private void apply(Loan e, LoanRequest r) {
 
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
-
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
         e.updateDetails(
                 r.loanName().trim(),

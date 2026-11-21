@@ -11,7 +11,6 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-
 /**
  * Public response projection for an international transfer. It explicitly selects transfer and conversion fields for the API response while excluding persistence-only ownership metadata.
  */
