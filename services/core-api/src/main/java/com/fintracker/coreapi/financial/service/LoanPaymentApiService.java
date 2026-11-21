@@ -2,6 +2,7 @@ package com.fintracker.coreapi.financial.service;
 
 import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
 import com.fintracker.coreapi.financial.dto.response.LoanPaymentView;
+import com.fintracker.coreapi.financial.entity.Loan;
 import com.fintracker.coreapi.financial.entity.LoanPayment;
 import com.fintracker.coreapi.financial.repository.LoanPaymentRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
@@ -34,10 +35,10 @@ public class LoanPaymentApiService {
     @Transactional
     public LoanPaymentView create(UUID loanId, LoanPaymentRequest r) {
         UUID uid = users.getRequiredUserId();
-        loans.requireOwned(loanId, uid);
+        Loan parentLoan = loans.requireOwned(loanId, uid);
         LoanPayment e = new LoanPayment(loanId, uid, r.amount(), r.paymentDate());
 
-        apply(e, r);
+        apply(e, r, parentLoan.getCurrency());
         return LoanPaymentView.from(payments.save(e));
     }
 
@@ -64,9 +65,11 @@ public class LoanPaymentApiService {
      */
     @Transactional
     public LoanPaymentView update(UUID loanId, UUID id, LoanPaymentRequest r) {
-        LoanPayment e = owned(loanId, id);
+        UUID uid = users.getRequiredUserId();
+        Loan parentLoan = loans.requireOwned(loanId, uid);
+        LoanPayment e = findOwnedPayment(loanId, id, uid);
 
-        apply(e, r);
+        apply(e, r, parentLoan.getCurrency());
         return LoanPaymentView.from(e);
     }
 
@@ -84,6 +87,13 @@ public class LoanPaymentApiService {
     private LoanPayment owned(UUID loanId, UUID id) {
         UUID uid = users.getRequiredUserId();
         loans.requireOwned(loanId, uid);
+        return findOwnedPayment(loanId, id, uid);
+    }
+
+    /**
+     * Loads a payment only when its ID, owner, and route parent loan all match.
+     */
+    private LoanPayment findOwnedPayment(UUID loanId, UUID id, UUID uid) {
         LoanPayment e = payments.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found."));
 
@@ -93,9 +103,9 @@ public class LoanPaymentApiService {
     }
 
     /**
-     * Copies the amount, principal/interest split, date, payment method, notes, currency, and conversion values into the payment entity. Loan-balance accounting is intentionally outside this operation.
+     * Copies the amount, principal/interest split, date, payment method, notes, currency, and conversion values into the payment entity. If currency is omitted, it inherits the parent loan's currency. Loan-balance accounting is intentionally outside this operation.
      */
-    private void apply(LoanPayment e, LoanPaymentRequest r) {
+    private void apply(LoanPayment e, LoanPaymentRequest r, String loanCurrency) {
         e.updateDetails(
                 r.amount(),
                 r.principalAmount(),
@@ -103,7 +113,7 @@ public class LoanPaymentApiService {
                 r.paymentDate(),
                 r.paymentMethod(),
                 r.notes(),
-                r.currency(),
+                r.currency() == null ? loanCurrency : r.currency(),
                 r.exchangeRate(),
                 r.inrEquivalent());
     }

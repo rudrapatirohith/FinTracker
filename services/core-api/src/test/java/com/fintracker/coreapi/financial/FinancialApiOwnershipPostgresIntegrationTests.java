@@ -163,6 +163,8 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         LoanPaymentRequest request = paymentRequest();
         LoanPaymentView payment = payments.create(loan.id(), request);
         assertThat(payment.loanId()).isEqualTo(loan.id());
+        assertThat(payment.currency()).isEqualTo(loan.currency());
+        assertThat(payments.update(loan.id(), payment.id(), request).currency()).isEqualTo(loan.currency());
         assertThat(payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isEqualTo(1);
@@ -251,7 +253,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 LocalDate.of(2026, 2, 1),
                 "bank transfer",
                 "monthly payment",
-                "INR",
+                null,
                 null,
                 null);
     }
