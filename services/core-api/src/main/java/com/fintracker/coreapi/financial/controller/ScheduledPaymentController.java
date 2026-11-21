@@ -1,3 +1,8 @@
+/**
+ * REST adapter for scheduled-payment CRUD.
+ * It exposes only the HTTP contract and request validation; ScheduledPaymentService derives the owner from the JWT and enforces record-level access.
+ * The collection defaults to earliest due date first so upcoming obligations appear naturally.
+ */
 package com.fintracker.coreapi.financial.controller;
 
 import java.util.UUID;
