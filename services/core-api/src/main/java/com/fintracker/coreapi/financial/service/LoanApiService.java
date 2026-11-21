@@ -77,7 +77,7 @@ public class LoanApiService {
     /**
      * Finds a loan only when both the loan ID and supplied owner ID match; nested loan-payment operations use this before accessing payments.
      */
-    public Loan requireOwned(UUID id, UUID uid) {
+    Loan requireOwned(UUID id, UUID uid) {
         return repo.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
     }
