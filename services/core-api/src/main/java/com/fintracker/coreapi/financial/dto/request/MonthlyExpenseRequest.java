@@ -1,3 +1,8 @@
+/**
+ * Validated input for creating or replacing a monthly expense.
+ * Constraints document the supported lengths, positive amount, three-letter currency format, exchange-rate precision, and required expense date.
+ * A missing currency is handled by the service's INR default.
+ */
 package com.fintracker.coreapi.financial.dto.request;
 
 import java.math.BigDecimal;
