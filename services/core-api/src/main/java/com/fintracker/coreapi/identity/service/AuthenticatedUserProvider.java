@@ -1,3 +1,8 @@
+/**
+ * Single source of truth for resolving the current application's user ID from Spring Security.
+ * Financial services call this component rather than accepting user IDs from request bodies or trusting arbitrary principal types.
+ * It requires an authenticated Jwt principal and parses its subject as a UUID; missing, unauthenticated, non-JWT, blank, or malformed identities fail closed with InvalidAuthenticatedUserException.
+ */
 package com.fintracker.coreapi.identity.service;
 
 import java.util.UUID;
