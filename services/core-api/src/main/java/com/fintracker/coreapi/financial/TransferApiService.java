@@ -1,8 +1,3 @@
-/**
- * Transactional international-transfer use cases.
- * The authenticated JWT subject determines the owner, and every ID lookup is scoped by that owner so IDs cannot be used to access another user's transfer.
- * Currency values are normalized consistently, and both legacy currency-column pairs are synchronized by the entity update method to preserve compatibility with the existing schema.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -25,11 +20,17 @@ public class TransferApiService {
     private final InternationalTransferRepository repo;
     private final AuthenticatedUserProvider users;
 
+  /**
+   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
+   */
     TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
+     */
     @Transactional
     TransferView create(TransferRequest r) {
         UUID uid = users.getRequiredUserId();
@@ -41,37 +42,61 @@ public class TransferApiService {
                 r.amountReceived(),
                 r.exchangeRate(),
                 r.transferDate());
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return TransferView.from(repo.save(e));
     }
 
+    /**
+     * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
+     */
     @Transactional(readOnly = true)
     Page<TransferView> all(Pageable p) {
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(TransferView::from);
     }
 
+    /**
+     * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
+     */
     @Transactional(readOnly = true)
     TransferView one(UUID id) {
         return TransferView.from(owned(id));
     }
 
+    /**
+     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     */
     @Transactional
     TransferView update(UUID id, TransferRequest r) {
         InternationalTransfer e = owned(id);
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return TransferView.from(e);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
+     */
     @Transactional
     void delete(UUID id) {
         repo.delete(owned(id));
     }
 
+    /**
+     * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
+     */
     private InternationalTransfer owned(UUID id) {
         return repo.findByIdAndUserId(id, users.getRequiredUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transfer not found."));
     }
 
+    /**
+     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     */
     private void apply(InternationalTransfer e, TransferRequest r) {
         String a = r.currencySent().toUpperCase(Locale.ROOT),
                 b = r.currencyReceived().toUpperCase(Locale.ROOT);
