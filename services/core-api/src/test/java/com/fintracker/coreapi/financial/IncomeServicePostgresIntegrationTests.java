@@ -1,3 +1,8 @@
+/**
+ * PostgreSQL integration tests for income use cases.
+ * These tests verify persistence, generated audit timestamps, authenticated-user scoping for collections, and rejection of another user's IDs during read, update, and delete.
+ * A real PostgreSQL Testcontainer is used to validate the schema and repository predicates together.
+ */
 package com.fintracker.coreapi.financial;
 
 import static org.assertj.core.api.Assertions.assertThat;
