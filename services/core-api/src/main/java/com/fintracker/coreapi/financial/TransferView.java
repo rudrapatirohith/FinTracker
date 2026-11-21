@@ -1,3 +1,7 @@
+/**
+ * Response-only projection for an international transfer.
+ * The static mapper selects the fields intended for clients and keeps the persistence entity, including its internal owner identifier, behind the service boundary.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
