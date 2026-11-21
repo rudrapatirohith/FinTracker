@@ -43,12 +43,18 @@ public class MonthlyExpenseService {
         return MonthlyExpenseResponse.from(repository.save(entity));
     }
 
+    /**
+     * Returns a paginated monthly-expense collection for the authenticated user; filtering occurs in the repository query.
+     */
     @Transactional(readOnly = true)
     public Page<MonthlyExpenseResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         return repository.findAllByUserId(userId, pageable).map(MonthlyExpenseResponse::from);
     }
 
+    /**
+     * Returns the requested expense only when it belongs to the authenticated user; a foreign-owned ID is treated as not found.
+     */
     @Transactional(readOnly = true)
     public MonthlyExpenseResponse getById(UUID id) {
         return MonthlyExpenseResponse.from(findOwned(id));
