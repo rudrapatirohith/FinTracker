@@ -81,7 +81,7 @@ public class TransactionService {
     }
 
     /**
-     * Performs the find owned step for this use case.
+     * Finds a transaction by both its ID and the current user's UUID; a missing row and a row owned by another user produce the same not-found exception.
      */
     private FinancialTransaction findOwned(UUID id) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
@@ -89,7 +89,7 @@ public class TransactionService {
     }
 
     /**
-     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     * Trims the required type/category fields, normalizes a missing currency to USD or uppercases the supplied code, and passes tags through the request's defensive-copy accessor before updating the entity.
      */
     private void apply(FinancialTransaction entity, TransactionRequest request) {
         entity.updateDetails(
