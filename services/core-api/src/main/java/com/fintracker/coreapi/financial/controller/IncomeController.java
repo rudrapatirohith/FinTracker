@@ -1,3 +1,8 @@
+/**
+ * REST adapter for income records.
+ * It defines the income endpoint contract and HTTP semantics while delegating ownership, default values, transactional behavior, and persistence to IncomeService.
+ * Pageable defaults keep the newest income records first without requiring clients to send sorting parameters.
+ */
 package com.fintracker.coreapi.financial.controller;
 
 import java.util.UUID;
