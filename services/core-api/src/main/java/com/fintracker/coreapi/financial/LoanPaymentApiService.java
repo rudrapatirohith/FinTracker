@@ -13,13 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Application service for loan-payment use cases. It verifies the authenticated user's ownership of the parent loan and the payment, and intentionally leaves loan-balance accounting unchanged.
+ */
 @Service
 public class LoanPaymentApiService {
     private final LoanPaymentRepository payments;
     private final LoanApiService loans;
     private final AuthenticatedUserProvider users;
 
-  
+
     LoanPaymentApiService(LoanPaymentRepository p, LoanApiService l, AuthenticatedUserProvider u) {
         payments = p;
         loans = l;
@@ -34,7 +37,7 @@ public class LoanPaymentApiService {
         UUID uid = users.getRequiredUserId();
         loans.requireOwned(loanId, uid);
         LoanPayment e = new LoanPayment(loanId, uid, r.amount(), r.paymentDate());
-      
+
         apply(e, r);
         return LoanPaymentView.from(payments.save(e));
     }
@@ -63,7 +66,7 @@ public class LoanPaymentApiService {
     @Transactional
     LoanPaymentView update(UUID loanId, UUID id, LoanPaymentRequest r) {
         LoanPayment e = owned(loanId, id);
-      
+
         apply(e, r);
         return LoanPaymentView.from(e);
     }
@@ -84,9 +87,9 @@ public class LoanPaymentApiService {
         loans.requireOwned(loanId, uid);
         LoanPayment e = payments.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found."));
-      
+
         if (!e.getLoanId().equals(loanId))
-            
+
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found.");
         return e;
     }
