@@ -1,9 +1,3 @@
-/**
- * Transactional use cases for loan payments.
- * Each operation first verifies that the authenticated user owns the parent loan, then verifies that the payment belongs to that same user and requested loan.
- * This two-level check prevents a caller from reaching another user's payment by changing either path identifier.
- * Payment creation intentionally does not recalculate loan balance because principal/interest accounting rules are not yet defined.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -25,21 +19,33 @@ public class LoanPaymentApiService {
     private final LoanApiService loans;
     private final AuthenticatedUserProvider users;
 
+  /**
+   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
+   */
     LoanPaymentApiService(LoanPaymentRepository p, LoanApiService l, AuthenticatedUserProvider u) {
         payments = p;
         loans = l;
         users = u;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
+     */
     @Transactional
     LoanPaymentView create(UUID loanId, LoanPaymentRequest r) {
         UUID uid = users.getRequiredUserId();
         loans.requireOwned(loanId, uid);
         LoanPayment e = new LoanPayment(loanId, uid, r.amount(), r.paymentDate());
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return LoanPaymentView.from(payments.save(e));
     }
 
+    /**
+     * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
+     */
     @Transactional(readOnly = true)
     Page<LoanPaymentView> all(UUID loanId, Pageable p) {
         UUID uid = users.getRequiredUserId();
@@ -47,33 +53,57 @@ public class LoanPaymentApiService {
         return payments.findAllByLoanIdAndUserId(loanId, uid, p).map(LoanPaymentView::from);
     }
 
+    /**
+     * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
+     */
     @Transactional(readOnly = true)
     LoanPaymentView one(UUID loanId, UUID id) {
         return LoanPaymentView.from(owned(loanId, id));
     }
 
+    /**
+     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     */
     @Transactional
     LoanPaymentView update(UUID loanId, UUID id, LoanPaymentRequest r) {
         LoanPayment e = owned(loanId, id);
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return LoanPaymentView.from(e);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
+     */
     @Transactional
     void delete(UUID loanId, UUID id) {
         payments.delete(owned(loanId, id));
     }
 
+    /**
+     * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
+     */
     private LoanPayment owned(UUID loanId, UUID id) {
         UUID uid = users.getRequiredUserId();
         loans.requireOwned(loanId, uid);
         LoanPayment e = payments.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found."));
+      /**
+       * Performs the if step for this use case.
+       */
         if (!e.getLoanId().equals(loanId))
+            /**
+             * Performs the response status exception step for this use case.
+             */
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan payment not found.");
         return e;
     }
 
+    /**
+     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     */
     private void apply(LoanPayment e, LoanPaymentRequest r) {
         e.updateDetails(
                 r.amount(),
