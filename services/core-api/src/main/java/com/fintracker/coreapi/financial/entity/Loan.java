@@ -1,3 +1,8 @@
+/**
+ * JPA mapping for a loan account.
+ * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently; payment posting does not automatically change the balance until accounting rules are explicitly designed.
+ * updateDetails preserves the record identity and tenant owner.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
