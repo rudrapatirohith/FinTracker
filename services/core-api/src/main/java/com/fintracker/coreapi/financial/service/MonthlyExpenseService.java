@@ -1,8 +1,3 @@
-/**
- * Transactional use cases for monthly expenses.
- * Each operation resolves the current user from the security context; detail/update/delete operations use a repository query constrained by both expense ID and owner ID.
- * Currency normalization and the INR fallback are centralized in apply so create and update share the same rules.
- */
 package com.fintracker.coreapi.financial.service;
 
 import com.fintracker.coreapi.financial.dto.request.MonthlyExpenseRequest;
@@ -25,17 +20,29 @@ public class MonthlyExpenseService {
     private final MonthlyExpenseRepository repository;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
+    /**
+     * Receives the repository and authenticated-user provider required to execute tenant-scoped use cases.
+     */
     public MonthlyExpenseService(
             MonthlyExpenseRepository repository, AuthenticatedUserProvider authenticatedUserProvider) {
         this.repository = repository;
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @Transactional
     public MonthlyExpenseResponse create(MonthlyExpenseRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         MonthlyExpense entity =
+                /**
+                 * Performs the monthly expense step for this component.
+                 */
                 new MonthlyExpense(userId, request.expenseName().trim(), request.amount(), request.expenseDate());
+      /**
+       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+       */
         apply(entity, request);
         return MonthlyExpenseResponse.from(repository.save(entity));
     }
@@ -51,23 +58,38 @@ public class MonthlyExpenseService {
         return MonthlyExpenseResponse.from(findOwned(id));
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @Transactional
     public MonthlyExpenseResponse update(UUID id, MonthlyExpenseRequest request) {
         MonthlyExpense entity = findOwned(id);
+      /**
+       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+       */
         apply(entity, request);
         return MonthlyExpenseResponse.from(entity);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @Transactional
     public void delete(UUID id) {
         repository.delete(findOwned(id));
     }
 
+    /**
+     * Uses the current authenticated UUID together with the record ID in the repository query, so ownership is enforced by the database predicate.
+     */
     private MonthlyExpense findOwned(UUID id) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         return repository.findByIdAndUserId(id, userId).orElseThrow(MonthlyExpenseNotFoundException::new);
     }
 
+    /**
+     * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
+     */
     private void apply(MonthlyExpense entity, MonthlyExpenseRequest request) {
         String currency = request.currency() == null || request.currency().isBlank()
                 ? "INR"
