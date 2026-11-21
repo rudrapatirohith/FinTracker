@@ -1,3 +1,8 @@
+/**
+ * Focused unit tests for JWT-to-application-user resolution.
+ * Each test covers one security boundary: valid UUID subject, absent authentication, non-JWT principal, missing subject, or malformed UUID.
+ * The security context is cleared after every test so authentication state cannot leak between test cases.
+ */
 package com.fintracker.coreapi.identity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
