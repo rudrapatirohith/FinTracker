@@ -1,9 +1,3 @@
-/**
- * JPA mapping for the transactions table.
- * This class represents persisted transaction state, including the tenant owner and PostgreSQL text-array tags.
- * Ownership is immutable through the public update method; tags are copied on both input and output to prevent mutation outside the entity.
- * Lifecycle callbacks maintain audit timestamps.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -21,6 +15,12 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+/**
+ * JPA mapping for the transactions table.
+ * This class represents persisted transaction state, including the tenant owner and PostgreSQL text-array tags.
+ * Ownership is immutable through the public update method; tags are copied on both input and output to prevent mutation outside the entity.
+ * Lifecycle callbacks maintain audit timestamps.
+ */
 @Entity
 @Table(name = "transactions")
 public class FinancialTransaction {
@@ -84,6 +84,9 @@ public class FinancialTransaction {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -95,6 +98,9 @@ public class FinancialTransaction {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
