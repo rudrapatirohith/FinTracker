@@ -36,13 +36,9 @@ public class MonthlyExpenseService {
     public MonthlyExpenseResponse create(MonthlyExpenseRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         MonthlyExpense entity =
-                /**
-                 * Performs the monthly expense step for this component.
-                 */
+
                 new MonthlyExpense(userId, request.expenseName().trim(), request.amount(), request.expenseDate());
-      /**
-       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
-       */
+
         apply(entity, request);
         return MonthlyExpenseResponse.from(repository.save(entity));
     }
@@ -64,9 +60,7 @@ public class MonthlyExpenseService {
     @Transactional
     public MonthlyExpenseResponse update(UUID id, MonthlyExpenseRequest request) {
         MonthlyExpense entity = findOwned(id);
-      /**
-       * Normalizes user-entered values and applies documented defaults before updating the entity; sharing this method keeps create and update behavior aligned.
-       */
+
         apply(entity, request);
         return MonthlyExpenseResponse.from(entity);
     }
