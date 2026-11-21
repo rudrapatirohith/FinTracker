@@ -9,6 +9,9 @@ import java.util.UUID;
 /**
  * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
  */
+/**
+ * Public response contract for an income record, including business fields, conversion metadata, and audit timestamps but excluding the internal owner UUID.
+ */
 public record IncomeResponse(
         UUID id,
         String source,
