@@ -1,7 +1,3 @@
-/**
- * Small identity endpoint that returns the user ID associated with the current authenticated JWT.
- * It delegates token interpretation to AuthenticatedUserProvider instead of reading claims independently, ensuring identity resolution follows the same validation rules used by financial services.
- */
 package com.fintracker.coreapi.identity.controller;
 
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
@@ -16,14 +12,23 @@ public class CurrentUserController {
 
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
     public CurrentUserController(AuthenticatedUserProvider authenticatedUserProvider) {
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
     @GetMapping("/me")
     public CurrentUserResponse getCurrentUser() {
+        /**
+         * Performs the current user response step for this component.
+         */
         return new CurrentUserResponse(authenticatedUserProvider.getRequiredUserId());
     }
 
+    /**
+     * Performs the current user response step for this component.
+     */
     public record CurrentUserResponse(UUID userId) {}
 }
