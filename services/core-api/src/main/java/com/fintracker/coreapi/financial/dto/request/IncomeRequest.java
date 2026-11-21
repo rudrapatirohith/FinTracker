@@ -1,3 +1,8 @@
+/**
+ * Client-supplied income fields and their validation rules.
+ * The amount and conversion fields use explicit decimal precision to match the database columns; source and date are required, while optional currency and recurring values are normalized or defaulted by IncomeService.
+ * No owner ID is accepted from the client.
+ */
 package com.fintracker.coreapi.financial.dto.request;
 
 import java.math.BigDecimal;
