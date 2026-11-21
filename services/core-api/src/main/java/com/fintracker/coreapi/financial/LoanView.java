@@ -1,3 +1,7 @@
+/**
+ * Stable response projection for a loan.
+ * Mapping the entity into this record makes the API's public field set explicit and avoids coupling JSON serialization to JPA annotations or internal owner metadata.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
