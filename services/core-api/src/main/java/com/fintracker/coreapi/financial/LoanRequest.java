@@ -1,3 +1,8 @@
+/**
+ * Validated request contract for loan terms.
+ * Required principal, balance, and start-date fields are checked at the HTTP boundary; decimal constraints mirror the supported database precision, while the service adds the cross-field rule that endDate cannot precede startDate.
+ * Ownership is intentionally excluded from this payload.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
