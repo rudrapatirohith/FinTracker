@@ -1,3 +1,8 @@
+/**
+ * HTTP adapter for loan CRUD operations.
+ *  * It owns route mapping, request-body validation, pagination defaults, and HTTP response semantics only; authenticated ownership checks, business validation, and persistence are delegated to LoanApiService.
+ *  * The client never supplies the owning user ID.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
