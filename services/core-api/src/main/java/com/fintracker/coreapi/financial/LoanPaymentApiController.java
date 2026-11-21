@@ -11,12 +11,15 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * HTTP adapter for the nested loan-payment resource. The loan ID comes from the route; the service verifies both parent-loan and payment ownership before returning or changing data.
+ */
 @RestController
 @RequestMapping("/api/v1/loans/{loanId}/payments")
 public class LoanPaymentApiController {
     private final LoanPaymentApiService service;
 
-  
+
     LoanPaymentApiController(LoanPaymentApiService s) {
         service = s;
     }
