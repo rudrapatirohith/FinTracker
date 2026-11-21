@@ -13,44 +13,30 @@ public class AuthenticatedUserProvider {
     public UUID getRequiredUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-      /**
-       * Performs the if step for this component.
-       */
+
         if (authentication == null || !authentication.isAuthenticated()) {
-            /**
-             * Performs the invalid authenticated user exception step for this component.
-             */
+
             throw new InvalidAuthenticatedUserException();
         }
 
-      /**
-       * Performs the if step for this component.
-       */
+
         if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
-            /**
-             * Performs the invalid authenticated user exception step for this component.
-             */
+
             throw new InvalidAuthenticatedUserException();
         }
 
         String subject = jwt.getSubject();
 
-      /**
-       * Performs the if step for this component.
-       */
+
         if (subject == null || subject.isBlank()) {
-            /**
-             * Performs the invalid authenticated user exception step for this component.
-             */
+
             throw new InvalidAuthenticatedUserException();
         }
 
         try {
             return UUID.fromString(subject);
         } catch (IllegalArgumentException exception) {
-            /**
-             * Performs the invalid authenticated user exception step for this component.
-             */
+
             throw new InvalidAuthenticatedUserException();
         }
     }
