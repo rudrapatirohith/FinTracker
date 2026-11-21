@@ -1,3 +1,7 @@
+/**
+ * Persistence queries for loan records.
+ * User-scoped pagination prevents one user's loans from appearing in another user's collection, while the composite ID-and-user lookup supports safe detail, update, and delete operations.
+ */
 package com.fintracker.coreapi.financial.repository;
 
 import com.fintracker.coreapi.financial.entity.Loan;
