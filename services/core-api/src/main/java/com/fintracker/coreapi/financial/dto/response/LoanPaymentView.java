@@ -1,15 +1,9 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.dto.response;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import com.fintracker.coreapi.financial.entity.LoanPayment;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
-import org.springframework.data.domain.*;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
 
 /**
  * Public response projection for a loan payment. It exposes the payment details and parent loan ID without serializing the persistence entity or its internal owner identifier.
@@ -29,7 +23,7 @@ public record LoanPaymentView(
     /**
      * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
      */
-    static LoanPaymentView from(LoanPayment e) {
+    public static LoanPaymentView from(LoanPayment e) {
 
         return new LoanPaymentView(
                 e.getId(),

@@ -1,14 +1,15 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.controller;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
-import jakarta.persistence.*;
+import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
+import com.fintracker.coreapi.financial.dto.response.LoanPaymentView;
+import com.fintracker.coreapi.financial.service.LoanPaymentApiService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
 import java.util.UUID;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class LoanPaymentApiController {
     private final LoanPaymentApiService service;
 
-    LoanPaymentApiController(LoanPaymentApiService s) {
+    public LoanPaymentApiController(LoanPaymentApiService s) {
         service = s;
     }
 
@@ -27,7 +28,7 @@ public class LoanPaymentApiController {
      * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
      */
     @PostMapping
-    ResponseEntity<LoanPaymentView> create(@PathVariable UUID loanId, @Valid @RequestBody LoanPaymentRequest r) {
+    public ResponseEntity<LoanPaymentView> create(@PathVariable UUID loanId, @Valid @RequestBody LoanPaymentRequest r) {
         return ResponseEntity.status(201).body(service.create(loanId, r));
     }
 
@@ -35,7 +36,7 @@ public class LoanPaymentApiController {
      * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
      */
     @GetMapping
-    Page<LoanPaymentView> all(
+    public Page<LoanPaymentView> all(
             @PathVariable UUID loanId,
             @PageableDefault(size = 20, sort = "paymentDate", direction = Sort.Direction.DESC) Pageable p) {
         return service.all(loanId, p);
@@ -45,7 +46,7 @@ public class LoanPaymentApiController {
      * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
      */
     @GetMapping("/{paymentId}")
-    LoanPaymentView one(@PathVariable UUID loanId, @PathVariable UUID paymentId) {
+    public LoanPaymentView one(@PathVariable UUID loanId, @PathVariable UUID paymentId) {
         return service.one(loanId, paymentId);
     }
 
@@ -55,7 +56,7 @@ public class LoanPaymentApiController {
      * verifies ownership of the route's parent loan and payment, preserving both the payment ID and parent relationship.
      */
     @PutMapping("/{paymentId}")
-    LoanPaymentView update(
+    public LoanPaymentView update(
             @PathVariable UUID loanId, @PathVariable UUID paymentId, @Valid @RequestBody LoanPaymentRequest r) {
         return service.update(loanId, paymentId, r);
     }
@@ -64,7 +65,7 @@ public class LoanPaymentApiController {
      * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
      */
     @DeleteMapping("/{paymentId}")
-    ResponseEntity<Void> delete(@PathVariable UUID loanId, @PathVariable UUID paymentId) {
+    public ResponseEntity<Void> delete(@PathVariable UUID loanId, @PathVariable UUID paymentId) {
         service.delete(loanId, paymentId);
         return ResponseEntity.noContent().build();
     }

@@ -1,14 +1,13 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.dto.request;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import org.springframework.data.domain.*;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
 
 /**
  * Validated input contract for an international transfer. It preserves the sent and received amounts/currencies plus exchange-rate and optional conversion metadata; Bean Validation enforces required values, supported currency codes, lengths, and numeric precision.

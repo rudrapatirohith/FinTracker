@@ -1,18 +1,18 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.service;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
+import com.fintracker.coreapi.financial.dto.request.TransferRequest;
+import com.fintracker.coreapi.financial.dto.response.TransferView;
+import com.fintracker.coreapi.financial.entity.InternationalTransfer;
+import com.fintracker.coreapi.financial.repository.InternationalTransferRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.UUID;
-import org.springframework.data.domain.*;
-import org.springframework.http.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -23,7 +23,7 @@ public class TransferApiService {
     private final InternationalTransferRepository repo;
     private final AuthenticatedUserProvider users;
 
-    TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
+    public TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
     }
@@ -32,7 +32,7 @@ public class TransferApiService {
      * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
      */
     @Transactional
-    TransferView create(TransferRequest r) {
+    public TransferView create(TransferRequest r) {
         UUID uid = users.getRequiredUserId();
         InternationalTransfer e = new InternationalTransfer(
                 uid,
@@ -51,7 +51,7 @@ public class TransferApiService {
      * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
      */
     @Transactional(readOnly = true)
-    Page<TransferView> all(Pageable p) {
+    public Page<TransferView> all(Pageable p) {
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(TransferView::from);
     }
 
@@ -59,7 +59,7 @@ public class TransferApiService {
      * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
      */
     @Transactional(readOnly = true)
-    TransferView one(UUID id) {
+    public TransferView one(UUID id) {
         return TransferView.from(owned(id));
     }
 
@@ -67,7 +67,7 @@ public class TransferApiService {
      * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
      */
     @Transactional
-    TransferView update(UUID id, TransferRequest r) {
+    public TransferView update(UUID id, TransferRequest r) {
         InternationalTransfer e = owned(id);
 
         apply(e, r);
@@ -78,7 +78,7 @@ public class TransferApiService {
      * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
      */
     @Transactional
-    void delete(UUID id) {
+    public void delete(UUID id) {
         repo.delete(owned(id));
     }
 

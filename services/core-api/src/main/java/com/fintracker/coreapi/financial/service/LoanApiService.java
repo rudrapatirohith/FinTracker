@@ -1,17 +1,17 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.service;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
+import com.fintracker.coreapi.financial.dto.request.LoanRequest;
+import com.fintracker.coreapi.financial.dto.response.LoanView;
+import com.fintracker.coreapi.financial.entity.Loan;
+import com.fintracker.coreapi.financial.repository.LoanRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import java.util.Locale;
 import java.util.UUID;
-import org.springframework.data.domain.*;
-import org.springframework.http.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -22,7 +22,7 @@ public class LoanApiService {
     private final LoanRepository repo;
     private final AuthenticatedUserProvider users;
 
-    LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
+    public LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
     }
@@ -31,7 +31,7 @@ public class LoanApiService {
      * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
      */
     @Transactional
-    LoanView create(LoanRequest r) {
+    public LoanView create(LoanRequest r) {
         Loan e = new Loan(
                 users.getRequiredUserId(), r.loanName().trim(), r.principalAmount(), r.currentBalance(), r.startDate());
 
@@ -43,7 +43,7 @@ public class LoanApiService {
      * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
      */
     @Transactional(readOnly = true)
-    Page<LoanView> all(Pageable p) {
+    public Page<LoanView> all(Pageable p) {
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(LoanView::from);
     }
 
@@ -51,7 +51,7 @@ public class LoanApiService {
      * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
      */
     @Transactional(readOnly = true)
-    LoanView one(UUID id) {
+    public LoanView one(UUID id) {
         return LoanView.from(owned(id));
     }
 
@@ -59,7 +59,7 @@ public class LoanApiService {
      * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
      */
     @Transactional
-    LoanView update(UUID id, LoanRequest r) {
+    public LoanView update(UUID id, LoanRequest r) {
         Loan e = owned(id);
 
         apply(e, r);
@@ -70,14 +70,14 @@ public class LoanApiService {
      * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
      */
     @Transactional
-    void delete(UUID id) {
+    public void delete(UUID id) {
         repo.delete(owned(id));
     }
 
     /**
      * Finds a loan only when both the loan ID and supplied owner ID match; nested loan-payment operations use this before accessing payments.
      */
-    Loan requireOwned(UUID id, UUID uid) {
+    public Loan requireOwned(UUID id, UUID uid) {
         return repo.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
     }

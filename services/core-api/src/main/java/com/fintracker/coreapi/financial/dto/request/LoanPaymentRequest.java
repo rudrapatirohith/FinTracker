@@ -1,14 +1,13 @@
-package com.fintracker.coreapi.financial;
+package com.fintracker.coreapi.financial.dto.request;
 
-import com.fintracker.coreapi.financial.entity.*;
-import com.fintracker.coreapi.financial.repository.*;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import org.springframework.data.domain.*;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
 
 /**
  * Validated input contract for a loan payment. Bean Validation enforces the declared amount, date, currency, length, and precision constraints; the route supplies the loan ID and the authenticated security context supplies the owner, so neither is accepted from request JSON.

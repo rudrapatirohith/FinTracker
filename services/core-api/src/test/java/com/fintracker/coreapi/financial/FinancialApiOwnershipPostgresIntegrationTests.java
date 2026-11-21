@@ -3,6 +3,15 @@ package com.fintracker.coreapi.financial;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
+import com.fintracker.coreapi.financial.dto.request.LoanRequest;
+import com.fintracker.coreapi.financial.dto.request.TransferRequest;
+import com.fintracker.coreapi.financial.dto.response.LoanPaymentView;
+import com.fintracker.coreapi.financial.dto.response.LoanView;
+import com.fintracker.coreapi.financial.dto.response.TransferView;
+import com.fintracker.coreapi.financial.service.LoanApiService;
+import com.fintracker.coreapi.financial.service.LoanPaymentApiService;
+import com.fintracker.coreapi.financial.service.TransferApiService;
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.repository.AppUserRepository;
 import java.math.BigDecimal;
