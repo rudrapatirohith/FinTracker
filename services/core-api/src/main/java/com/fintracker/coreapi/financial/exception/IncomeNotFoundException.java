@@ -1,11 +1,13 @@
-/**
- * Domain exception used when an income record is absent or is not owned by the authenticated user.
- * Treating both cases identically avoids confirming that another tenant's record ID exists; GlobalExceptionHandler converts this exception into HTTP 404.
- */
 package com.fintracker.coreapi.financial.exception;
 
+/**
+ * Represents a missing or non-owned income record; the API intentionally uses the same outcome for both cases to avoid leaking another user's data.
+ */
 public class IncomeNotFoundException extends RuntimeException {
 
+    /**
+     * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
+     */
     public IncomeNotFoundException() {
         super("Income record not found.");
     }
