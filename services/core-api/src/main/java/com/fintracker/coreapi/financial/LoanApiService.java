@@ -19,9 +19,7 @@ public class LoanApiService {
     private final LoanRepository repo;
     private final AuthenticatedUserProvider users;
 
-  /**
-   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
-   */
+  
     LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -34,9 +32,7 @@ public class LoanApiService {
     LoanView create(LoanRequest r) {
         Loan e = new Loan(
                 users.getRequiredUserId(), r.loanName().trim(), r.principalAmount(), r.currentBalance(), r.startDate());
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return LoanView.from(repo.save(e));
     }
@@ -63,9 +59,7 @@ public class LoanApiService {
     @Transactional
     LoanView update(UUID id, LoanRequest r) {
         Loan e = owned(id);
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(e, r);
         return LoanView.from(e);
     }
@@ -90,9 +84,7 @@ public class LoanApiService {
      * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
      */
     private Loan owned(UUID id) {
-        /**
-         * Finds a loan only when both the loan ID and supplied owner ID match; nested loan-payment operations use this before accessing payments.
-         */
+        
         return requireOwned(id, users.getRequiredUserId());
     }
 
@@ -100,13 +92,9 @@ public class LoanApiService {
      * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
      */
     private void apply(Loan e, LoanRequest r) {
-      /**
-       * Performs the if step for this use case.
-       */
+      
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
-            /**
-             * Performs the response status exception step for this use case.
-             */
+            
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
         e.updateDetails(
                 r.loanName().trim(),
