@@ -1,3 +1,8 @@
+/**
+ * HTTP adapter for international-transfer CRUD.
+ * It defines the resource URL, validates incoming request bodies, applies a predictable page/sort default, and returns standard create/delete status codes.
+ * The service layer remains responsible for tenant isolation and persistence.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
