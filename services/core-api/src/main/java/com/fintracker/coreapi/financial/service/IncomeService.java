@@ -35,9 +35,7 @@ public class IncomeService {
 
         Income income = new Income(userId, request.source().trim(), request.amount(), request.date());
 
-      /**
-       * Copies request values into the income entity and centralizes currency/recurrence defaults so create and update behave consistently.
-       */
+      
         applyRequest(income, request);
 
         return IncomeResponse.from(incomeRepository.save(income));
@@ -65,9 +63,7 @@ public class IncomeService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
 
         Income income = findOwnedIncome(incomeId, userId);
-      /**
-       * Copies request values into the income entity and centralizes currency/recurrence defaults so create and update behave consistently.
-       */
+      
         applyRequest(income, request);
 
         return IncomeResponse.from(incomeRepository.save(income));
