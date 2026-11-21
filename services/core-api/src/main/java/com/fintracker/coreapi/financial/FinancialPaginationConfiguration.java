@@ -1,3 +1,8 @@
+/**
+ * Defines safe global pagination defaults for financial collection endpoints.
+ *  * A maximum page size limits accidental or abusive requests for very large result sets; a fallback page keeps endpoints predictable when clients omit page parameters.
+ *  * Controllers still declare domain-specific default sort orders.
+ */
 package com.fintracker.coreapi.financial;
 
 import org.springframework.context.annotation.Bean;
