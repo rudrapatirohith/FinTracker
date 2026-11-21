@@ -1,3 +1,7 @@
+/**
+ * Public monthly-expense response shape.
+ * The mapper exposes business fields and audit timestamps while deliberately omitting the internal owner UUID, keeping tenant implementation details out of the API.
+ */
 package com.fintracker.coreapi.financial.dto.response;
 
 import java.math.BigDecimal;
