@@ -1,8 +1,3 @@
-/**
- * Public income response shape.
- * The factory method maps a persisted Income entity into an explicit API record, including timestamps and conversion metadata but excluding the internal user ID.
- * This prevents accidental exposure of JPA internals.
- */
 package com.fintracker.coreapi.financial.dto.response;
 
 import com.fintracker.coreapi.financial.entity.Income;
@@ -11,6 +6,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
+ */
 public record IncomeResponse(
         UUID id,
         String source,
@@ -25,7 +23,13 @@ public record IncomeResponse(
         Instant updatedAt,
         BigDecimal exchangeRate,
         BigDecimal inrEquivalent) {
+    /**
+     * Maps persisted entity fields into the public response record; keeping this allowlist explicit prevents internal ownership and JPA state from leaking into JSON.
+     */
     public static IncomeResponse from(Income income) {
+        /**
+         * Creates this domain exception with the stable, client-safe not-found message used by the global exception handler.
+         */
         return new IncomeResponse(
                 income.getId(),
                 income.getSource(),
