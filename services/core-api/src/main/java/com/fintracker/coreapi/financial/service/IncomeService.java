@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Application service for income CRUD. It derives the owner from the security context, scopes every record lookup by owner, applies consistent request defaults, and maps entities to response DTOs.
  */
+/**
+ * Application service for income CRUD. It derives the owner from Spring Security, scopes every record lookup by owner, applies the same defaults on create and update, and maps entities to response DTOs.
+ */
 @Service
 public class IncomeService {
 
@@ -37,7 +40,6 @@ public class IncomeService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
 
         Income income = new Income(userId, request.source().trim(), request.amount(), request.date());
-
 
         applyRequest(income, request);
 
