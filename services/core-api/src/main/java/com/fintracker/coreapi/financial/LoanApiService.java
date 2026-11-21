@@ -1,8 +1,3 @@
-/**
- * Implements transactional loan use cases.
- *  * Every operation derives the tenant from the authenticated JWT and scopes reads, updates, and deletes by both loan ID and owner ID.
- *  * Updates deliberately preserve the entity ID and owner, and the service checks that an optional end date does not precede the start date.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -24,52 +19,94 @@ public class LoanApiService {
     private final LoanRepository repo;
     private final AuthenticatedUserProvider users;
 
+  /**
+   * Receives the repositories and authenticated-user provider required by this use case; dependencies are constructor-injected and retained for the service lifetime.
+   */
     LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the request's normalization rules, persists it, and returns the response projection.
+     */
     @Transactional
     LoanView create(LoanRequest r) {
         Loan e = new Loan(
                 users.getRequiredUserId(), r.loanName().trim(), r.principalAmount(), r.currentBalance(), r.startDate());
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return LoanView.from(repo.save(e));
     }
 
+    /**
+     * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
+     */
     @Transactional(readOnly = true)
     Page<LoanView> all(Pageable p) {
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(LoanView::from);
     }
 
+    /**
+     * Loads the requested record through an owner-scoped lookup; an absent ID and another user's ID produce the same not-found result.
+     */
     @Transactional(readOnly = true)
     LoanView one(UUID id) {
         return LoanView.from(owned(id));
     }
 
+    /**
+     * Replaces the record's editable business fields after an owner-scoped lookup, while preserving its ID and owner.
+     */
     @Transactional
     LoanView update(UUID id, LoanRequest r) {
         Loan e = owned(id);
+      /**
+       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+       */
         apply(e, r);
         return LoanView.from(e);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing a caller from deleting another user's data.
+     */
     @Transactional
     void delete(UUID id) {
         repo.delete(owned(id));
     }
 
+    /**
+     * Finds a loan only when both the loan ID and supplied owner ID match; nested loan-payment operations use this before accessing payments.
+     */
     Loan requireOwned(UUID id, UUID uid) {
         return repo.findByIdAndUserId(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
     }
 
+    /**
+     * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
+     */
     private Loan owned(UUID id) {
+        /**
+         * Finds a loan only when both the loan ID and supplied owner ID match; nested loan-payment operations use this before accessing payments.
+         */
         return requireOwned(id, users.getRequiredUserId());
     }
 
+    /**
+     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     */
     private void apply(Loan e, LoanRequest r) {
+      /**
+       * Performs the if step for this use case.
+       */
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
+            /**
+             * Performs the response status exception step for this use case.
+             */
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
         e.updateDetails(
                 r.loanName().trim(),
