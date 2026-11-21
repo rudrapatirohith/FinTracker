@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** API representation deliberately excludes the internal owner identifier. */
+
 /**
  * Public response contract for a financial transaction. It excludes internal ownership metadata and returns a defensive copy of the tags array.
  */
@@ -29,10 +29,11 @@ public record TransactionResponse(
         tags = tags == null ? null : tags.clone();
     }
 
-    @Override
-    /**
+/**
      * Returns a defensive copy of the tags array; the caller can modify the returned array without changing the request record.
      */
+    @Override
+
     public String[] tags() {
         return tags == null ? null : tags.clone();
     }
@@ -41,9 +42,7 @@ public record TransactionResponse(
      * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
      */
     public static TransactionResponse from(FinancialTransaction entity) {
-        /**
-         * Defensively copies the tags array when the response record is constructed so the returned DTO does not retain a caller-owned mutable array.
-         */
+
         return new TransactionResponse(
                 entity.getId(),
                 entity.getType(),
