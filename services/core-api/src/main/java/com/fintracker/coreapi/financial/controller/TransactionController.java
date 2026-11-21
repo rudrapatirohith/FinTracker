@@ -1,8 +1,3 @@
-/**
- * REST adapter for financial transactions.
- * It defines the URL and response conventions, validates request DTOs, and delegates all tenant-aware behavior to TransactionService.
- * The default collection order is newest transaction first, with pagination to bound database work.
- */
 package com.fintracker.coreapi.financial.controller;
 
 import com.fintracker.coreapi.financial.dto.request.TransactionRequest;
@@ -32,10 +27,16 @@ public class TransactionController {
 
     private final TransactionService service;
 
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
     public TransactionController(TransactionService service) {
         this.service = service;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @PostMapping
     public ResponseEntity<TransactionResponse> create(@Valid @RequestBody TransactionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
@@ -52,11 +53,17 @@ public class TransactionController {
         return service.getById(id);
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @PutMapping("/{id}")
     public TransactionResponse update(@PathVariable UUID id, @Valid @RequestBody TransactionRequest request) {
         return service.update(id, request);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
