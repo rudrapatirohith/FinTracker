@@ -1,8 +1,3 @@
-/**
- * JPA mapping for an income record.
- * The userId links the row to its tenant, while currency and recurring defaults preserve expected behavior for omitted optional input.
- * updateDetails changes only business fields and intentionally leaves the database ID and owner unchanged; lifecycle callbacks maintain timestamps.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -18,6 +13,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * JPA mapping for an income record.
+ * The userId links the row to its tenant, while currency and recurring defaults preserve expected behavior for omitted optional input.
+ * updateDetails changes only business fields and intentionally leaves the database ID and owner unchanged; lifecycle callbacks maintain timestamps.
+ */
 @Entity
 @Table(name = "income")
 public class Income {
@@ -75,6 +75,9 @@ public class Income {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -86,6 +89,9 @@ public class Income {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
@@ -146,6 +152,9 @@ public class Income {
         return inrEquivalent;
     }
 
+    /**
+     * Applies the supplied mutable business fields while deliberately preserving the generated primary key and tenant ownership; child-resource linkage is also immutable where applicable.
+     */
     public void updateDetails(
             String source,
             BigDecimal amount,
