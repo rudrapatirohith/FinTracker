@@ -43,12 +43,18 @@ public class ScheduledPaymentService {
         return ScheduledPaymentResponse.from(repository.save(entity));
     }
 
+    /**
+     * Returns a paginated list of scheduled payments belonging to the authenticated user, with the requested page and sort delegated to Spring Data.
+     */
     @Transactional(readOnly = true)
     public Page<ScheduledPaymentResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         return repository.findAllByUserId(userId, pageable).map(ScheduledPaymentResponse::from);
     }
 
+    /**
+     * Returns a scheduled payment only when the ID is owned by the current user; missing and foreign-owned IDs share the same not-found result.
+     */
     @Transactional(readOnly = true)
     public ScheduledPaymentResponse getById(UUID id) {
         return ScheduledPaymentResponse.from(findOwned(id));
