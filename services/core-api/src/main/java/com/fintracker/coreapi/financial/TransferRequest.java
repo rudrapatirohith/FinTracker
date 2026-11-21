@@ -1,3 +1,8 @@
+/**
+ * Validated input contract for an international transfer.
+ * It carries both sent and received amounts/currencies, the applied exchange rate, and optional fee/reference/conversion metadata so the API can preserve the financial facts entered by the user.
+ * Bean Validation checks required values, supported currency codes, lengths, and decimal precision before persistence.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
