@@ -1,3 +1,8 @@
+/**
+ * JPA mapping for an individual payment associated with a loan and tenant.
+ * Both loanId and userId are persisted so repository ownership checks and the database composite foreign key can enforce that the payment belongs to the same user as its parent loan.
+ * updateDetails cannot re-parent a payment or change its owner.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
