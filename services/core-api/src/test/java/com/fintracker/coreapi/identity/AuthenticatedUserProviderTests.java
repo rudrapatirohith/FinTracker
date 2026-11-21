@@ -43,7 +43,6 @@ class AuthenticatedUserProviderTests {
                 .subject(expectedUserId.toString())
                 .build();
 
-
         authenticate(jwt);
 
         assertEquals(expectedUserId, provider.getRequiredUserId());
@@ -83,7 +82,6 @@ class AuthenticatedUserProviderTests {
                 .claim("token_use", "access")
                 .build();
 
-
         authenticate(jwt);
 
         assertThrows(InvalidAuthenticatedUserException.class, provider::getRequiredUserId);
@@ -99,7 +97,6 @@ class AuthenticatedUserProviderTests {
                 .header("alg", "none")
                 .subject("not-a-uuid")
                 .build();
-
 
         authenticate(jwt);
 
