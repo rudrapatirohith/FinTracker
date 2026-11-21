@@ -1,3 +1,8 @@
+/**
+ * JPA mapping for a scheduled payment or recurring obligation.
+ * Defaults such as USD, pending status, disabled recurrence/autopay, and a three-day reminder are initialized in the entity and can be overridden by the service.
+ * updateDetails changes only editable payment attributes and never changes the owner or primary key.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
