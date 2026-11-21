@@ -14,12 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Application service for loan use cases. It derives ownership from the authenticated JWT, scopes repository access by owner, validates date relationships, and maps entities to API views.
+ */
 @Service
 public class LoanApiService {
     private final LoanRepository repo;
     private final AuthenticatedUserProvider users;
 
-  
+
     LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -32,7 +35,7 @@ public class LoanApiService {
     LoanView create(LoanRequest r) {
         Loan e = new Loan(
                 users.getRequiredUserId(), r.loanName().trim(), r.principalAmount(), r.currentBalance(), r.startDate());
-      
+
         apply(e, r);
         return LoanView.from(repo.save(e));
     }
@@ -59,7 +62,7 @@ public class LoanApiService {
     @Transactional
     LoanView update(UUID id, LoanRequest r) {
         Loan e = owned(id);
-      
+
         apply(e, r);
         return LoanView.from(e);
     }
@@ -84,7 +87,7 @@ public class LoanApiService {
      * Resolves the authenticated user's ID and delegates to the owner-scoped repository lookup.
      */
     private Loan owned(UUID id) {
-        
+
         return requireOwned(id, users.getRequiredUserId());
     }
 
@@ -92,9 +95,9 @@ public class LoanApiService {
      * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
      */
     private void apply(Loan e, LoanRequest r) {
-      
+
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
-            
+
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
         e.updateDetails(
                 r.loanName().trim(),
