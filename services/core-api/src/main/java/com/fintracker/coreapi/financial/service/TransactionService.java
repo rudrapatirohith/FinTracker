@@ -39,9 +39,7 @@ public class TransactionService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
         FinancialTransaction entity = new FinancialTransaction(
                 userId, request.type().trim(), request.category().trim(), request.amount(), request.transactionDate());
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(entity, request);
         return TransactionResponse.from(repository.save(entity));
     }
@@ -63,9 +61,7 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(UUID id, TransactionRequest request) {
         FinancialTransaction entity = findOwned(id);
-      /**
-       * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
-       */
+      
         apply(entity, request);
         return TransactionResponse.from(entity);
     }
@@ -95,9 +91,7 @@ public class TransactionService {
                 request.category().trim(),
                 request.subcategory(),
                 request.amount(),
-              /**
-               * Defaults a missing currency to USD and otherwise trims and uppercases it with Locale.ROOT to avoid machine-locale-dependent results.
-               */
+              
                 normalizedCurrency(request.currency()),
                 request.description(),
                 request.merchant(),
