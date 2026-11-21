@@ -21,9 +21,7 @@ public class CurrentUserController {
 
     @GetMapping("/me")
     public CurrentUserResponse getCurrentUser() {
-        /**
-         * Performs the current user response step for this component.
-         */
+
         return new CurrentUserResponse(authenticatedUserProvider.getRequiredUserId());
     }
 
