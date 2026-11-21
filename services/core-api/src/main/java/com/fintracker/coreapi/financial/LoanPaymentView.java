@@ -1,3 +1,7 @@
+/**
+ * Read-only API projection for a loan payment.
+ * The mapper explicitly selects fields exposed to clients instead of serializing the JPA entity, keeping persistence details and tenant ownership metadata out of the response.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
