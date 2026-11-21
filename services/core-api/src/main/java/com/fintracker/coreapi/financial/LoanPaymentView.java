@@ -11,9 +11,7 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Maps a persisted payment to the response projection, exposing the parent loan ID and payment details without serializing the JPA entity.
- */
+
 /**
  * Public response projection for a loan payment. It exposes the payment details and parent loan ID without serializing the persistence entity or its internal owner identifier.
  */
@@ -33,9 +31,7 @@ public record LoanPaymentView(
      * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
      */
     static LoanPaymentView from(LoanPayment e) {
-        /**
-         * Maps a persisted payment to the response projection, exposing the parent loan ID and payment details without serializing the JPA entity.
-         */
+
         return new LoanPaymentView(
                 e.getId(),
                 e.getLoanId(),
