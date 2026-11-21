@@ -12,6 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Application service for income CRUD. It derives the owner from the security context, scopes every record lookup by owner, applies consistent request defaults, and maps entities to response DTOs.
+ */
 @Service
 public class IncomeService {
 
@@ -35,7 +38,7 @@ public class IncomeService {
 
         Income income = new Income(userId, request.source().trim(), request.amount(), request.date());
 
-      
+
         applyRequest(income, request);
 
         return IncomeResponse.from(incomeRepository.save(income));
@@ -69,7 +72,7 @@ public class IncomeService {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
 
         Income income = findOwnedIncome(incomeId, userId);
-      
+
         applyRequest(income, request);
 
         return IncomeResponse.from(incomeRepository.save(income));
