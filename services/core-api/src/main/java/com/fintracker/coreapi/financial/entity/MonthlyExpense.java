@@ -1,8 +1,3 @@
-/**
- * JPA mapping for a monthly expense row.
- * The amount and currency conversion fields retain the entered amount alongside optional exchange-rate and INR-equivalent values.
- * updateDetails changes expense data only; userId and generated ID remain fixed so updates cannot transfer a record between tenants.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -18,6 +13,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * JPA mapping for a monthly expense row.
+ * The amount and currency conversion fields retain the entered amount alongside optional exchange-rate and INR-equivalent values.
+ * updateDetails changes expense data only; userId and generated ID remain fixed so updates cannot transfer a record between tenants.
+ */
 @Entity
 @Table(name = "monthly_expenses")
 public class MonthlyExpense {
@@ -72,6 +72,9 @@ public class MonthlyExpense {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -83,6 +86,9 @@ public class MonthlyExpense {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
