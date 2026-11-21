@@ -1,7 +1,3 @@
-/**
- * Stable response projection for a loan.
- * Mapping the entity into this record makes the API's public field set explicit and avoids coupling JSON serialization to JPA annotations or internal owner metadata.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -15,6 +11,9 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Maps the loan entity to the API response contract, keeping persistence annotations and tenant ownership metadata out of the serialized response.
+ */
 public record LoanView(
         UUID id,
         String loanName,
@@ -28,7 +27,13 @@ public record LoanView(
         String loanType,
         String status,
         String currency) {
+    /**
+     * Maps the persisted entity to the public response contract, explicitly selecting fields and excluding internal owner metadata.
+     */
     static LoanView from(Loan e) {
+        /**
+         * Maps the loan entity to the API response contract, keeping persistence annotations and tenant ownership metadata out of the serialized response.
+         */
         return new LoanView(
                 e.getId(),
                 e.getLoanName(),
