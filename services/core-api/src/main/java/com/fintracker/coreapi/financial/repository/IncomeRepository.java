@@ -1,7 +1,3 @@
-/**
- * Persistence queries for income records.
- * Collection reads require userId and return a Page so the database limits the result set; single-record reads require both the record ID and user ID, making tenant ownership part of the SQL predicate rather than a check performed after loading the row.
- */
 package com.fintracker.coreapi.financial.repository;
 
 import com.fintracker.coreapi.financial.entity.Income;
@@ -12,7 +8,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface IncomeRepository extends JpaRepository<Income, UUID> {
+    /**
+     * Returns only records belonging to the supplied owner UUID, with pagination applied in the database rather than loading the full collection.
+     */
     Page<Income> findAllByUserId(UUID userId, Pageable pageable);
 
+    /**
+     * Finds a record only when both its primary key and owner UUID match; an empty result covers both missing and foreign-owned IDs.
+     */
     Optional<Income> findByIdAndUserId(UUID id, UUID userId);
 }
