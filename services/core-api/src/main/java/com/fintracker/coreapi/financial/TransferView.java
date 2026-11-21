@@ -1,7 +1,3 @@
-/**
- * Response-only projection for an international transfer.
- * The static mapper selects the fields intended for clients and keeps the persistence entity, including its internal owner identifier, behind the service boundary.
- */
 package com.fintracker.coreapi.financial;
 
 import com.fintracker.coreapi.financial.entity.*;
@@ -15,6 +11,9 @@ import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Public response projection for an international transfer. The mapper explicitly selects the transfer and conversion fields returned to clients while keeping persistence and owner metadata private.
+ */
 public record TransferView(
         UUID id,
         String recipientName,
