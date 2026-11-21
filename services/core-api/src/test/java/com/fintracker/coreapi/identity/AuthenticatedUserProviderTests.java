@@ -21,18 +21,20 @@ class AuthenticatedUserProviderTests {
 
     private final AuthenticatedUserProvider provider = new AuthenticatedUserProvider();
 
-    @AfterEach
-    /**
+/**
      * Clears Spring Security's thread-local context after the test to prevent authentication leaking into another test.
      */
+    @AfterEach
+
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
-    /**
+/**
      * Verifies that returns user id from authenticated jwt subject for the authenticated JWT principal.
      */
+    @Test
+
     void returnsUserIdFromAuthenticatedJwtSubject() {
         UUID expectedUserId = UUID.randomUUID();
 
@@ -41,68 +43,64 @@ class AuthenticatedUserProviderTests {
                 .subject(expectedUserId.toString())
                 .build();
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(jwt);
 
         assertEquals(expectedUserId, provider.getRequiredUserId());
     }
 
-    @Test
-    /**
+/**
      * Verifies that rejects missing authentication and that invalid identity state is rejected with the expected exception.
      */
+    @Test
+
     void rejectsMissingAuthentication() {
         SecurityContextHolder.clearContext();
 
         assertThrows(InvalidAuthenticatedUserException.class, provider::getRequiredUserId);
     }
 
-    @Test
-    /**
+/**
      * Verifies that rejects non jwt principal and that invalid identity state is rejected with the expected exception.
      */
+    @Test
+
     void rejectsNonJwtPrincipal() {
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate("not-a-jwt");
 
         assertThrows(InvalidAuthenticatedUserException.class, provider::getRequiredUserId);
     }
 
-    @Test
-    /**
+/**
      * Verifies that rejects missing jwt subject and that invalid identity state is rejected with the expected exception.
      */
+    @Test
+
     void rejectsMissingJwtSubject() {
         Jwt jwt = Jwt.withTokenValue("test-token")
                 .header("alg", "none")
                 .claim("token_use", "access")
                 .build();
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(jwt);
 
         assertThrows(InvalidAuthenticatedUserException.class, provider::getRequiredUserId);
     }
 
-    @Test
-    /**
+/**
      * Verifies that rejects malformed jwt subject and that invalid identity state is rejected with the expected exception.
      */
+    @Test
+
     void rejectsMalformedJwtSubject() {
         Jwt jwt = Jwt.withTokenValue("test-token")
                 .header("alg", "none")
                 .subject("not-a-uuid")
                 .build();
 
-      /**
-       * Installs a test authentication whose JWT subject identifies the supplied user, allowing the service to resolve tenant ownership exactly as it does in a request.
-       */
+
         authenticate(jwt);
 
         assertThrows(InvalidAuthenticatedUserException.class, provider::getRequiredUserId);
