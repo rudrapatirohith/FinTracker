@@ -23,7 +23,6 @@ public class TransferApiService {
     private final InternationalTransferRepository repo;
     private final AuthenticatedUserProvider users;
 
-
     TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -92,7 +91,7 @@ public class TransferApiService {
     }
 
     /**
-     * Copies request values into the entity and centralizes trimming, currency normalization, defaults, and cross-field validation so create and update follow identical rules.
+     * Trims recipient details, uppercases both currency codes, defaults a missing transfer fee to zero, normalizes status to lowercase, and synchronizes the currency fields through the entity update method.
      */
     private void apply(InternationalTransfer e, TransferRequest r) {
         String a = r.currencySent().toUpperCase(Locale.ROOT),
