@@ -1,3 +1,8 @@
+/**
+ * JPA mapping for a monthly expense row.
+ * The amount and currency conversion fields retain the entered amount alongside optional exchange-rate and INR-equivalent values.
+ * updateDetails changes expense data only; userId and generated ID remain fixed so updates cannot transfer a record between tenants.
+ */
 package com.fintracker.coreapi.financial.entity;
 
 import java.math.BigDecimal;
