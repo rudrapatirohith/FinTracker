@@ -1,3 +1,8 @@
+/**
+ * Public income response shape.
+ * The factory method maps a persisted Income entity into an explicit API record, including timestamps and conversion metadata but excluding the internal user ID.
+ * This prevents accidental exposure of JPA internals.
+ */
 package com.fintracker.coreapi.financial.dto.response;
 
 import java.math.BigDecimal;
