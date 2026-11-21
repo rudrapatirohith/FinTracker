@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Maps the loan entity to the API response contract, keeping persistence annotations and tenant ownership metadata out of the serialized response.
  */
+/**
+ * Public response projection for a loan. It defines the response fields explicitly and does not expose the JPA entity or internal owner UUID.
+ */
 public record LoanView(
         UUID id,
         String loanName,
