@@ -1,3 +1,8 @@
+/**
+ * REST adapter for financial transactions.
+ * It defines the URL and response conventions, validates request DTOs, and delegates all tenant-aware behavior to TransactionService.
+ * The default collection order is newest transaction first, with pagination to bound database work.
+ */
 package com.fintracker.coreapi.financial.controller;
 
 import java.util.UUID;
