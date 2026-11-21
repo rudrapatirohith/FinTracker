@@ -15,12 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Application service for international transfers. It derives the owner from the JWT, performs owner-scoped lookups, normalizes currencies/status, and delegates legacy currency-column synchronization to the entity.
+ */
 @Service
 public class TransferApiService {
     private final InternationalTransferRepository repo;
     private final AuthenticatedUserProvider users;
 
-  
+
     TransferApiService(InternationalTransferRepository r, AuthenticatedUserProvider u) {
         repo = r;
         users = u;
@@ -40,7 +43,7 @@ public class TransferApiService {
                 r.amountReceived(),
                 r.exchangeRate(),
                 r.transferDate());
-      
+
         apply(e, r);
         return TransferView.from(repo.save(e));
     }
@@ -67,7 +70,7 @@ public class TransferApiService {
     @Transactional
     TransferView update(UUID id, TransferRequest r) {
         InternationalTransfer e = owned(id);
-      
+
         apply(e, r);
         return TransferView.from(e);
     }
