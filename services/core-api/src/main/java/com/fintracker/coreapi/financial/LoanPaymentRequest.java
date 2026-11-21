@@ -1,3 +1,8 @@
+/**
+ * Validated input contract for creating or replacing a loan payment.
+ * Bean Validation rejects missing dates, non-positive total amounts, negative principal/interest values, unsupported currency codes, and values that exceed database precision before the service attempts persistence.
+ * Loan and owner IDs are intentionally absent because they come from the route and authenticated identity.
+ */
 package com.fintracker.coreapi.financial;
 
 import java.math.BigDecimal;
