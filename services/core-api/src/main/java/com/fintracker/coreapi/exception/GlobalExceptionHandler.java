@@ -1,3 +1,8 @@
+/**
+ * Centralizes translation of application exceptions into stable HTTP ProblemDetail responses.
+ *  * Keeping this mapping in one advice class prevents controllers from duplicating status-code logic and keeps internal exception types out of the public API contract.
+ *  * Validation and persistence errors are deliberately returned without exposing SQL, stack traces, or sensitive implementation details.
+ */
 package com.fintracker.coreapi.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
