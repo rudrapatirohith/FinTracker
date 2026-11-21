@@ -1,3 +1,8 @@
+/**
+ * REST adapter for monthly-expense operations.
+ * It validates request bodies and translates service results into conventional HTTP responses; it deliberately contains no database or tenant logic.
+ * The collection defaults to newest expense date first and remains paginated.
+ */
 package com.fintracker.coreapi.financial.controller;
 
 import java.util.UUID;
