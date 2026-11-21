@@ -130,15 +130,12 @@ class IncomeServicePostgresIntegrationTests {
         AppUser userA = createUser("income.list.a@example.com");
         AppUser userB = createUser("income.list.b@example.com");
 
-
         authenticateAs(userA);
         incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
         incomeService.create(request("Freelance", "750.00", "USD", LocalDate.of(2026, 1, 5)));
 
-
         authenticateAs(userB);
         incomeService.create(request("Consulting", "2500.00", "USD", LocalDate.of(2026, 1, 3)));
-
 
         authenticateAs(userA);
         Page<IncomeResponse> results = incomeService.getAll(PageRequest.of(0, 20));
@@ -160,12 +157,10 @@ class IncomeServicePostgresIntegrationTests {
         AppUser userA = createUser("income.get.a@example.com");
         AppUser userB = createUser("income.get.b@example.com");
 
-
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
 
         assertThat(incomeService.getById(created.id()).id()).isEqualTo(created.id());
-
 
         authenticateAs(userB);
 
@@ -181,7 +176,6 @@ class IncomeServicePostgresIntegrationTests {
         AppUser userA = createUser("income.update.a@example.com");
         AppUser userB = createUser("income.update.b@example.com");
 
-
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
 
@@ -193,7 +187,6 @@ class IncomeServicePostgresIntegrationTests {
         assertThat(updated.amount()).isEqualByComparingTo("6200.00");
         assertThat(updated.currency()).isEqualTo("EUR");
         assertThat(updated.date()).isEqualTo(LocalDate.of(2026, 2, 1));
-
 
         authenticateAs(userB);
 
@@ -217,17 +210,14 @@ class IncomeServicePostgresIntegrationTests {
         AppUser userA = createUser("income.delete.a@example.com");
         AppUser userB = createUser("income.delete.b@example.com");
 
-
         authenticateAs(userA);
         IncomeResponse created = incomeService.create(request("Salary", "5000.00", "USD", LocalDate.of(2026, 1, 1)));
-
 
         authenticateAs(userB);
 
         assertThatThrownBy(() -> incomeService.delete(created.id())).isInstanceOf(IncomeNotFoundException.class);
 
         assertThat(incomeRepository.existsById(created.id())).isTrue();
-
 
         authenticateAs(userA);
         incomeService.delete(created.id());
