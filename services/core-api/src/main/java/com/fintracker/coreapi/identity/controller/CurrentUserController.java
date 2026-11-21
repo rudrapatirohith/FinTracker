@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Exposes the current authenticated application's user UUID through the shared AuthenticatedUserProvider, avoiding duplicate JWT parsing in controllers.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class CurrentUserController {
