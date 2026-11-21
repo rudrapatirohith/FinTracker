@@ -32,7 +32,7 @@ public record LoanRequest(
         @Size(max = 255) String lender,
         @Size(max = 100) String loanType,
 
-        @NotBlank @Pattern(regexp = "active|paid|closed|defaulted")
+        @NotBlank @Pattern(regexp = "active|paid|paid_off|closed|defaulted")
         String status,
 
         @NotBlank @Pattern(regexp = "INR|USD") String currency) {}

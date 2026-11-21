@@ -13,9 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Application service for income CRUD. It derives the owner from the security context, scopes every record lookup by owner, applies consistent request defaults, and maps entities to response DTOs.
- */
-/**
  * Application service for income CRUD. It derives the owner from Spring Security, scopes every record lookup by owner, applies the same defaults on create and update, and maps entities to response DTOs.
  */
 @Service
