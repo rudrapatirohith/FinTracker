@@ -47,12 +47,18 @@ public class IncomeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(incomeService.create(request));
     }
 
+    /**
+     * Returns a paginated list of the authenticated user's income records; the default ordering is newest income date first.
+     */
     @GetMapping
     public Page<IncomeResponse> getAll(
             @PageableDefault(size = 20, sort = "date", direction = Sort.Direction.DESC) Pageable pageable) {
         return incomeService.getAll(pageable);
     }
 
+    /**
+     * Returns the income record for the supplied UUID, or the service's not-found response when it is absent or belongs to another user.
+     */
     @GetMapping("/{id}")
     public IncomeResponse getById(@PathVariable UUID id) {
         return incomeService.getById(id);
