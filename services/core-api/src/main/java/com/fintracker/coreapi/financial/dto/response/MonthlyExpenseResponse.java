@@ -7,6 +7,9 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /** API representation that does not expose the internal owner UUID. */
+/**
+ * Public response contract for a monthly expense, including its business fields and audit timestamps without exposing the internal owner UUID.
+ */
 public record MonthlyExpenseResponse(
         UUID id,
         String expenseName,
