@@ -1,3 +1,8 @@
+/**
+ * Public transaction response projection.
+ * The mapper explicitly controls which persisted fields leave the service, excluding owner metadata.
+ * The constructor and accessor clone the tags array because Java records are only shallowly immutable when they contain mutable arrays.
+ */
 package com.fintracker.coreapi.financial.dto.response;
 
 import java.math.BigDecimal;
