@@ -7,6 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Validated client input for an income record. Required source, amount, and date are checked at the HTTP boundary; optional currency and recurring fields are defaulted or normalized by IncomeService. The request intentionally contains no owner ID.
+ */
 public record IncomeRequest(
         @NotBlank(message = "Income source is required.") String source,
 
