@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuthenticatedUserProvider {
 
+    /**
+     * Requires an authenticated JWT principal and parses its subject as the application-user UUID; missing, non-JWT, blank, or malformed identities fail closed.
+     */
     public UUID getRequiredUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
