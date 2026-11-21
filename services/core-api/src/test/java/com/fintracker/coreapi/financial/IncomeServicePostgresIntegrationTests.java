@@ -96,7 +96,7 @@ class IncomeServicePostgresIntegrationTests {
     }
 
 /**
-     * Verifies that create income for authenticated user under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
+     * Verifies that income creation persists the authenticated user's UUID, returns the supplied business fields, applies the default non-recurring value, and initializes audit timestamps.
      */
     @Test
 
@@ -122,7 +122,7 @@ class IncomeServicePostgresIntegrationTests {
     }
 
 /**
-     * Verifies that list only authenticated users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
+     * Verifies that a paginated income query returns only the records owned by the current JWT subject, even when another user has income rows in the same database.
      */
     @Test
 
@@ -149,7 +149,7 @@ class IncomeServicePostgresIntegrationTests {
     }
 
 /**
-     * Verifies that return owned income but hide another users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
+     * Verifies that the owner can retrieve an income record while a different authenticated user receives the same not-found exception used for an unknown ID.
      */
     @Test
 
@@ -168,7 +168,7 @@ class IncomeServicePostgresIntegrationTests {
     }
 
 /**
-     * Verifies that update owned income and reject another users income under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
+     * Verifies that the owner can replace income fields without changing the record ID, while another user cannot update the record and the persisted values remain unchanged.
      */
     @Test
 
@@ -202,7 +202,7 @@ class IncomeServicePostgresIntegrationTests {
     }
 
 /**
-     * Verifies that delete owned income and reject another users delete under the PostgreSQL-backed integration scenario, including the relevant persistence and tenant-isolation expectations.
+     * Verifies that a different user cannot delete the income row and that the owner can subsequently delete it successfully.
      */
     @Test
 
