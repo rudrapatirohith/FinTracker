@@ -11,12 +11,15 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * HTTP adapter for loan endpoints. It validates request DTOs, defines pagination defaults and HTTP status codes, and delegates ownership and persistence decisions to LoanApiService.
+ */
 @RestController
 @RequestMapping("/api/v1/loans")
 public class LoanApiController {
     private final LoanApiService service;
 
-  
+
     LoanApiController(LoanApiService s) {
         service = s;
     }
