@@ -1,8 +1,3 @@
-/**
- * REST adapter for monthly-expense operations.
- * It validates request bodies and translates service results into conventional HTTP responses; it deliberately contains no database or tenant logic.
- * The collection defaults to newest expense date first and remains paginated.
- */
 package com.fintracker.coreapi.financial.controller;
 
 import com.fintracker.coreapi.financial.dto.request.MonthlyExpenseRequest;
@@ -32,10 +27,16 @@ public class MonthlyExpenseController {
 
     private final MonthlyExpenseService service;
 
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
     public MonthlyExpenseController(MonthlyExpenseService service) {
         this.service = service;
     }
 
+    /**
+     * Creates a record for the authenticated user, applies the domain's defaults and normalization rules, persists it, and maps the saved entity to its API response.
+     */
     @PostMapping
     public ResponseEntity<MonthlyExpenseResponse> create(@Valid @RequestBody MonthlyExpenseRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
@@ -52,11 +53,17 @@ public class MonthlyExpenseController {
         return service.getById(id);
     }
 
+    /**
+     * Loads the record within the caller's ownership scope, applies the replacement fields, and returns the updated response without changing its owner or ID.
+     */
     @PutMapping("/{id}")
     public MonthlyExpenseResponse update(@PathVariable UUID id, @Valid @RequestBody MonthlyExpenseRequest request) {
         return service.update(id, request);
     }
 
+    /**
+     * Deletes the record only after an owner-scoped lookup, preventing cross-user deletion.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
