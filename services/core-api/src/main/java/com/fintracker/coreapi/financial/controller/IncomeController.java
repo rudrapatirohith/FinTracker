@@ -5,8 +5,11 @@
  */
 package com.fintracker.coreapi.financial.controller;
 
+import com.fintracker.coreapi.financial.dto.request.IncomeRequest;
+import com.fintracker.coreapi.financial.dto.response.IncomeResponse;
+import com.fintracker.coreapi.financial.service.IncomeService;
+import jakarta.validation.Valid;
 import java.util.UUID;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,12 +24,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.fintracker.coreapi.financial.dto.request.IncomeRequest;
-import com.fintracker.coreapi.financial.dto.response.IncomeResponse;
-import com.fintracker.coreapi.financial.service.IncomeService;
-
-import jakarta.validation.Valid;
 
 /**
  * HTTP boundary for the authenticated user's income records.
@@ -45,16 +42,13 @@ public class IncomeController {
     }
 
     @PostMapping
-    public ResponseEntity<IncomeResponse> create(
-            @Valid @RequestBody IncomeRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(incomeService.create(request));
+    public ResponseEntity<IncomeResponse> create(@Valid @RequestBody IncomeRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(incomeService.create(request));
     }
 
     @GetMapping
     public Page<IncomeResponse> getAll(
-            @PageableDefault(size = 20, sort = "date", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "date", direction = Sort.Direction.DESC) Pageable pageable) {
         return incomeService.getAll(pageable);
     }
 
@@ -64,9 +58,7 @@ public class IncomeController {
     }
 
     @PutMapping("/{id}")
-    public IncomeResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody IncomeRequest request) {
+    public IncomeResponse update(@PathVariable UUID id, @Valid @RequestBody IncomeRequest request) {
         return incomeService.update(id, request);
     }
 

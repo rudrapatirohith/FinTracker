@@ -5,18 +5,15 @@
  */
 package com.fintracker.coreapi.financial.dto.request;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record IncomeRequest(
-
-        @NotBlank(message = "Income source is required.")
-        String source,
+        @NotBlank(message = "Income source is required.") String source,
 
         @NotNull(message = "Income amount is required.")
         @DecimalMin(value = "0.01", message = "Income amount must be greater than zero.")
@@ -29,8 +26,7 @@ public record IncomeRequest(
 
         String description,
 
-        @NotNull(message = "Income date is required.")
-        LocalDate date,
+        @NotNull(message = "Income date is required.") LocalDate date,
 
         Boolean recurring,
 
@@ -42,6 +38,4 @@ public record IncomeRequest(
 
         @DecimalMin(value = "0.00", message = "INR equivalent cannot be negative.")
         @Digits(integer = 13, fraction = 2, message = "INR equivalent exceeds the supported precision.")
-        BigDecimal inrEquivalent
-) {
-}
+        BigDecimal inrEquivalent) {}

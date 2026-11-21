@@ -5,20 +5,18 @@
  */
 package com.fintracker.coreapi.financial.service;
 
-import java.util.Locale;
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
 import com.fintracker.coreapi.financial.dto.response.ScheduledPaymentResponse;
 import com.fintracker.coreapi.financial.entity.ScheduledPayment;
 import com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException;
 import com.fintracker.coreapi.financial.repository.ScheduledPaymentRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
+import java.util.Locale;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Use cases for scheduled payments with user ownership enforced server-side. */
 @Service
@@ -28,8 +26,7 @@ public class ScheduledPaymentService {
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
     public ScheduledPaymentService(
-            ScheduledPaymentRepository repository,
-            AuthenticatedUserProvider authenticatedUserProvider) {
+            ScheduledPaymentRepository repository, AuthenticatedUserProvider authenticatedUserProvider) {
         this.repository = repository;
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
@@ -37,8 +34,8 @@ public class ScheduledPaymentService {
     @Transactional
     public ScheduledPaymentResponse create(ScheduledPaymentRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
-        ScheduledPayment entity = new ScheduledPayment(
-                userId, request.paymentName().trim(), request.amount(), request.dueDate());
+        ScheduledPayment entity =
+                new ScheduledPayment(userId, request.paymentName().trim(), request.amount(), request.dueDate());
         apply(entity, request);
         return ScheduledPaymentResponse.from(repository.save(entity));
     }
@@ -68,23 +65,27 @@ public class ScheduledPaymentService {
 
     private ScheduledPayment findOwned(UUID id) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
-        return repository.findByIdAndUserId(id, userId)
-                .orElseThrow(ScheduledPaymentNotFoundException::new);
+        return repository.findByIdAndUserId(id, userId).orElseThrow(ScheduledPaymentNotFoundException::new);
     }
 
     private void apply(ScheduledPayment entity, ScheduledPaymentRequest request) {
         String currency = request.currency() == null || request.currency().isBlank()
-                ? "USD" : request.currency().trim().toUpperCase(Locale.ROOT);
+                ? "USD"
+                : request.currency().trim().toUpperCase(Locale.ROOT);
         entity.updateDetails(
-                request.paymentName().trim(), request.amount(), currency,
-                request.category(), request.recipient(), request.dueDate(),
+                request.paymentName().trim(),
+                request.amount(),
+                currency,
+                request.category(),
+                request.recipient(),
+                request.dueDate(),
                 request.frequency(),
                 request.recurring() == null ? Boolean.FALSE : request.recurring(),
                 request.autoPay() == null ? Boolean.FALSE : request.autoPay(),
                 request.status() == null || request.status().isBlank()
-                        ? "pending" : request.status().trim().toLowerCase(Locale.ROOT),
+                        ? "pending"
+                        : request.status().trim().toLowerCase(Locale.ROOT),
                 request.reminderDays() == null ? 3 : request.reminderDays(),
-                request.notes()
-        );
+                request.notes());
     }
 }

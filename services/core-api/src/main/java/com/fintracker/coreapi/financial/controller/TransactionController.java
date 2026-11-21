@@ -5,8 +5,11 @@
  */
 package com.fintracker.coreapi.financial.controller;
 
+import com.fintracker.coreapi.financial.dto.request.TransactionRequest;
+import com.fintracker.coreapi.financial.dto.response.TransactionResponse;
+import com.fintracker.coreapi.financial.service.TransactionService;
+import jakarta.validation.Valid;
 import java.util.UUID;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,12 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fintracker.coreapi.financial.dto.request.TransactionRequest;
-import com.fintracker.coreapi.financial.dto.response.TransactionResponse;
-import com.fintracker.coreapi.financial.service.TransactionService;
-
-import jakarta.validation.Valid;
-
 /** REST endpoints for the authenticated user's financial transactions. */
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -40,15 +37,13 @@ public class TransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<TransactionResponse> create(
-            @Valid @RequestBody TransactionRequest request) {
+    public ResponseEntity<TransactionResponse> create(@Valid @RequestBody TransactionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
     @GetMapping
     public Page<TransactionResponse> getAll(
-            @PageableDefault(size = 20, sort = "transactionDate", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "transactionDate", direction = Sort.Direction.DESC) Pageable pageable) {
         return service.getAll(pageable);
     }
 
@@ -58,9 +53,7 @@ public class TransactionController {
     }
 
     @PutMapping("/{id}")
-    public TransactionResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody TransactionRequest request) {
+    public TransactionResponse update(@PathVariable UUID id, @Valid @RequestBody TransactionRequest request) {
         return service.update(id, request);
     }
 

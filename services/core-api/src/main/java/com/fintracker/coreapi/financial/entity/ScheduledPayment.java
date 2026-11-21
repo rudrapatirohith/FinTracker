@@ -5,11 +5,6 @@
  */
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +13,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "scheduled_payments")
@@ -72,15 +71,9 @@ public class ScheduledPayment {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    protected ScheduledPayment() {
-    }
+    protected ScheduledPayment() {}
 
-    public ScheduledPayment(
-            UUID userId,
-            String paymentName,
-            BigDecimal amount,
-            LocalDate dueDate
-    ) {
+    public ScheduledPayment(UUID userId, String paymentName, BigDecimal amount, LocalDate dueDate) {
         this.userId = userId;
         this.paymentName = paymentName;
         this.amount = amount;
@@ -103,22 +96,69 @@ public class ScheduledPayment {
         updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getPaymentName() { return paymentName; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public String getCategory() { return category; }
-    public String getRecipient() { return recipient; }
-    public LocalDate getDueDate() { return dueDate; }
-    public String getFrequency() { return frequency; }
-    public Boolean getRecurring() { return recurring; }
-    public Boolean getAutoPay() { return autoPay; }
-    public String getStatus() { return status; }
-    public Integer getReminderDays() { return reminderDays; }
-    public String getNotes() { return notes; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getPaymentName() {
+        return paymentName;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getRecipient() {
+        return recipient;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public String getFrequency() {
+        return frequency;
+    }
+
+    public Boolean getRecurring() {
+        return recurring;
+    }
+
+    public Boolean getAutoPay() {
+        return autoPay;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public Integer getReminderDays() {
+        return reminderDays;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 
     /** Applies editable payment fields while preserving database ID and owner. */
     public void updateDetails(
@@ -133,8 +173,7 @@ public class ScheduledPayment {
             Boolean autoPay,
             String status,
             Integer reminderDays,
-            String notes
-    ) {
+            String notes) {
         this.paymentName = paymentName;
         this.amount = amount;
         this.currency = currency;

@@ -5,21 +5,18 @@
  */
 package com.fintracker.coreapi.identity.service;
 
+import com.fintracker.coreapi.identity.exception.InvalidAuthenticatedUserException;
 import java.util.UUID;
-
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
-import com.fintracker.coreapi.identity.exception.InvalidAuthenticatedUserException;
-
 @Component
 public class AuthenticatedUserProvider {
 
     public UUID getRequiredUserId() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new InvalidAuthenticatedUserException();

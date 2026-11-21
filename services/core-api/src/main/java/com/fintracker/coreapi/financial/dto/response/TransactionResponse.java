@@ -5,12 +5,11 @@
  */
 package com.fintracker.coreapi.financial.dto.response;
 
+import com.fintracker.coreapi.financial.entity.FinancialTransaction;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-
-import com.fintracker.coreapi.financial.entity.FinancialTransaction;
 
 /** API representation deliberately excludes the internal owner identifier. */
 public record TransactionResponse(
@@ -27,8 +26,7 @@ public record TransactionResponse(
         UUID referenceId,
         String[] tags,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
     public TransactionResponse {
         tags = tags == null ? null : tags.clone();
     }
@@ -40,11 +38,19 @@ public record TransactionResponse(
 
     public static TransactionResponse from(FinancialTransaction entity) {
         return new TransactionResponse(
-                entity.getId(), entity.getType(), entity.getCategory(),
-                entity.getSubcategory(), entity.getAmount(), entity.getCurrency(),
-                entity.getDescription(), entity.getMerchant(), entity.getTransactionDate(),
-                entity.getPaymentMethod(), entity.getReferenceId(), entity.getTags(),
-                entity.getCreatedAt(), entity.getUpdatedAt()
-        );
+                entity.getId(),
+                entity.getType(),
+                entity.getCategory(),
+                entity.getSubcategory(),
+                entity.getAmount(),
+                entity.getCurrency(),
+                entity.getDescription(),
+                entity.getMerchant(),
+                entity.getTransactionDate(),
+                entity.getPaymentMethod(),
+                entity.getReferenceId(),
+                entity.getTags(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt());
     }
 }

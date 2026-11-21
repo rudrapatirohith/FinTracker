@@ -5,8 +5,11 @@
  */
 package com.fintracker.coreapi.financial.controller;
 
+import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
+import com.fintracker.coreapi.financial.dto.response.ScheduledPaymentResponse;
+import com.fintracker.coreapi.financial.service.ScheduledPaymentService;
+import jakarta.validation.Valid;
 import java.util.UUID;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,12 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
-import com.fintracker.coreapi.financial.dto.response.ScheduledPaymentResponse;
-import com.fintracker.coreapi.financial.service.ScheduledPaymentService;
-
-import jakarta.validation.Valid;
-
 /** HTTP adapter for scheduled-payment operations. */
 @RestController
 @RequestMapping("/api/v1/scheduled-payments")
@@ -40,15 +37,13 @@ public class ScheduledPaymentController {
     }
 
     @PostMapping
-    public ResponseEntity<ScheduledPaymentResponse> create(
-            @Valid @RequestBody ScheduledPaymentRequest request) {
+    public ResponseEntity<ScheduledPaymentResponse> create(@Valid @RequestBody ScheduledPaymentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
     @GetMapping
     public Page<ScheduledPaymentResponse> getAll(
-            @PageableDefault(size = 20, sort = "dueDate", direction = Sort.Direction.ASC)
-            Pageable pageable) {
+            @PageableDefault(size = 20, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         return service.getAll(pageable);
     }
 
@@ -58,9 +53,7 @@ public class ScheduledPaymentController {
     }
 
     @PutMapping("/{id}")
-    public ScheduledPaymentResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody ScheduledPaymentRequest request) {
+    public ScheduledPaymentResponse update(@PathVariable UUID id, @Valid @RequestBody ScheduledPaymentRequest request) {
         return service.update(id, request);
     }
 

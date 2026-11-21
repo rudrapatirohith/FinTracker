@@ -8,11 +8,12 @@ package com.fintracker.coreapi.financial;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fintracker.coreapi.identity.entity.AppUser;
+import com.fintracker.coreapi.identity.repository.AppUserRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,13 +26,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.server.ResponseStatusException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.fintracker.coreapi.identity.entity.AppUser;
-import com.fintracker.coreapi.identity.repository.AppUserRepository;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -53,17 +51,31 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
 
-    @Autowired AppUserRepository users;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired TransferApiService transfers;
-    @Autowired LoanApiService loans;
-    @Autowired LoanPaymentApiService payments;
+    @Autowired
+    AppUserRepository users;
 
-    @BeforeEach void clean() {
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @Autowired
+    TransferApiService transfers;
+
+    @Autowired
+    LoanApiService loans;
+
+    @Autowired
+    LoanPaymentApiService payments;
+
+    @BeforeEach
+    void clean() {
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM app_users");
     }
-    @AfterEach void clearAuth() { SecurityContextHolder.clearContext(); }
+
+    @AfterEach
+    void clearAuth() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void transferCrudIsScopedToAuthenticatedOwner() {
@@ -74,19 +86,23 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThat(created.id()).isNotNull();
         assertThat(created.currencySent()).isEqualTo("USD");
         assertThat(created.currencyReceived()).isEqualTo("INR");
-        assertThat(transfers.all(org.springframework.data.domain.PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
+        assertThat(transfers
+                        .all(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isEqualTo(1);
 
         authenticate(other);
-        assertThatThrownBy(() -> transfers.one(created.id()))
-                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> transfers.one(created.id())).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> transfers.update(created.id(), transferRequest("EUR", "GBP")))
                 .isInstanceOf(ResponseStatusException.class);
-        assertThatThrownBy(() -> transfers.delete(created.id()))
-                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> transfers.delete(created.id())).isInstanceOf(ResponseStatusException.class);
 
         authenticate(owner);
         transfers.delete(created.id());
-        assertThat(transfers.all(org.springframework.data.domain.PageRequest.of(0, 20)).getTotalElements()).isZero();
+        assertThat(transfers
+                        .all(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isZero();
     }
 
     @Test
@@ -96,10 +112,20 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         authenticate(owner);
         LoanView created = loans.create(loanRequest());
         assertThat(created.currentBalance()).isEqualByComparingTo("900.00");
-        LoanView updated = loans.update(created.id(), new LoanRequest(
-                "Updated personal loan", new BigDecimal("1000.00"), new BigDecimal("850.00"),
-                new BigDecimal("7.50"), new BigDecimal("100.00"), LocalDate.of(2026, 1, 1),
-                LocalDate.of(2027, 1, 1), "Bank", "personal", "active", "INR"));
+        LoanView updated = loans.update(
+                created.id(),
+                new LoanRequest(
+                        "Updated personal loan",
+                        new BigDecimal("1000.00"),
+                        new BigDecimal("850.00"),
+                        new BigDecimal("7.50"),
+                        new BigDecimal("100.00"),
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2027, 1, 1),
+                        "Bank",
+                        "personal",
+                        "active",
+                        "INR"));
         assertThat(updated.loanName()).isEqualTo("Updated personal loan");
 
         authenticate(other);
@@ -116,13 +142,17 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         LoanPaymentRequest request = paymentRequest();
         LoanPaymentView payment = payments.create(loan.id(), request);
         assertThat(payment.loanId()).isEqualTo(loan.id());
-        assertThat(payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
+        assertThat(payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isEqualTo(1);
 
         authenticate(other);
         assertThatThrownBy(() -> payments.create(loan.id(), request)).isInstanceOf(ResponseStatusException.class);
-        assertThatThrownBy(() -> payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20))).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20)))
+                .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.one(loan.id(), payment.id())).isInstanceOf(ResponseStatusException.class);
-        assertThatThrownBy(() -> payments.update(loan.id(), payment.id(), request)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> payments.update(loan.id(), payment.id(), request))
+                .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> payments.delete(loan.id(), payment.id())).isInstanceOf(ResponseStatusException.class);
 
         authenticate(owner);
@@ -132,28 +162,65 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     private AppUser user(String email) {
         return users.save(new AppUser(UUID.randomUUID(), email, null));
     }
+
     private void authenticate(AppUser user) {
         Instant now = Instant.now();
-        Jwt jwt = Jwt.withTokenValue("financial-api-test-token").header("alg", "HS256")
-                .subject(user.getId().toString()).issuedAt(now).expiresAt(now.plusSeconds(300))
-                .claim("token_use", "access").build();
-        SecurityContextHolder.getContext().setAuthentication(
-                new TestingAuthenticationToken(jwt, "integration-test-credentials", "ROLE_USER"));
+        Jwt jwt = Jwt.withTokenValue("financial-api-test-token")
+                .header("alg", "HS256")
+                .subject(user.getId().toString())
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(300))
+                .claim("token_use", "access")
+                .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(jwt, "integration-test-credentials", "ROLE_USER"));
     }
+
     private TransferRequest transferRequest(String sent, String received) {
-        return new TransferRequest("Recipient", "India", new BigDecimal("100.00"), sent,
-                new BigDecimal("8300.00"), received, new BigDecimal("83.000000"),
-                new BigDecimal("2.00"), "bank", "family support", "pending",
-                LocalDate.of(2026, 1, 10), null, "REF-1", null, null);
+        return new TransferRequest(
+                "Recipient",
+                "India",
+                new BigDecimal("100.00"),
+                sent,
+                new BigDecimal("8300.00"),
+                received,
+                new BigDecimal("83.000000"),
+                new BigDecimal("2.00"),
+                "bank",
+                "family support",
+                "pending",
+                LocalDate.of(2026, 1, 10),
+                null,
+                "REF-1",
+                null,
+                null);
     }
+
     private LoanRequest loanRequest() {
-        return new LoanRequest("Personal loan", new BigDecimal("1000.00"), new BigDecimal("900.00"),
-                new BigDecimal("7.50"), new BigDecimal("100.00"), LocalDate.of(2026, 1, 1),
-                LocalDate.of(2027, 1, 1), "Bank", "personal", "active", "INR");
+        return new LoanRequest(
+                "Personal loan",
+                new BigDecimal("1000.00"),
+                new BigDecimal("900.00"),
+                new BigDecimal("7.50"),
+                new BigDecimal("100.00"),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2027, 1, 1),
+                "Bank",
+                "personal",
+                "active",
+                "INR");
     }
+
     private LoanPaymentRequest paymentRequest() {
-        return new LoanPaymentRequest(new BigDecimal("100.00"), new BigDecimal("90.00"),
-                new BigDecimal("10.00"), LocalDate.of(2026, 2, 1), "bank transfer",
-                "monthly payment", "INR", null, null);
+        return new LoanPaymentRequest(
+                new BigDecimal("100.00"),
+                new BigDecimal("90.00"),
+                new BigDecimal("10.00"),
+                LocalDate.of(2026, 2, 1),
+                "bank transfer",
+                "monthly payment",
+                "INR",
+                null,
+                null);
     }
 }

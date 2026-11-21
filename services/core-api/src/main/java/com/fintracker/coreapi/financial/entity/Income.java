@@ -5,11 +5,6 @@
  */
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +13,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "income")
@@ -66,15 +65,9 @@ public class Income {
     @Column(name = "inr_equivalent", precision = 15, scale = 2)
     private BigDecimal inrEquivalent;
 
-    protected Income() {
-    }
+    protected Income() {}
 
-    public Income(
-            UUID userId,
-            String source,
-            BigDecimal amount,
-            LocalDate date
-    ) {
+    public Income(UUID userId, String source, BigDecimal amount, LocalDate date) {
         this.userId = userId;
         this.source = source;
         this.amount = amount;
@@ -97,20 +90,61 @@ public class Income {
         updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getSource() { return source; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public String getCategory() { return category; }
-    public String getDescription() { return description; }
-    public LocalDate getDate() { return date; }
-    public Boolean getRecurring() { return recurring; }
-    public String getRecurringFrequency() { return recurringFrequency; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public BigDecimal getExchangeRate() { return exchangeRate; }
-    public BigDecimal getInrEquivalent() { return inrEquivalent; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public Boolean getRecurring() {
+        return recurring;
+    }
+
+    public String getRecurringFrequency() {
+        return recurringFrequency;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
+    }
+
+    public BigDecimal getInrEquivalent() {
+        return inrEquivalent;
+    }
 
     public void updateDetails(
             String source,
@@ -122,8 +156,7 @@ public class Income {
             Boolean recurring,
             String recurringFrequency,
             BigDecimal exchangeRate,
-            BigDecimal inrEquivalent
-    ) {
+            BigDecimal inrEquivalent) {
         this.source = source;
         this.amount = amount;
         this.currency = currency;
@@ -134,4 +167,5 @@ public class Income {
         this.recurringFrequency = recurringFrequency;
         this.exchangeRate = exchangeRate;
         this.inrEquivalent = inrEquivalent;
-    }}
+    }
+}

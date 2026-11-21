@@ -5,12 +5,11 @@
  */
 package com.fintracker.coreapi.financial.dto.response;
 
+import com.fintracker.coreapi.financial.entity.Income;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-
-import com.fintracker.coreapi.financial.entity.Income;
 
 public record IncomeResponse(
         UUID id,
@@ -25,8 +24,7 @@ public record IncomeResponse(
         Instant createdAt,
         Instant updatedAt,
         BigDecimal exchangeRate,
-        BigDecimal inrEquivalent
-) {
+        BigDecimal inrEquivalent) {
     public static IncomeResponse from(Income income) {
         return new IncomeResponse(
                 income.getId(),
@@ -41,7 +39,6 @@ public record IncomeResponse(
                 income.getCreatedAt(),
                 income.getUpdatedAt(),
                 income.getExchangeRate(),
-                income.getInrEquivalent()
-        );
+                income.getInrEquivalent());
     }
 }

@@ -4,12 +4,11 @@
  */
 package com.fintracker.coreapi.financial.dto.response;
 
+import com.fintracker.coreapi.financial.entity.MonthlyExpense;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-
-import com.fintracker.coreapi.financial.entity.MonthlyExpense;
 
 /** API representation that does not expose the internal owner UUID. */
 public record MonthlyExpenseResponse(
@@ -24,14 +23,20 @@ public record MonthlyExpenseResponse(
         String paymentMethod,
         String notes,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
     public static MonthlyExpenseResponse from(MonthlyExpense entity) {
         return new MonthlyExpenseResponse(
-                entity.getId(), entity.getExpenseName(), entity.getAmount(),
-                entity.getCurrency(), entity.getExchangeRate(), entity.getInrEquivalent(),
-                entity.getCategory(), entity.getExpenseDate(), entity.getPaymentMethod(),
-                entity.getNotes(), entity.getCreatedAt(), entity.getUpdatedAt()
-        );
+                entity.getId(),
+                entity.getExpenseName(),
+                entity.getAmount(),
+                entity.getCurrency(),
+                entity.getExchangeRate(),
+                entity.getInrEquivalent(),
+                entity.getCategory(),
+                entity.getExpenseDate(),
+                entity.getPaymentMethod(),
+                entity.getNotes(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt());
     }
 }

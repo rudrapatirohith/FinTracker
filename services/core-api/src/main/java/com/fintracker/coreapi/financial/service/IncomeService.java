@@ -6,19 +6,17 @@
  */
 package com.fintracker.coreapi.financial.service;
 
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.fintracker.coreapi.financial.dto.request.IncomeRequest;
 import com.fintracker.coreapi.financial.dto.response.IncomeResponse;
 import com.fintracker.coreapi.financial.entity.Income;
 import com.fintracker.coreapi.financial.exception.IncomeNotFoundException;
 import com.fintracker.coreapi.financial.repository.IncomeRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IncomeService {
@@ -26,9 +24,7 @@ public class IncomeService {
     private final IncomeRepository incomeRepository;
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
-    public IncomeService(
-            IncomeRepository incomeRepository,
-            AuthenticatedUserProvider authenticatedUserProvider) {
+    public IncomeService(IncomeRepository incomeRepository, AuthenticatedUserProvider authenticatedUserProvider) {
         this.incomeRepository = incomeRepository;
         this.authenticatedUserProvider = authenticatedUserProvider;
     }
@@ -37,12 +33,7 @@ public class IncomeService {
     public IncomeResponse create(IncomeRequest request) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
 
-        Income income = new Income(
-                userId,
-                request.source().trim(),
-                request.amount(),
-                request.date()
-        );
+        Income income = new Income(userId, request.source().trim(), request.amount(), request.date());
 
         applyRequest(income, request);
 
@@ -53,8 +44,7 @@ public class IncomeService {
     public Page<IncomeResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
 
-        return incomeRepository.findAllByUserId(userId, pageable)
-                .map(IncomeResponse::from);
+        return incomeRepository.findAllByUserId(userId, pageable).map(IncomeResponse::from);
     }
 
     @Transactional(readOnly = true)
@@ -83,8 +73,7 @@ public class IncomeService {
     }
 
     private Income findOwnedIncome(UUID incomeId, UUID userId) {
-        return incomeRepository.findByIdAndUserId(incomeId, userId)
-                .orElseThrow(IncomeNotFoundException::new);
+        return incomeRepository.findByIdAndUserId(incomeId, userId).orElseThrow(IncomeNotFoundException::new);
     }
 
     private void applyRequest(Income income, IncomeRequest request) {
@@ -100,7 +89,6 @@ public class IncomeService {
                 request.recurring() == null ? Boolean.FALSE : request.recurring(),
                 request.recurringFrequency(),
                 request.exchangeRate(),
-                request.inrEquivalent()
-        );
+                request.inrEquivalent());
     }
 }

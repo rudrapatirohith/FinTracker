@@ -5,11 +5,6 @@
  */
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +13,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "monthly_expenses")
@@ -63,15 +62,9 @@ public class MonthlyExpense {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    protected MonthlyExpense() {
-    }
+    protected MonthlyExpense() {}
 
-    public MonthlyExpense(
-            UUID userId,
-            String expenseName,
-            BigDecimal amount,
-            LocalDate expenseDate
-    ) {
+    public MonthlyExpense(UUID userId, String expenseName, BigDecimal amount, LocalDate expenseDate) {
         this.userId = userId;
         this.expenseName = expenseName;
         this.amount = amount;
@@ -94,19 +87,57 @@ public class MonthlyExpense {
         updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getExpenseName() { return expenseName; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public BigDecimal getExchangeRate() { return exchangeRate; }
-    public BigDecimal getInrEquivalent() { return inrEquivalent; }
-    public String getCategory() { return category; }
-    public LocalDate getExpenseDate() { return expenseDate; }
-    public String getPaymentMethod() { return paymentMethod; }
-    public String getNotes() { return notes; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getExpenseName() {
+        return expenseName;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
+    }
+
+    public BigDecimal getInrEquivalent() {
+        return inrEquivalent;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public LocalDate getExpenseDate() {
+        return expenseDate;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 
     /** Updates mutable expense fields without allowing reassignment of its owner. */
     public void updateDetails(
@@ -118,8 +149,7 @@ public class MonthlyExpense {
             String category,
             LocalDate expenseDate,
             String paymentMethod,
-            String notes
-    ) {
+            String notes) {
         this.expenseName = expenseName;
         this.amount = amount;
         this.currency = currency;

@@ -6,14 +6,6 @@
  */
 package com.fintracker.coreapi.financial.entity;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -22,6 +14,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "transactions")
@@ -74,16 +72,10 @@ public class FinancialTransaction {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    protected FinancialTransaction() {
-    }
+    protected FinancialTransaction() {}
 
     public FinancialTransaction(
-            UUID userId,
-            String type,
-            String category,
-            BigDecimal amount,
-            LocalDate transactionDate
-    ) {
+            UUID userId, String type, String category, BigDecimal amount, LocalDate transactionDate) {
         this.userId = userId;
         this.type = type;
         this.category = category;
@@ -107,21 +99,65 @@ public class FinancialTransaction {
         updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getType() { return type; }
-    public String getCategory() { return category; }
-    public String getSubcategory() { return subcategory; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public String getDescription() { return description; }
-    public String getMerchant() { return merchant; }
-    public LocalDate getTransactionDate() { return transactionDate; }
-    public String getPaymentMethod() { return paymentMethod; }
-    public UUID getReferenceId() { return referenceId; }
-    public String[] getTags() { return tags == null ? null : tags.clone(); }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getSubcategory() {
+        return subcategory;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getMerchant() {
+        return merchant;
+    }
+
+    public LocalDate getTransactionDate() {
+        return transactionDate;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public UUID getReferenceId() {
+        return referenceId;
+    }
+
+    public String[] getTags() {
+        return tags == null ? null : tags.clone();
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 
     /**
      * Applies a complete replacement of mutable transaction fields.
@@ -138,8 +174,7 @@ public class FinancialTransaction {
             LocalDate transactionDate,
             String paymentMethod,
             UUID referenceId,
-            String[] tags
-    ) {
+            String[] tags) {
         this.type = type;
         this.category = category;
         this.subcategory = subcategory;
