@@ -1,8 +1,3 @@
-/**
- * Validated transaction input.
- * The request contains business fields only: user ownership is resolved from the authenticated JWT in the service, never trusted from client JSON.
- * The compact constructor and accessor defensively copy the tags array so callers cannot mutate request state after construction.
- */
 package com.fintracker.coreapi.financial.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -35,6 +30,9 @@ public record TransactionRequest(
     }
 
     @Override
+    /**
+     * Returns a defensive copy of the tags array; the caller can modify the returned array without changing the request record.
+     */
     public String[] tags() {
         return tags == null ? null : tags.clone();
     }
