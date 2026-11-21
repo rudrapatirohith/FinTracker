@@ -1,9 +1,3 @@
-/**
- * JPA mapping for an international transfer.
- * The entity retains both the current currency fields and legacy sentCurrency/receivedCurrency columns because existing database data and application code may still depend on both representations.
- * updateDetails synchronizes each pair so they cannot drift during API updates.
- * The owner and generated ID are not mutable through that method.
- */
 package com.fintracker.coreapi.financial.entity;
 
 import jakarta.persistence.Column;
@@ -19,6 +13,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * JPA mapping for an international transfer.
+ * The entity retains both the current currency fields and legacy sentCurrency/receivedCurrency columns because existing database data and application code may still depend on both representations.
+ * updateDetails synchronizes each pair so they cannot drift during API updates.
+ * The owner and generated ID are not mutable through that method.
+ */
 @Entity
 @Table(name = "international_transfers")
 public class InternationalTransfer {
@@ -110,6 +110,9 @@ public class InternationalTransfer {
     }
 
     @PrePersist
+    /**
+     * Initializes createdAt and updatedAt immediately before the first insert; existing non-null timestamp values are preserved.
+     */
     void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) {
@@ -121,6 +124,9 @@ public class InternationalTransfer {
     }
 
     @PreUpdate
+    /**
+     * Refreshes updatedAt immediately before an entity update so the audit timestamp reflects the latest persisted change.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }
