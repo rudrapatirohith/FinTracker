@@ -1,3 +1,8 @@
+/**
+ * PostgreSQL integration tests for the international-transfer, loan, and loan-payment service layer.
+ * Testcontainers runs the real PostgreSQL schema and Flyway migrations so these tests exercise actual persistence constraints rather than an in-memory substitute.
+ * The scenarios switch JWT subjects between two users to prove that record IDs and nested loan/payment paths cannot cross tenant boundaries.
+ */
 package com.fintracker.coreapi.financial;
 
 import static org.assertj.core.api.Assertions.assertThat;
