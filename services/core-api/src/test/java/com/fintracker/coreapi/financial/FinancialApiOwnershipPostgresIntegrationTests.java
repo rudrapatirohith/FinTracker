@@ -268,7 +268,8 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     void csrfEndpointSetsCookieUsingTheActiveEnvironmentPolicy() throws Exception {
         mockMvc.perform(get("/api/v1/auth/csrf"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("SameSite=Lax")));
+                .andExpect(result -> assertThat(result.getResponse().getCookie("XSRF-TOKEN").getAttribute("SameSite"))
+                        .isEqualTo("Lax"));
     }
 
     @Test
