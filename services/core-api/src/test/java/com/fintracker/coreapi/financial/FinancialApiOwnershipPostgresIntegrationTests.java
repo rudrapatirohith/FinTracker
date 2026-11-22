@@ -2,6 +2,9 @@ package com.fintracker.coreapi.financial;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
 import com.fintracker.coreapi.financial.dto.request.LoanRequest;
@@ -23,11 +26,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.server.ResponseStatusException;
@@ -36,6 +41,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Testcontainers
 class FinancialApiOwnershipPostgresIntegrationTests {
@@ -57,6 +63,9 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         registry.add("spring.flyway.enabled", () -> true);
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
+
+    @Autowired
+    MockMvc mockMvc;
 
     @Autowired
     AppUserRepository users;
@@ -237,6 +246,34 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThatThrownBy(() -> payments.create(loan.id(), invalidBreakdown))
                 .isInstanceOf(ResponseStatusException.class);
         assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
+    }
+
+    @Test
+    void financialEndpointsRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/income"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void collectionEndpointRejectsUnapprovedSortProperties() throws Exception {
+        AppUser owner = user("pagination.owner@example.com");
+
+        mockMvc.perform(get("/api/v1/income")
+                        .param("sort", "userId,asc")
+                        .with(jwt().jwt(token -> token.subject(owner.getId().toString()))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void loanEndpointDoesNotExposeAnotherUsersRecord() throws Exception {
+        AppUser owner = user("loan.http.owner@example.com");
+        AppUser other = user("loan.http.other@example.com");
+        authenticate(owner);
+        LoanView loan = loans.create(loanRequest());
+
+        mockMvc.perform(get("/api/v1/loans/{id}", loan.id())
+                        .with(jwt().jwt(token -> token.subject(other.getId().toString()))))
+                .andExpect(status().isNotFound());
     }
 
     /**
