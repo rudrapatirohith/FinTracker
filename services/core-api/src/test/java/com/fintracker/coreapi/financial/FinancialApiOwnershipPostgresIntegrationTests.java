@@ -8,12 +8,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
 import com.fintracker.coreapi.financial.dto.request.LoanRequest;
+import com.fintracker.coreapi.financial.dto.request.MonthlyExpenseRequest;
+import com.fintracker.coreapi.financial.dto.request.ScheduledPaymentRequest;
+import com.fintracker.coreapi.financial.dto.request.TransactionRequest;
 import com.fintracker.coreapi.financial.dto.request.TransferRequest;
 import com.fintracker.coreapi.financial.dto.response.LoanPaymentView;
 import com.fintracker.coreapi.financial.dto.response.LoanView;
 import com.fintracker.coreapi.financial.dto.response.TransferView;
 import com.fintracker.coreapi.financial.service.LoanApiService;
 import com.fintracker.coreapi.financial.service.LoanPaymentApiService;
+import com.fintracker.coreapi.financial.service.MonthlyExpenseService;
+import com.fintracker.coreapi.financial.service.ScheduledPaymentService;
+import com.fintracker.coreapi.financial.service.TransactionService;
 import com.fintracker.coreapi.financial.service.TransferApiService;
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.repository.AppUserRepository;
@@ -81,6 +87,15 @@ class FinancialApiOwnershipPostgresIntegrationTests {
 
     @Autowired
     LoanPaymentApiService payments;
+
+    @Autowired
+    MonthlyExpenseService monthlyExpenses;
+
+    @Autowired
+    ScheduledPaymentService scheduledPayments;
+
+    @Autowired
+    TransactionService transactions;
 
     /**
      * Clears authentication and removes persisted users before each test so ownership scenarios start from isolated data.
@@ -274,6 +289,109 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         mockMvc.perform(get("/api/v1/loans/{id}", loan.id())
                         .with(jwt().jwt(token -> token.subject(other.getId().toString()))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void monthlyExpenseCrudIsScopedToAuthenticatedOwner() {
+        AppUser owner = user("monthly.owner@example.com");
+        AppUser other = user("monthly.other@example.com");
+        authenticate(owner);
+        MonthlyExpenseRequest request = new MonthlyExpenseRequest(
+                "Groceries",
+                new BigDecimal("120.00"),
+                "USD",
+                null,
+                null,
+                "food",
+                LocalDate.of(2026, 11, 1),
+                "card",
+                "weekly shopping");
+        var created = monthlyExpenses.create(request);
+        assertThat(monthlyExpenses.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isEqualTo(1);
+
+        authenticate(other);
+        assertThatThrownBy(() -> monthlyExpenses.getById(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundException.class);
+        assertThatThrownBy(() -> monthlyExpenses.update(created.id(), request))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundException.class);
+        assertThatThrownBy(() -> monthlyExpenses.delete(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundException.class);
+
+        authenticate(owner);
+        monthlyExpenses.update(created.id(), new MonthlyExpenseRequest(
+                "Groceries", new BigDecimal("150.00"), "USD", null, null, "food",
+                LocalDate.of(2026, 11, 2), "card", "updated"));
+        assertThat(monthlyExpenses.getById(created.id()).amount()).isEqualByComparingTo("150.00");
+        monthlyExpenses.delete(created.id());
+        assertThat(monthlyExpenses.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isZero();
+    }
+
+    @Test
+    void scheduledPaymentCrudIsScopedToAuthenticatedOwner() {
+        AppUser owner = user("scheduled.owner@example.com");
+        AppUser other = user("scheduled.other@example.com");
+        authenticate(owner);
+        ScheduledPaymentRequest request = new ScheduledPaymentRequest(
+                "Electric bill", new BigDecimal("75.00"), "USD", "utilities", "Power Co",
+                LocalDate.of(2026, 12, 1), "monthly", true, false, "pending", 3, "monthly bill");
+        var created = scheduledPayments.create(request);
+        assertThat(scheduledPayments.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isEqualTo(1);
+
+        authenticate(other);
+        assertThatThrownBy(() -> scheduledPayments.getById(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException.class);
+        assertThatThrownBy(() -> scheduledPayments.update(created.id(), request))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException.class);
+        assertThatThrownBy(() -> scheduledPayments.delete(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException.class);
+
+        authenticate(owner);
+        scheduledPayments.update(created.id(), new ScheduledPaymentRequest(
+                "Electric bill", new BigDecimal("80.00"), "USD", "utilities", "Power Co",
+                LocalDate.of(2026, 12, 2), "monthly", true, false, "pending", 3, "updated bill"));
+        assertThat(scheduledPayments.getById(created.id()).amount()).isEqualByComparingTo("80.00");
+        scheduledPayments.delete(created.id());
+        assertThat(scheduledPayments.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isZero();
+    }
+
+    @Test
+    void transactionCrudIsScopedToAuthenticatedOwner() {
+        AppUser owner = user("transaction.owner@example.com");
+        AppUser other = user("transaction.other@example.com");
+        authenticate(owner);
+        TransactionRequest request = new TransactionRequest(
+                "expense", "food", "restaurant", new BigDecimal("42.50"), "USD", "Lunch", "Cafe",
+                LocalDate.of(2026, 11, 3), "card", null, new String[] {"food", "lunch"});
+        var created = transactions.create(request);
+        assertThat(transactions.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isEqualTo(1);
+
+        authenticate(other);
+        assertThatThrownBy(() -> transactions.getById(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.TransactionNotFoundException.class);
+        assertThatThrownBy(() -> transactions.update(created.id(), request))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.TransactionNotFoundException.class);
+        assertThatThrownBy(() -> transactions.delete(created.id()))
+                .isInstanceOf(com.fintracker.coreapi.financial.exception.TransactionNotFoundException.class);
+
+        authenticate(owner);
+        transactions.update(created.id(), new TransactionRequest(
+                "expense", "food", "restaurant", new BigDecimal("52.50"), "USD", "Dinner", "Cafe",
+                LocalDate.of(2026, 11, 4), "card", null, new String[] {"food", "dinner"}));
+        assertThat(transactions.getById(created.id()).amount()).isEqualByComparingTo("52.50");
+        transactions.delete(created.id());
+        assertThat(transactions.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+                        .getTotalElements())
+                .isZero();
     }
 
     /**
