@@ -48,6 +48,9 @@ public class AuthController {
     @Value("${fintracker.security.refresh-token.cookie-secure}")
     private boolean cookieSecure;
 
+    @Value("${fintracker.security.refresh-token.cookie-same-site}")
+    private String cookieSameSite;
+
     @Value("${fintracker.security.refresh-token.ttl}")
     private Duration refreshTokenTtl;
 
@@ -170,7 +173,7 @@ public class AuthController {
             .from(cookieName, refreshToken)
             .httpOnly(true)
             .secure(cookieSecure)
-            .sameSite("Lax")
+            .sameSite(cookieSameSite)
             .path("/api/v1/auth")
             .maxAge(refreshTokenTtl)
             .build();
@@ -185,7 +188,7 @@ public class AuthController {
             .from(cookieName, "")
             .httpOnly(true)
             .secure(cookieSecure)
-            .sameSite("Lax")
+            .sameSite(cookieSameSite)
             .path("/api/v1/auth")
             .maxAge(Duration.ZERO)
             .build();
