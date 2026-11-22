@@ -7,6 +7,7 @@ import com.fintracker.coreapi.financial.exception.IncomeNotFoundException;
 import com.fintracker.coreapi.financial.repository.IncomeRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.UUID;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -49,7 +50,7 @@ public class IncomeService {
     @Transactional(readOnly = true)
     public Page<IncomeResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
-
+        FinancialPageableValidator.validate(pageable, Set.of("date", "amount", "source", "category", "createdAt", "updatedAt"));
         return incomeRepository.findAllByUserId(userId, pageable).map(IncomeResponse::from);
     }
 

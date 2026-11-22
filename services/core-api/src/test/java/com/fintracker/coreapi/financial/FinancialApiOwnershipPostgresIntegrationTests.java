@@ -164,7 +164,21 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         LoanPaymentView payment = payments.create(loan.id(), request);
         assertThat(payment.loanId()).isEqualTo(loan.id());
         assertThat(payment.currency()).isEqualTo(loan.currency());
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("810.00");
         assertThat(payments.update(loan.id(), payment.id(), request).currency()).isEqualTo(loan.currency());
+
+        LoanPaymentRequest revisedRequest = new LoanPaymentRequest(
+                new BigDecimal("100.00"),
+                new BigDecimal("80.00"),
+                new BigDecimal("20.00"),
+                LocalDate.of(2026, 2, 1),
+                "bank transfer",
+                "revised principal split",
+                null,
+                null,
+                null);
+        payments.update(loan.id(), payment.id(), revisedRequest);
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("820.00");
         assertThat(payments.all(loan.id(), org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isEqualTo(1);
@@ -180,6 +194,49 @@ class FinancialApiOwnershipPostgresIntegrationTests {
 
         authenticate(owner);
         assertThat(payments.one(loan.id(), payment.id()).id()).isEqualTo(payment.id());
+        payments.delete(loan.id(), payment.id());
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
+
+        LoanPaymentRequest overpayment = new LoanPaymentRequest(
+                new BigDecimal("901.00"),
+                new BigDecimal("901.00"),
+                BigDecimal.ZERO,
+                LocalDate.of(2026, 3, 1),
+                "bank transfer",
+                null,
+                null,
+                null,
+                null);
+        assertThatThrownBy(() -> payments.create(loan.id(), overpayment))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
+
+        LoanPaymentRequest mismatchedCurrency = new LoanPaymentRequest(
+                new BigDecimal("100.00"),
+                new BigDecimal("90.00"),
+                new BigDecimal("10.00"),
+                LocalDate.of(2026, 3, 2),
+                "bank transfer",
+                null,
+                "USD",
+                null,
+                null);
+        assertThatThrownBy(() -> payments.create(loan.id(), mismatchedCurrency))
+                .isInstanceOf(ResponseStatusException.class);
+
+        LoanPaymentRequest invalidBreakdown = new LoanPaymentRequest(
+                new BigDecimal("100.00"),
+                new BigDecimal("90.00"),
+                new BigDecimal("9.00"),
+                LocalDate.of(2026, 3, 3),
+                "bank transfer",
+                null,
+                null,
+                null,
+                null);
+        assertThatThrownBy(() -> payments.create(loan.id(), invalidBreakdown))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
     }
 
     /**

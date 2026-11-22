@@ -6,6 +6,7 @@ import com.fintracker.coreapi.financial.entity.Loan;
 import com.fintracker.coreapi.financial.repository.LoanRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +45,7 @@ public class LoanApiService {
      */
     @Transactional(readOnly = true)
     public Page<LoanView> all(Pageable p) {
+        FinancialPageableValidator.validate(p, Set.of("createdAt", "startDate", "endDate", "principalAmount", "currentBalance", "loanName", "status"));
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(LoanView::from);
     }
 
@@ -79,6 +81,14 @@ public class LoanApiService {
      */
     Loan requireOwned(UUID id, UUID uid) {
         return repo.findByIdAndUserId(id, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
+    }
+
+    /**
+     * Resolves the authenticated owner and obtains a pessimistic write lock for payment-accounting mutations.
+     */
+    public Loan requireOwnedForUpdate(UUID id, UUID uid) {
+        return repo.findByIdAndUserIdForUpdate(id, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
     }
 

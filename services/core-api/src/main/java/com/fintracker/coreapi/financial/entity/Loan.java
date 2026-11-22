@@ -15,7 +15,7 @@ import java.util.UUID;
 
 /**
  * JPA mapping for a loan account.
- * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently; payment posting does not automatically change the balance until accounting rules are explicitly designed.
+ * Principal amount, current balance, interest terms, dates, lender, status, and currency are persisted independently. Loan-payment services adjust current balance by the principal delta within the same transaction as payment changes.
  * updateDetails preserves the record identity and tenant owner.
  */
 @Entity
@@ -125,6 +125,18 @@ public class Loan {
         loanType = type;
         this.status = status;
         this.currency = currency;
+    }
+
+    /**
+     * Applies a principal delta to the outstanding balance. A positive delta represents principal paid; a negative delta reverses a previously recorded principal payment.
+     */
+    public void adjustPrincipalBalance(BigDecimal principalDelta) {
+        BigDecimal updatedBalance = currentBalance.subtract(principalDelta);
+        if (updatedBalance.signum() < 0) {
+            throw new IllegalArgumentException("Principal adjustment cannot make the loan balance negative.");
+        }
+        currentBalance = updatedBalance;
+        status = updatedBalance.signum() == 0 ? "paid_off" : "active";
     }
 
     public UUID getId() {

@@ -8,6 +8,7 @@ import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,7 @@ public class TransferApiService {
      */
     @Transactional(readOnly = true)
     public Page<TransferView> all(Pageable p) {
+        FinancialPageableValidator.validate(p, Set.of("transferDate", "amountSent", "amountReceived", "recipientName", "status", "createdAt", "updatedAt"));
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(TransferView::from);
     }
 

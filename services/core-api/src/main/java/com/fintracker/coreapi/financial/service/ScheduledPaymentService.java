@@ -8,6 +8,7 @@ import com.fintracker.coreapi.financial.repository.ScheduledPaymentRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class ScheduledPaymentService {
     @Transactional(readOnly = true)
     public Page<ScheduledPaymentResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
+        FinancialPageableValidator.validate(pageable, Set.of("dueDate", "amount", "paymentName", "status", "createdAt", "updatedAt"));
         return repository.findAllByUserId(userId, pageable).map(ScheduledPaymentResponse::from);
     }
 

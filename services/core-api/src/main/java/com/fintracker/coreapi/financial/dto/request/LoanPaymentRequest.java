@@ -1,5 +1,6 @@
 package com.fintracker.coreapi.financial.dto.request;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -15,10 +16,10 @@ public record LoanPaymentRequest(
         @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2)
         BigDecimal amount,
 
-        @DecimalMin("0.00") @Digits(integer = 10, fraction = 2)
+        @NotNull @DecimalMin("0.00") @Digits(integer = 10, fraction = 2)
         BigDecimal principalAmount,
 
-        @DecimalMin("0.00") @Digits(integer = 10, fraction = 2)
+        @NotNull @DecimalMin("0.00") @Digits(integer = 10, fraction = 2)
         BigDecimal interestAmount,
 
         @NotNull LocalDate paymentDate,
@@ -30,4 +31,14 @@ public record LoanPaymentRequest(
         BigDecimal exchangeRate,
 
         @DecimalMin("0.00") @Digits(integer = 13, fraction = 2)
-        BigDecimal inrEquivalent) {}
+        BigDecimal inrEquivalent) {
+
+    /** Ensures the recorded payment total is exactly explained by principal and interest. */
+    @AssertTrue(message = "amount must equal principalAmount plus interestAmount")
+    public boolean isBreakdownValid() {
+        return amount != null
+                && principalAmount != null
+                && interestAmount != null
+                && amount.compareTo(principalAmount.add(interestAmount)) == 0;
+    }
+}

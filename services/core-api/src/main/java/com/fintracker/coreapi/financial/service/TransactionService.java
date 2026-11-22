@@ -7,6 +7,7 @@ import com.fintracker.coreapi.financial.exception.TransactionNotFoundException;
 import com.fintracker.coreapi.financial.repository.FinancialTransactionRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.UUID;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Page<TransactionResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
+        FinancialPageableValidator.validate(pageable, Set.of("transactionDate", "amount", "type", "category", "createdAt", "updatedAt"));
         return repository.findAllByUserId(userId, pageable).map(TransactionResponse::from);
     }
 
