@@ -63,7 +63,7 @@ public class FinancialTransaction {
     private UUID referenceId;
 
     @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(columnDefinition = "text[]")
+    @Column(columnDefinition = "text array")
     private String[] tags;
 
     @Column(name = "created_at")

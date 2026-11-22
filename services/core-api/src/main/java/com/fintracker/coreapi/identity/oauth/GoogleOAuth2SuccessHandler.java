@@ -45,6 +45,7 @@ public class GoogleOAuth2SuccessHandler
     // Refresh-token cookie configuration.
     private final String refreshCookieName;
     private final boolean refreshCookieSecure;
+    private final String refreshCookieSameSite;
     private final Duration refreshTokenTtl;
 
     public GoogleOAuth2SuccessHandler(
@@ -59,6 +60,9 @@ public class GoogleOAuth2SuccessHandler
             @Value("${fintracker.security.refresh-token.cookie-secure}")
             boolean refreshCookieSecure,
 
+            @Value("${fintracker.security.refresh-token.cookie-same-site}")
+            String refreshCookieSameSite,
+
             @Value("${fintracker.security.refresh-token.ttl}")
             Duration refreshTokenTtl) {
 
@@ -66,6 +70,7 @@ public class GoogleOAuth2SuccessHandler
         this.frontendCallbackUrl = frontendCallbackUrl;
         this.refreshCookieName = refreshCookieName;
         this.refreshCookieSecure = refreshCookieSecure;
+        this.refreshCookieSameSite = refreshCookieSameSite;
         this.refreshTokenTtl = refreshTokenTtl;
     }
 
@@ -194,7 +199,7 @@ public class GoogleOAuth2SuccessHandler
                 .httpOnly(true)
                 .secure(refreshCookieSecure)
                 .path("/api/v1/auth")
-                .sameSite("Lax")
+                .sameSite(refreshCookieSameSite)
                 .maxAge(refreshTokenTtl)
                 .build();
 
