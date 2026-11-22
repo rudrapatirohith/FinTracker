@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
 import com.fintracker.coreapi.financial.dto.request.LoanRequest;
@@ -261,6 +262,13 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         assertThatThrownBy(() -> payments.create(loan.id(), invalidBreakdown))
                 .isInstanceOf(ResponseStatusException.class);
         assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
+    }
+
+    @Test
+    void csrfEndpointSetsCookieUsingTheActiveEnvironmentPolicy() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("SameSite=Lax")));
     }
 
     @Test

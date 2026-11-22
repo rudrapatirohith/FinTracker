@@ -122,7 +122,7 @@ public class GoogleOAuth2SuccessHandler
              *
              * HttpOnly prevents JavaScript from reading this cookie.
              * Secure controls whether the browser sends it only over HTTPS.
-             * SameSite=Lax provides additional cross-site request protection.
+             * SameSite follows the active environment's cookie policy; production uses None with Secure for cross-site SPA/API requests.
              *
              * The refresh token is NOT placed in the redirect URL.
              */

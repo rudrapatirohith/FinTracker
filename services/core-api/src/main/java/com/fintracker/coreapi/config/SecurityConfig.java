@@ -3,6 +3,7 @@ package com.fintracker.coreapi.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
@@ -37,13 +38,16 @@ public class SecurityConfig {
      * needs to read the CSRF token. This is NOT our refresh-token cookie.
      */
     @Bean
-    public CookieCsrfTokenRepository csrfTokenRepository() {
+    public CookieCsrfTokenRepository csrfTokenRepository(
+            @Value("${fintracker.security.refresh-token.cookie-secure}") boolean cookieSecure,
+            @Value("${fintracker.security.refresh-token.cookie-same-site}") String cookieSameSite) {
 
         CookieCsrfTokenRepository repository =
                 CookieCsrfTokenRepository.withHttpOnlyFalse();
 
         // Allow the frontend to use the CSRF cookie across API paths.
         repository.setCookiePath("/");
+        repository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite(cookieSameSite));
 
         return repository;
     }
