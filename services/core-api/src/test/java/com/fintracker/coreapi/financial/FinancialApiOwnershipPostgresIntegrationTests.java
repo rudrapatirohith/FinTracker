@@ -176,6 +176,37 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     }
 
     /**
+     * Prevents loan-term edits from invalidating the balance and currency assumptions
+     * used by existing payment records.
+     */
+    @Test
+    void loanPrincipalBalanceAndCurrencyCannotChangeAfterPaymentsExist() {
+        AppUser owner = user("loan.history.owner@example.com");
+        authenticate(owner);
+        LoanView loan = loans.create(loanRequest());
+        payments.create(loan.id(), paymentRequest());
+
+        LoanRequest inconsistentUpdate = new LoanRequest(
+                "Personal loan",
+                new BigDecimal("1000.00"),
+                new BigDecimal("700.00"),
+                new BigDecimal("7.50"),
+                new BigDecimal("100.00"),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2027, 1, 1),
+                "Bank",
+                "personal",
+                "active",
+                "INR");
+
+        assertThatThrownBy(() -> loans.update(loan.id(), inconsistentUpdate))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(exception -> assertThat(((ResponseStatusException) exception).getStatusCode())
+                        .isEqualTo(org.springframework.http.HttpStatus.CONFLICT));
+        assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("810.00");
+    }
+
+    /**
      * Confirms that payment operations require ownership of both the parent loan and the payment record.
      */
     @Test
