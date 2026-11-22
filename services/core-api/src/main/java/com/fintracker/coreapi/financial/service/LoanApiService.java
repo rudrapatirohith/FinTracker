@@ -3,6 +3,7 @@ package com.fintracker.coreapi.financial.service;
 import com.fintracker.coreapi.financial.dto.request.LoanRequest;
 import com.fintracker.coreapi.financial.dto.response.LoanView;
 import com.fintracker.coreapi.financial.entity.Loan;
+import com.fintracker.coreapi.financial.repository.LoanPaymentRepository;
 import com.fintracker.coreapi.financial.repository.LoanRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.Locale;
@@ -21,10 +22,12 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class LoanApiService {
     private final LoanRepository repo;
+    private final LoanPaymentRepository payments;
     private final AuthenticatedUserProvider users;
 
-    public LoanApiService(LoanRepository r, AuthenticatedUserProvider u) {
+    public LoanApiService(LoanRepository r, LoanPaymentRepository payments, AuthenticatedUserProvider u) {
         repo = r;
+        this.payments = payments;
         users = u;
     }
 
@@ -64,7 +67,19 @@ public class LoanApiService {
      */
     @Transactional
     public LoanView update(UUID id, LoanRequest r) {
-        Loan e = owned(id);
+        UUID userId = users.getRequiredUserId();
+        // Serialize loan-term edits with payment mutations, which lock this same row.
+        Loan e = repo.findByIdAndUserIdForUpdate(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found."));
+
+        if (payments.existsByLoanIdAndUserId(id, userId)
+                && (e.getPrincipalAmount().compareTo(r.principalAmount()) != 0
+                        || e.getCurrentBalance().compareTo(r.currentBalance()) != 0
+                        || !e.getCurrency().equalsIgnoreCase(r.currency()))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Principal, current balance, and currency cannot be changed after loan payments exist.");
+        }
 
         apply(e, r);
         return LoanView.from(e);
@@ -109,6 +124,9 @@ public class LoanApiService {
 
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
+        if (r.currentBalance().compareTo(r.principalAmount()) > 0)
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "currentBalance cannot exceed principalAmount.");
         e.updateDetails(
                 r.loanName().trim(),
                 r.principalAmount(),
