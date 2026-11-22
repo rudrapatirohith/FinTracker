@@ -22,4 +22,7 @@ public interface LoanPaymentRepository extends JpaRepository<LoanPayment, UUID> 
      * Returns a page of payments filtered by both parent loan ID and owner ID, ensuring nested payment listings cannot cross either boundary.
      */
     Page<LoanPayment> findAllByLoanIdAndUserId(UUID loanId, UUID userId, Pageable pageable);
+
+    /** Checks whether a loan already has payment history before allowing principal, balance, or currency edits. */
+    boolean existsByLoanIdAndUserId(UUID loanId, UUID userId);
 }
