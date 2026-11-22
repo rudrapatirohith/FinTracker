@@ -1,19 +1,5 @@
 package com.fintracker.coreapi.identity.controller;
 
-import java.time.Duration;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.fintracker.coreapi.identity.dto.request.LoginRequest;
 import com.fintracker.coreapi.identity.dto.request.OAuthExchangeRequest;
 import com.fintracker.coreapi.identity.dto.request.RegisterRequest;
@@ -26,13 +12,25 @@ import com.fintracker.coreapi.identity.service.LoginService;
 import com.fintracker.coreapi.identity.service.OAuthLoginExchangeService;
 import com.fintracker.coreapi.identity.service.RefreshSessionService;
 import com.fintracker.coreapi.identity.service.RegistrationService;
-
 import jakarta.validation.Valid;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Authentication-related REST endpoints.
  */
-@RestController // Marks this class as a REST controller that handles HTTP requests. Combination of @Contoller and @Requestbody
+@RestController // Marks this class as a REST controller that handles HTTP requests. Combination of @Contoller and
+// @Requestbody
 @RequestMapping("/api/v1/auth")
 @Validated
 public class AuthController {
@@ -70,15 +68,11 @@ public class AuthController {
      * Registers a new FinTracker user.
      */
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(
-            @Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
 
-        RegisterResponse response =
-            registrationService.register(request);
+        RegisterResponse response = registrationService.register(request);
 
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -88,20 +82,15 @@ public class AuthController {
      * The refresh token is returned only in an HttpOnly cookie.
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
-            @Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
 
-        LoginResult result = loginService.login(
-            request.email(),
-            request.password()
-        );
+        LoginResult result = loginService.login(request.email(), request.password());
 
-        ResponseCookie refreshCookie =
-            createRefreshCookie(result.refreshToken());
+        ResponseCookie refreshCookie = createRefreshCookie(result.refreshToken());
 
         return ResponseEntity.ok()
-            .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-            .body(result.response());
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(result.response());
     }
 
     /**
@@ -112,56 +101,40 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponse> refresh(
-            @CookieValue(
-                name = "${fintracker.security.refresh-token.cookie-name}",
-                required = false
-            ) String rawRefreshToken) {
+            @CookieValue(name = "${fintracker.security.refresh-token.cookie-name}", required = false)
+                    String rawRefreshToken) {
 
         try {
-            LoginResult result =
-                refreshSessionService.refresh(rawRefreshToken);
+            LoginResult result = refreshSessionService.refresh(rawRefreshToken);
 
-            ResponseCookie replacementCookie =
-                createRefreshCookie(result.refreshToken());
+            ResponseCookie replacementCookie = createRefreshCookie(result.refreshToken());
 
             return ResponseEntity.ok()
-                .header(
-                    HttpHeaders.SET_COOKIE,
-                    replacementCookie.toString()
-                )
-                .body(result.response());
+                    .header(HttpHeaders.SET_COOKIE, replacementCookie.toString())
+                    .body(result.response());
 
-        } catch (
-            InvalidRefreshTokenException |
-            RefreshTokenReuseException exception
-        ) {
+        } catch (InvalidRefreshTokenException | RefreshTokenReuseException exception) {
             // Remove the stale cookie from the browser.
             ResponseCookie clearedCookie = clearRefreshCookie();
 
             // Do not reveal whether the token was expired, invalid,
             // or detected as reused.
-            return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .header(
-                    HttpHeaders.SET_COOKIE,
-                    clearedCookie.toString()
-                )
-                .build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, clearedCookie.toString())
+                    .build();
         }
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-            @CookieValue(
-                name = "${fintracker.security.refresh-token.cookie-name}",
-                required = false
-            ) String rawRefreshToken) {
+            @CookieValue(name = "${fintracker.security.refresh-token.cookie-name}", required = false)
+                    String rawRefreshToken) {
 
         refreshSessionService.logout(rawRefreshToken);
 
         return ResponseEntity.noContent()
-            .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
-            .build();
+                .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
+                .build();
     }
 
     /**
@@ -169,14 +142,13 @@ public class AuthController {
      */
     private ResponseCookie createRefreshCookie(String refreshToken) {
 
-        return ResponseCookie
-            .from(cookieName, refreshToken)
-            .httpOnly(true)
-            .secure(cookieSecure)
-            .sameSite(cookieSameSite)
-            .path("/api/v1/auth")
-            .maxAge(refreshTokenTtl)
-            .build();
+        return ResponseCookie.from(cookieName, refreshToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
+                .path("/api/v1/auth")
+                .maxAge(refreshTokenTtl)
+                .build();
     }
 
     /**
@@ -184,14 +156,13 @@ public class AuthController {
      */
     private ResponseCookie clearRefreshCookie() {
 
-        return ResponseCookie
-            .from(cookieName, "")
-            .httpOnly(true)
-            .secure(cookieSecure)
-            .sameSite(cookieSameSite)
-            .path("/api/v1/auth")
-            .maxAge(Duration.ZERO)
-            .build();
+        return ResponseCookie.from(cookieName, "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
+                .path("/api/v1/auth")
+                .maxAge(Duration.ZERO)
+                .build();
     }
 
     /**
@@ -202,14 +173,11 @@ public class AuthController {
     @PostMapping("/oauth/exchange")
     public ResponseEntity<LoginResponse> exchangeOAuthHandoff(
             @Valid @RequestBody OAuthExchangeRequest request,
-            @CookieValue(name = "${fintracker.security.refresh-token.cookie-name}",
-                        required = false) String rawRefreshToken) {
+            @CookieValue(name = "${fintracker.security.refresh-token.cookie-name}", required = false)
+                    String rawRefreshToken) {
 
-        LoginResponse response = oauthLoginExchangeService.exchange(
-                request.code(),
-                rawRefreshToken);
+        LoginResponse response = oauthLoginExchangeService.exchange(request.code(), rawRefreshToken);
 
         return ResponseEntity.ok(response);
     }
-
 }

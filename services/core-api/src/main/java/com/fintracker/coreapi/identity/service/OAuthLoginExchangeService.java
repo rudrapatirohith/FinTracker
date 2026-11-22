@@ -1,14 +1,5 @@
 package com.fintracker.coreapi.identity.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Duration;
-import java.time.Instant;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.entity.OAuthLoginHandoff;
@@ -17,6 +8,13 @@ import com.fintracker.coreapi.identity.entity.UserStatus;
 import com.fintracker.coreapi.identity.exception.InvalidOAuthHandoffException;
 import com.fintracker.coreapi.identity.repository.OAuthLoginHandoffRepository;
 import com.fintracker.coreapi.identity.repository.UserSessionRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OAuthLoginExchangeService {
@@ -50,8 +48,7 @@ public class OAuthLoginExchangeService {
     @Transactional
     public LoginResponse exchange(String rawCode, String rawRefreshToken) {
 
-        if (rawCode == null || rawCode.isBlank()
-                || rawRefreshToken == null || rawRefreshToken.isBlank()) {
+        if (rawCode == null || rawCode.isBlank() || rawRefreshToken == null || rawRefreshToken.isBlank()) {
             throw new InvalidOAuthHandoffException();
         }
 
@@ -61,9 +58,8 @@ public class OAuthLoginExchangeService {
         String refreshTokenHash = refreshTokenService.hashToken(rawRefreshToken);
 
         // Lock the handoff row so two simultaneous requests cannot consume it.
-        OAuthLoginHandoff handoff = handoffRepository
-                .findByCodeHashForUpdate(codeHash)
-                .orElseThrow(InvalidOAuthHandoffException::new);
+        OAuthLoginHandoff handoff =
+                handoffRepository.findByCodeHashForUpdate(codeHash).orElseThrow(InvalidOAuthHandoffException::new);
 
         if (handoff.isConsumed() || handoff.isExpired(now)) {
             throw new InvalidOAuthHandoffException();
@@ -74,8 +70,7 @@ public class OAuthLoginExchangeService {
                 .findByRefreshTokenHashForUpdate(refreshTokenHash)
                 .orElseThrow(InvalidOAuthHandoffException::new);
 
-        if (!session.getExpiresAt().isAfter(now)
-                || session.getRevokedAt() != null) {
+        if (!session.getExpiresAt().isAfter(now) || session.getRevokedAt() != null) {
             throw new InvalidOAuthHandoffException();
         }
 
@@ -100,11 +95,6 @@ public class OAuthLoginExchangeService {
 
         String accessToken = jwtTokenService.createAccessToken(user.getId());
 
-        return new LoginResponse(
-                accessToken,
-                "Bearer",
-                accessTokenTtl.toSeconds(),
-                user.getId(),
-                user.getEmail());
+        return new LoginResponse(accessToken, "Bearer", accessTokenTtl.toSeconds(), user.getId(), user.getEmail());
     }
 }

@@ -5,13 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fintracker.coreapi.identity.service.JwtTokenService;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
-
-import com.fintracker.coreapi.identity.service.JwtTokenService;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,16 +40,11 @@ class JwtTokenServiceTest {
         Jwt decodedToken = jwtDecoder.decode(token);
 
         assertEquals(userId.toString(), decodedToken.getSubject());
-        assertEquals(
-            "fintracker-core-api-test",
-            decodedToken.getClaimAsString("iss")
-        );
+        assertEquals("fintracker-core-api-test", decodedToken.getClaimAsString("iss"));
         assertEquals("access", decodedToken.getClaimAsString("token_use"));
 
         assertNotNull(decodedToken.getId());
-        assertTrue(
-            decodedToken.getExpiresAt().isAfter(decodedToken.getIssuedAt())
-        );
+        assertTrue(decodedToken.getExpiresAt().isAfter(decodedToken.getIssuedAt()));
     }
 
     @Test
@@ -61,10 +54,7 @@ class JwtTokenServiceTest {
 
         Jwt decodedToken = jwtDecoder.decode(token);
 
-        Duration tokenLifetime = Duration.between(
-            decodedToken.getIssuedAt(),
-            decodedToken.getExpiresAt()
-        );
+        Duration tokenLifetime = Duration.between(decodedToken.getIssuedAt(), decodedToken.getExpiresAt());
 
         assertEquals(Duration.ofMinutes(15), tokenLifetime);
     }
@@ -77,35 +67,23 @@ class JwtTokenServiceTest {
         String[] parts = token.split("\\.");
 
         String incorrectSignature = Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(
-                "incorrect-signature".getBytes(StandardCharsets.UTF_8)
-            );
+                .withoutPadding()
+                .encodeToString("incorrect-signature".getBytes(StandardCharsets.UTF_8));
 
-        String tamperedToken =
-            parts[0] + "." + parts[1] + "." + incorrectSignature;
+        String tamperedToken = parts[0] + "." + parts[1] + "." + incorrectSignature;
 
-        assertThrows(
-            JwtException.class,
-            () -> jwtDecoder.decode(tamperedToken)
-        );
+        assertThrows(JwtException.class, () -> jwtDecoder.decode(tamperedToken));
     }
 
     @Test
     void shouldRejectMalformedToken() {
 
-        assertThrows(
-            JwtException.class,
-            () -> jwtDecoder.decode("this-is-not-a-jwt")
-        );
+        assertThrows(JwtException.class, () -> jwtDecoder.decode("this-is-not-a-jwt"));
     }
 
     @Test
     void shouldRejectNullUserId() {
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> jwtTokenService.createAccessToken(null)
-        );
+        assertThrows(IllegalArgumentException.class, () -> jwtTokenService.createAccessToken(null));
     }
 }

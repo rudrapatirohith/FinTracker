@@ -1,13 +1,5 @@
 package com.fintracker.coreapi.identity.service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.UUID;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.fintracker.coreapi.identity.dto.response.LoginResponse;
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.entity.UserSession;
@@ -15,6 +7,12 @@ import com.fintracker.coreapi.identity.entity.UserStatus;
 import com.fintracker.coreapi.identity.exception.InvalidRefreshTokenException;
 import com.fintracker.coreapi.identity.exception.RefreshTokenReuseException;
 import com.fintracker.coreapi.identity.repository.UserSessionRepository;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RefreshSessionService {
@@ -32,14 +30,11 @@ public class RefreshSessionService {
     private final Duration refreshTokenTtl;
 
     public RefreshSessionService(
-        UserSessionRepository userSessionRepository,
-        RefreshTokenService refreshTokenService,
-        JwtTokenService jwtTokenService,
-        @Value("${fintracker.security.jwt.access-token-ttl}")
-        Duration accessTokenTtl,
-        @Value("${fintracker.security.refresh-token.ttl}")
-        Duration refreshTokenTtl
-    ) {
+            UserSessionRepository userSessionRepository,
+            RefreshTokenService refreshTokenService,
+            JwtTokenService jwtTokenService,
+            @Value("${fintracker.security.jwt.access-token-ttl}") Duration accessTokenTtl,
+            @Value("${fintracker.security.refresh-token.ttl}") Duration refreshTokenTtl) {
         this.userSessionRepository = userSessionRepository;
         this.refreshTokenService = refreshTokenService;
         this.jwtTokenService = jwtTokenService;
@@ -58,10 +53,7 @@ public class RefreshSessionService {
      * noRollbackFor is important because we sometimes need to persist
      * session revocation even though this method returns an exception.
      */
-    @Transactional(noRollbackFor = {
-        RefreshTokenReuseException.class,
-        InvalidRefreshTokenException.class
-    })
+    @Transactional(noRollbackFor = {RefreshTokenReuseException.class, InvalidRefreshTokenException.class})
     public LoginResult refresh(String rawRefreshToken) {
 
         // Reject missing or blank tokens before accessing the database.
@@ -70,8 +62,7 @@ public class RefreshSessionService {
         }
 
         // Hash the presented token because raw refresh tokens are never stored.
-        String presentedHash =
-            refreshTokenService.hashToken(rawRefreshToken);
+        String presentedHash = refreshTokenService.hashToken(rawRefreshToken);
 
         /*
          * Lock the matching session row until this transaction completes.
@@ -80,8 +71,8 @@ public class RefreshSessionService {
          * simultaneously.
          */
         UserSession currentSession = userSessionRepository
-            .findByRefreshTokenHashForUpdate(presentedHash)
-            .orElseThrow(InvalidRefreshTokenException::new);
+                .findByRefreshTokenHashForUpdate(presentedHash)
+                .orElseThrow(InvalidRefreshTokenException::new);
 
         Instant now = Instant.now();
 
@@ -94,16 +85,11 @@ public class RefreshSessionService {
          */
         if (currentSession.getRevokedAt() != null) {
 
-            if (REASON_ROTATED.equals(
-                currentSession.getRevocationReason()
-            )) {
+            if (REASON_ROTATED.equals(currentSession.getRevocationReason())) {
 
                 // Revoke all remaining active sessions in this token family.
                 userSessionRepository.revokeActiveByTokenFamilyId(
-                    currentSession.getTokenFamilyId(),
-                    now,
-                    REASON_REUSE_DETECTED
-                );
+                        currentSession.getTokenFamilyId(), now, REASON_REUSE_DETECTED);
 
                 throw new RefreshTokenReuseException();
             }
@@ -130,24 +116,17 @@ public class RefreshSessionService {
         }
 
         // Generate a new cryptographically random refresh token.
-        String replacementRawToken =
-            refreshTokenService.generateToken();
+        String replacementRawToken = refreshTokenService.generateToken();
 
         // Persist only the SHA-256 hash of the replacement token.
-        String replacementHash =
-            refreshTokenService.hashToken(replacementRawToken);
+        String replacementHash = refreshTokenService.hashToken(replacementRawToken);
 
         /*
          * A token family connects the original login session to all
          * replacement sessions created through token rotation.
          */
         UserSession replacementSession = new UserSession(
-            UUID.randomUUID(),
-            user,
-            replacementHash,
-            currentSession.getTokenFamilyId(),
-            now.plus(refreshTokenTtl)
-        );
+                UUID.randomUUID(), user, replacementHash, currentSession.getTokenFamilyId(), now.plus(refreshTokenTtl));
 
         /*
          * IMPORTANT HIBERNATE FIX:
@@ -160,8 +139,7 @@ public class RefreshSessionService {
          *
          * Always use the returned instance below, not replacementSession.
          */
-        UserSession persistedReplacementSession =
-            userSessionRepository.saveAndFlush(replacementSession);
+        UserSession persistedReplacementSession = userSessionRepository.saveAndFlush(replacementSession);
 
         /*
          * Mark the old session as rotated and link it to the managed
@@ -169,27 +147,17 @@ public class RefreshSessionService {
          *
          * This avoids Hibernate's TransientObjectException.
          */
-        currentSession.markRotated(
-            now,
-            persistedReplacementSession
-        );
+        currentSession.markRotated(now, persistedReplacementSession);
 
         // Generate a fresh short-lived access JWT.
-        String accessToken =
-            jwtTokenService.createAccessToken(user.getId());
+        String accessToken = jwtTokenService.createAccessToken(user.getId());
 
-        LoginResponse response = new LoginResponse(
-            accessToken,
-            "Bearer",
-            accessTokenTtl.toSeconds(),
-            user.getId(),
-            user.getEmail()
-        );
+        LoginResponse response =
+                new LoginResponse(accessToken, "Bearer", accessTokenTtl.toSeconds(), user.getId(), user.getEmail());
 
         // The controller will place this raw token in an HttpOnly cookie.
         return new LoginResult(response, replacementRawToken);
     }
-
 
     @Transactional
     public void logout(String rawRefreshToken) {
@@ -201,9 +169,8 @@ public class RefreshSessionService {
         String tokenHash = refreshTokenService.hashToken(rawRefreshToken);
 
         // Lock the matching session so logout cannot race with token rotation.
-        UserSession session = userSessionRepository
-            .findByRefreshTokenHashForUpdate(tokenHash)
-            .orElse(null);
+        UserSession session =
+                userSessionRepository.findByRefreshTokenHashForUpdate(tokenHash).orElse(null);
 
         // Unknown tokens cannot identify a session family.
         if (session == null) {
@@ -211,11 +178,7 @@ public class RefreshSessionService {
         }
 
         // Revoke every active session in this device's rotation family.
-        userSessionRepository.revokeActiveByTokenFamilyId(
-            session.getTokenFamilyId(),
-            Instant.now(),
-            "LOGOUT"
-        );
+        userSessionRepository.revokeActiveByTokenFamilyId(session.getTokenFamilyId(), Instant.now(), "LOGOUT");
     }
 
     /**
@@ -229,9 +192,7 @@ public class RefreshSessionService {
     public LoginResult createSessionForAuthenticatedUser(AppUser user) {
 
         if (user == null || user.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalArgumentException(
-                "An active authenticated user is required."
-            );
+            throw new IllegalArgumentException("An active authenticated user is required.");
         }
 
         Instant now = Instant.now();
@@ -240,36 +201,22 @@ public class RefreshSessionService {
         String rawRefreshToken = refreshTokenService.generateToken();
 
         // Store only its SHA-256 hash.
-        String refreshTokenHash =
-            refreshTokenService.hashToken(rawRefreshToken);
+        String refreshTokenHash = refreshTokenService.hashToken(rawRefreshToken);
 
         // A new login creates a new independent token family.
         UUID tokenFamilyId = UUID.randomUUID();
 
-        UserSession session = new UserSession(
-            UUID.randomUUID(),
-            user,
-            refreshTokenHash,
-            tokenFamilyId,
-            now.plus(refreshTokenTtl)
-        );
+        UserSession session =
+                new UserSession(UUID.randomUUID(), user, refreshTokenHash, tokenFamilyId, now.plus(refreshTokenTtl));
 
         userSessionRepository.saveAndFlush(session);
 
         // Issue our own FinTracker access JWT.
-        String accessToken =
-            jwtTokenService.createAccessToken(user.getId());
+        String accessToken = jwtTokenService.createAccessToken(user.getId());
 
-        LoginResponse response = new LoginResponse(
-            accessToken,
-            "Bearer",
-            accessTokenTtl.toSeconds(),
-            user.getId(),
-            user.getEmail()
-        );
+        LoginResponse response =
+                new LoginResponse(accessToken, "Bearer", accessTokenTtl.toSeconds(), user.getId(), user.getEmail());
 
         return new LoginResult(response, rawRefreshToken);
     }
 }
-
-

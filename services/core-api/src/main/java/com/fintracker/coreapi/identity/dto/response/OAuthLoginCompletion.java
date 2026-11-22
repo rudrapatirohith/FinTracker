@@ -6,8 +6,4 @@ package com.fintracker.coreapi.identity.dto.response;
  *
  * The refresh token must only be sent as an HttpOnly cookie.
  */
-public record OAuthLoginCompletion(
-        String handoffCode,
-        String refreshToken
-) {
-}
+public record OAuthLoginCompletion(String handoffCode, String refreshToken) {}

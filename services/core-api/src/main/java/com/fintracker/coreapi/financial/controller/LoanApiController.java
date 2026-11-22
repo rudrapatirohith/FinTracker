@@ -43,7 +43,8 @@ public class LoanApiController {
      * Returns a paginated collection belonging only to the authenticated user; the Pageable carries the requested page and sort.
      */
     @GetMapping
-    public Page<LoanView> all(@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable p) {
+    public Page<LoanView> all(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable p) {
         return service.all(p);
     }
 

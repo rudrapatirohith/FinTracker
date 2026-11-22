@@ -7,11 +7,4 @@ import java.util.UUID;
  *
  * Never include password hashes or refresh-token hashes here.
  */
-public record LoginResponse(
-    String accessToken,
-    String tokenType,
-    long expiresInSeconds,
-    UUID userId,
-    String email
-) {
-}
+public record LoginResponse(String accessToken, String tokenType, long expiresInSeconds, UUID userId, String email) {}

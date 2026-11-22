@@ -7,8 +7,8 @@ import com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundExceptio
 import com.fintracker.coreapi.financial.repository.MonthlyExpenseRepository;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.Locale;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -49,7 +49,8 @@ public class MonthlyExpenseService {
     @Transactional(readOnly = true)
     public Page<MonthlyExpenseResponse> getAll(Pageable pageable) {
         UUID userId = authenticatedUserProvider.getRequiredUserId();
-        FinancialPageableValidator.validate(pageable, Set.of("expenseDate", "amount", "expenseName", "category", "createdAt", "updatedAt"));
+        FinancialPageableValidator.validate(
+                pageable, Set.of("expenseDate", "amount", "expenseName", "category", "createdAt", "updatedAt"));
         return repository.findAllByUserId(userId, pageable).map(MonthlyExpenseResponse::from);
     }
 

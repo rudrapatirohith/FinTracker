@@ -1,8 +1,5 @@
 package com.fintracker.coreapi.identity.entity;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,6 +7,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -25,13 +24,8 @@ public class UserSession {
     private AppUser user;
 
     @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(
-        name = "refresh_token_hash",
-        nullable = false,
-        unique = true,
-        length = 64
-    )
-    private String refreshTokenHash;   
+    @Column(name = "refresh_token_hash", nullable = false, unique = true, length = 64)
+    private String refreshTokenHash;
 
     @Column(name = "token_family_id", nullable = false)
     private UUID tokenFamilyId;
@@ -65,18 +59,10 @@ public class UserSession {
         // Required by JPA.
     }
 
-    public UserSession(
-            UUID id,
-            AppUser user,
-            String refreshTokenHash,
-            UUID tokenFamilyId,
-            Instant expiresAt) {
+    public UserSession(UUID id, AppUser user, String refreshTokenHash, UUID tokenFamilyId, Instant expiresAt) {
 
-        if (id == null || user == null || refreshTokenHash == null
-                || tokenFamilyId == null || expiresAt == null) {
-            throw new IllegalArgumentException(
-                "Session fields are required"
-            );
+        if (id == null || user == null || refreshTokenHash == null || tokenFamilyId == null || expiresAt == null) {
+            throw new IllegalArgumentException("Session fields are required");
         }
 
         this.id = id;
@@ -115,7 +101,7 @@ public class UserSession {
         return replacedBySession;
     }
 
-    public String  getRevocationReason() {
+    public String getRevocationReason() {
         return revocationReason;
     }
 

@@ -45,7 +45,9 @@ public class LoanApiService {
      */
     @Transactional(readOnly = true)
     public Page<LoanView> all(Pageable p) {
-        FinancialPageableValidator.validate(p, Set.of("createdAt", "startDate", "endDate", "principalAmount", "currentBalance", "loanName", "status"));
+        FinancialPageableValidator.validate(
+                p,
+                Set.of("createdAt", "startDate", "endDate", "principalAmount", "currentBalance", "loanName", "status"));
         return repo.findAllByUserId(users.getRequiredUserId(), p).map(LoanView::from);
     }
 

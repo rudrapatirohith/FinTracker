@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import com.fintracker.coreapi.financial.dto.request.LoanPaymentRequest;
 import com.fintracker.coreapi.financial.dto.request.LoanRequest;
@@ -32,16 +31,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -232,8 +231,7 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 null,
                 null,
                 null);
-        assertThatThrownBy(() -> payments.create(loan.id(), overpayment))
-                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> payments.create(loan.id(), overpayment)).isInstanceOf(ResponseStatusException.class);
         assertThat(loans.one(loan.id()).currentBalance()).isEqualByComparingTo("900.00");
 
         LoanPaymentRequest mismatchedCurrency = new LoanPaymentRequest(
@@ -268,14 +266,14 @@ class FinancialApiOwnershipPostgresIntegrationTests {
     void csrfEndpointSetsCookieUsingTheActiveEnvironmentPolicy() throws Exception {
         mockMvc.perform(get("/api/v1/auth/csrf"))
                 .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getCookie("XSRF-TOKEN").getAttribute("SameSite"))
+                .andExpect(result -> assertThat(
+                                result.getResponse().getCookie("XSRF-TOKEN").getAttribute("SameSite"))
                         .isEqualTo("Lax"));
     }
 
     @Test
     void financialEndpointsRequireAuthentication() throws Exception {
-        mockMvc.perform(get("/api/v1/income"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/income")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -316,7 +314,8 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 "card",
                 "weekly shopping");
         var created = monthlyExpenses.create(request);
-        assertThat(monthlyExpenses.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(monthlyExpenses
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isEqualTo(1);
 
@@ -329,12 +328,22 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 .isInstanceOf(com.fintracker.coreapi.financial.exception.MonthlyExpenseNotFoundException.class);
 
         authenticate(owner);
-        monthlyExpenses.update(created.id(), new MonthlyExpenseRequest(
-                "Groceries", new BigDecimal("150.00"), "USD", null, null, "food",
-                LocalDate.of(2026, 11, 2), "card", "updated"));
+        monthlyExpenses.update(
+                created.id(),
+                new MonthlyExpenseRequest(
+                        "Groceries",
+                        new BigDecimal("150.00"),
+                        "USD",
+                        null,
+                        null,
+                        "food",
+                        LocalDate.of(2026, 11, 2),
+                        "card",
+                        "updated"));
         assertThat(monthlyExpenses.getById(created.id()).amount()).isEqualByComparingTo("150.00");
         monthlyExpenses.delete(created.id());
-        assertThat(monthlyExpenses.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(monthlyExpenses
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isZero();
     }
@@ -345,10 +354,21 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         AppUser other = user("scheduled.other@example.com");
         authenticate(owner);
         ScheduledPaymentRequest request = new ScheduledPaymentRequest(
-                "Electric bill", new BigDecimal("75.00"), "USD", "utilities", "Power Co",
-                LocalDate.of(2026, 12, 1), "monthly", true, false, "pending", 3, "monthly bill");
+                "Electric bill",
+                new BigDecimal("75.00"),
+                "USD",
+                "utilities",
+                "Power Co",
+                LocalDate.of(2026, 12, 1),
+                "monthly",
+                true,
+                false,
+                "pending",
+                3,
+                "monthly bill");
         var created = scheduledPayments.create(request);
-        assertThat(scheduledPayments.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(scheduledPayments
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isEqualTo(1);
 
@@ -361,12 +381,25 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 .isInstanceOf(com.fintracker.coreapi.financial.exception.ScheduledPaymentNotFoundException.class);
 
         authenticate(owner);
-        scheduledPayments.update(created.id(), new ScheduledPaymentRequest(
-                "Electric bill", new BigDecimal("80.00"), "USD", "utilities", "Power Co",
-                LocalDate.of(2026, 12, 2), "monthly", true, false, "pending", 3, "updated bill"));
+        scheduledPayments.update(
+                created.id(),
+                new ScheduledPaymentRequest(
+                        "Electric bill",
+                        new BigDecimal("80.00"),
+                        "USD",
+                        "utilities",
+                        "Power Co",
+                        LocalDate.of(2026, 12, 2),
+                        "monthly",
+                        true,
+                        false,
+                        "pending",
+                        3,
+                        "updated bill"));
         assertThat(scheduledPayments.getById(created.id()).amount()).isEqualByComparingTo("80.00");
         scheduledPayments.delete(created.id());
-        assertThat(scheduledPayments.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(scheduledPayments
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isZero();
     }
@@ -377,10 +410,20 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         AppUser other = user("transaction.other@example.com");
         authenticate(owner);
         TransactionRequest request = new TransactionRequest(
-                "expense", "food", "restaurant", new BigDecimal("42.50"), "USD", "Lunch", "Cafe",
-                LocalDate.of(2026, 11, 3), "card", null, new String[] {"food", "lunch"});
+                "expense",
+                "food",
+                "restaurant",
+                new BigDecimal("42.50"),
+                "USD",
+                "Lunch",
+                "Cafe",
+                LocalDate.of(2026, 11, 3),
+                "card",
+                null,
+                new String[] {"food", "lunch"});
         var created = transactions.create(request);
-        assertThat(transactions.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(transactions
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isEqualTo(1);
 
@@ -393,12 +436,24 @@ class FinancialApiOwnershipPostgresIntegrationTests {
                 .isInstanceOf(com.fintracker.coreapi.financial.exception.TransactionNotFoundException.class);
 
         authenticate(owner);
-        transactions.update(created.id(), new TransactionRequest(
-                "expense", "food", "restaurant", new BigDecimal("52.50"), "USD", "Dinner", "Cafe",
-                LocalDate.of(2026, 11, 4), "card", null, new String[] {"food", "dinner"}));
+        transactions.update(
+                created.id(),
+                new TransactionRequest(
+                        "expense",
+                        "food",
+                        "restaurant",
+                        new BigDecimal("52.50"),
+                        "USD",
+                        "Dinner",
+                        "Cafe",
+                        LocalDate.of(2026, 11, 4),
+                        "card",
+                        null,
+                        new String[] {"food", "dinner"}));
         assertThat(transactions.getById(created.id()).amount()).isEqualByComparingTo("52.50");
         transactions.delete(created.id());
-        assertThat(transactions.getAll(org.springframework.data.domain.PageRequest.of(0, 20))
+        assertThat(transactions
+                        .getAll(org.springframework.data.domain.PageRequest.of(0, 20))
                         .getTotalElements())
                 .isZero();
     }

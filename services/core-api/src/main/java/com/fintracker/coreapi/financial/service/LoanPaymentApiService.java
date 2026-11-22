@@ -40,7 +40,8 @@ public class LoanPaymentApiService {
         Loan parentLoan = loans.requireOwnedForUpdate(loanId, uid);
         validatePayment(r, parentLoan);
         if (r.principalAmount().compareTo(parentLoan.getCurrentBalance()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Principal payment cannot exceed the current loan balance.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Principal payment cannot exceed the current loan balance.");
         }
         LoanPayment e = new LoanPayment(loanId, uid, r.amount(), r.paymentDate());
 
@@ -81,7 +82,8 @@ public class LoanPaymentApiService {
         BigDecimal oldPrincipal = zeroIfNull(e.getPrincipalAmount());
         BigDecimal principalDelta = r.principalAmount().subtract(oldPrincipal);
         if (principalDelta.compareTo(parentLoan.getCurrentBalance()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Principal adjustment cannot exceed the current loan balance.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Principal adjustment cannot exceed the current loan balance.");
         }
 
         apply(e, r, parentLoan.getCurrency());
@@ -131,7 +133,8 @@ public class LoanPaymentApiService {
                 || request.principalAmount() == null
                 || request.interestAmount() == null
                 || request.amount().compareTo(request.principalAmount().add(request.interestAmount())) != 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount must equal principal plus interest.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Payment amount must equal principal plus interest.");
         }
         String paymentCurrency = request.currency() == null ? loan.getCurrency() : request.currency();
         if (!loan.getCurrency().equalsIgnoreCase(paymentCurrency)) {

@@ -1,25 +1,20 @@
 package com.fintracker.coreapi.identity.repository;
 
+import com.fintracker.coreapi.identity.entity.OAuthLoginHandoff;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
 import org.springframework.stereotype.Repository;
-
-import jakarta.persistence.LockModeType;
-
-import com.fintracker.coreapi.identity.entity.OAuthLoginHandoff;
 
 /**
  * Database operations for temporary OAuth login handoffs.
  */
 @Repository
-public interface OAuthLoginHandoffRepository
-        extends JpaRepository<OAuthLoginHandoff, UUID> {
+public interface OAuthLoginHandoffRepository extends JpaRepository<OAuthLoginHandoff, UUID> {
 
     /**
      * Locks a handoff row while it is being exchanged.
@@ -33,7 +28,5 @@ public interface OAuthLoginHandoffRepository
         FROM OAuthLoginHandoff h
         WHERE h.codeHash = :codeHash
         """)
-    Optional<OAuthLoginHandoff> findByCodeHashForUpdate(
-        @Param("codeHash") String codeHash
-    );
+    Optional<OAuthLoginHandoff> findByCodeHashForUpdate(@Param("codeHash") String codeHash);
 }

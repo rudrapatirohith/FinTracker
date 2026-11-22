@@ -1,8 +1,4 @@
-
 package com.fintracker.coreapi.identity.entity;
-
-import java.time.Instant;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,6 +7,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Represents a temporary, single-use authorization handoff.
@@ -51,21 +49,17 @@ public class OAuthLoginHandoff {
     }
 
     public OAuthLoginHandoff(
-            UUID id,
-            String codeHash,
-            AppUser user,
-            String refreshTokenHash,
-            Instant createdAt,
-            Instant expiresAt) {
+            UUID id, String codeHash, AppUser user, String refreshTokenHash, Instant createdAt, Instant expiresAt) {
 
-        if (id == null || codeHash == null || user == null
+        if (id == null
+                || codeHash == null
+                || user == null
                 || refreshTokenHash == null
-                || createdAt == null || expiresAt == null
+                || createdAt == null
+                || expiresAt == null
                 || !expiresAt.isAfter(createdAt)) {
 
-            throw new IllegalArgumentException(
-                "Valid OAuth handoff fields are required."
-            );
+            throw new IllegalArgumentException("Valid OAuth handoff fields are required.");
         }
 
         this.id = id;
@@ -89,9 +83,7 @@ public class OAuthLoginHandoff {
      */
     public void consume(Instant now) {
         if (now == null || isConsumed() || isExpired(now)) {
-            throw new IllegalStateException(
-                "OAuth handoff cannot be consumed."
-            );
+            throw new IllegalStateException("OAuth handoff cannot be consumed.");
         }
 
         this.consumedAt = now;
