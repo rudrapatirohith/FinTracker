@@ -136,7 +136,13 @@ public class Loan {
             throw new IllegalArgumentException("Principal adjustment cannot make the loan balance negative.");
         }
         currentBalance = updatedBalance;
-        status = updatedBalance.signum() == 0 ? "paid_off" : "active";
+        if (updatedBalance.signum() == 0) {
+            status = "paid_off";
+        } else if ("paid_off".equals(status)) {
+            // Reversing a payment reopens a previously paid-off loan, but must not
+            // overwrite other lifecycle states such as closed or defaulted.
+            status = "active";
+        }
     }
 
     public UUID getId() {
