@@ -27,9 +27,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Unit tests for the reporting service. The repository is mocked so these tests
- * focus on service behavior: date validation, current-user lookup, and delegation.
- * Real SQL behavior is covered by FinancialReportingRepositoryPostgresIntegrationTests.
+ * Checks the reporting service without starting a database.
+ *
+ * <p>The repository is replaced with a mock (a controlled stand-in), so these tests
+ * can focus on the service's responsibilities: reject invalid dates, obtain the
+ * signed-in user's ID, and pass the right values to the repository. The actual
+ * PostgreSQL statements are tested separately by
+ * {@link FinancialReportingRepositoryPostgresIntegrationTests}.</p>
  */
 @ExtendWith(MockitoExtension.class)
 class FinancialReportingServiceTests {
@@ -44,8 +48,9 @@ class FinancialReportingServiceTests {
 
     @BeforeEach
     void setUp() {
-        // Build an authenticated test principal. The service must derive this ID,
-        // rather than accepting an owner ID from the HTTP request.
+        // Pretend a user has signed in. The random UUID becomes the identity stored
+        // in the security context, just as a verified token would in a real request.
+        // The service must read this ID rather than accepting one from the browser.
         ownerId = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("test-token")
                 .header("alg", "HS256")
@@ -63,6 +68,10 @@ class FinancialReportingServiceTests {
     }
 
     @Test
+    /**
+     * Confirms that summary results are passed back unchanged and that the repository
+     * is called with the signed-in user's ID, not an ID supplied by the caller.
+     */
     void summarizeUsesAuthenticatedOwnerAndReturnsCurrencyScopedRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
@@ -76,6 +85,7 @@ class FinancialReportingServiceTests {
     }
 
     @Test
+    /** Confirms monthly chart requests use the same authenticated-owner protection. */
     void monthlyTrendsUsesAuthenticatedOwnerAndReturnsTrendRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
@@ -88,6 +98,7 @@ class FinancialReportingServiceTests {
     }
 
     @Test
+    /** A missing start or end date is a client request error and must not reach the repository. */
     void summarizeRejectsMissingDatesAsBadRequest() {
         // Missing either boundary should fail before the repository is called.
         assertThatThrownBy(() -> reportingService.summarize(null, LocalDate.now()))
@@ -97,6 +108,7 @@ class FinancialReportingServiceTests {
     }
 
     @Test
+    /** A start date after the end date is invalid and must be rejected before SQL runs. */
     void summarizeRejectsInvertedDateRangeAsBadRequest() {
         // A start date after the end date is not a meaningful reporting interval.
         assertThatThrownBy(() -> reportingService.summarize(
@@ -107,6 +119,7 @@ class FinancialReportingServiceTests {
     }
 
     @Test
+    /** A future end date is rejected because these endpoints report history, not forecasts. */
     void summarizeRejectsFutureEndDateAsBadRequest() {
         // This API reports recorded history, so the requested end date cannot be in the future.
         assertThatThrownBy(() -> reportingService.summarize(
