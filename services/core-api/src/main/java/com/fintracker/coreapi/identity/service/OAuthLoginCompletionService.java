@@ -1,12 +1,10 @@
 package com.fintracker.coreapi.identity.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-
 import com.fintracker.coreapi.identity.dto.response.OAuthLoginCompletion;
 import com.fintracker.coreapi.identity.entity.AppUser;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OAuthLoginCompletionService {
@@ -43,16 +41,11 @@ public class OAuthLoginCompletionService {
         AppUser user = googleIdentityService.resolveGoogleUser(oidcUser);
 
         // Create FinTracker's own persistent refresh-token session.
-        LoginResult loginResult =
-                refreshSessionService.createSessionForAuthenticatedUser(user);
+        LoginResult loginResult = refreshSessionService.createSessionForAuthenticatedUser(user);
 
         // Bind the one-time handoff code to that session's refresh token.
-        String handoffCode = handoffService.createHandoff(
-                user,
-                loginResult.refreshToken());
+        String handoffCode = handoffService.createHandoff(user, loginResult.refreshToken());
 
-        return new OAuthLoginCompletion(
-                handoffCode,
-                loginResult.refreshToken());
+        return new OAuthLoginCompletion(handoffCode, loginResult.refreshToken());
     }
 }

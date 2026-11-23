@@ -1,12 +1,4 @@
-
 package com.fintracker.coreapi.identity.service;
-
-import java.time.Instant;
-import java.util.Locale;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.entity.OAuthIdentity;
@@ -18,8 +10,12 @@ import com.fintracker.coreapi.identity.exception.OAuthAccountLinkRequiredExcepti
 import com.fintracker.coreapi.identity.repository.AppUserRepository;
 import com.fintracker.coreapi.identity.repository.OAuthIdentityRepository;
 import com.fintracker.coreapi.identity.repository.UserProfileRepository;
-
+import java.time.Instant;
+import java.util.Locale;
+import java.util.UUID;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Resolves a verified Google identity to a FinTracker user.
@@ -62,31 +58,27 @@ public class GoogleIdentityService {
 
         String email = oidcUser.getClaimAsString("email");
 
-        Boolean emailVerified =
-            oidcUser.getClaim("email_verified");
+        Boolean emailVerified = oidcUser.getClaim("email_verified");
 
         String fullName = oidcUser.getClaimAsString("name");
 
-        if (providerSubject == null || providerSubject.isBlank()
-                || email == null || email.isBlank()
+        if (providerSubject == null
+                || providerSubject.isBlank()
+                || email == null
+                || email.isBlank()
                 || !Boolean.TRUE.equals(emailVerified)) {
 
             throw new InvalidOAuthIdentityException();
         }
 
-        String normalizedEmail =
-            email.trim().toLowerCase(Locale.ROOT);
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
 
         /*
          * First check whether this exact Google identity
          * has already been connected to a FinTracker account.
          */
-        OAuthIdentity existingIdentity =
-            oauthIdentityRepository
-                .findByProviderAndProviderSubject(
-                    OAuthProvider.GOOGLE,
-                    providerSubject
-                )
+        OAuthIdentity existingIdentity = oauthIdentityRepository
+                .findByProviderAndProviderSubject(OAuthProvider.GOOGLE, providerSubject)
                 .orElse(null);
 
         if (existingIdentity != null) {
@@ -114,31 +106,20 @@ public class GoogleIdentityService {
 
         // Create a Google-only FinTracker account.
         // No password is stored for this account.
-        AppUser newUser = new AppUser(
-            UUID.randomUUID(),
-            email,
-            null
-        );
+        AppUser newUser = new AppUser(UUID.randomUUID(), email, null);
 
         newUser.markEmailVerified(now);
 
-        AppUser savedUser =
-            appUserRepository.saveAndFlush(newUser);
+        AppUser savedUser = appUserRepository.saveAndFlush(newUser);
 
         // Create the user's FinTracker profile.
-        UserProfile profile =
-            new UserProfile(savedUser, fullName);
+        UserProfile profile = new UserProfile(savedUser, fullName);
 
         userProfileRepository.save(profile);
 
         // Connect the external Google subject to our internal user ID.
-        OAuthIdentity identity = new OAuthIdentity(
-            UUID.randomUUID(),
-            savedUser,
-            OAuthProvider.GOOGLE,
-            providerSubject,
-            email
-        );
+        OAuthIdentity identity =
+                new OAuthIdentity(UUID.randomUUID(), savedUser, OAuthProvider.GOOGLE, providerSubject, email);
 
         oauthIdentityRepository.save(identity);
 

@@ -1,15 +1,14 @@
 package com.fintracker.coreapi.identity.entity;
 
-import java.time.Instant;
-import java.util.Locale;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Represents an application account.
@@ -51,9 +50,7 @@ public class AppUser {
 
     public AppUser(UUID id, String email, String passwordHash) {
         if (id == null || email == null || email.isBlank()) {
-            throw new IllegalArgumentException(
-                "User ID and email are required"
-            );
+            throw new IllegalArgumentException("User ID and email are required");
         }
 
         this.id = id;
@@ -67,9 +64,7 @@ public class AppUser {
 
     public void markEmailVerified(Instant verifiedAt) {
         if (verifiedAt == null) {
-            throw new IllegalArgumentException(
-                "Verification timestamp is required."
-            );
+            throw new IllegalArgumentException("Verification timestamp is required.");
         }
 
         this.emailVerifiedAt = verifiedAt;

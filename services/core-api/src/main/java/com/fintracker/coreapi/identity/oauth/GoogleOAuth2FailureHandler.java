@@ -1,13 +1,10 @@
-
 package com.fintracker.coreapi.identity.oauth;
-
-import java.io.IOException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-
+import java.io.IOException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -27,16 +24,14 @@ import org.springframework.web.util.UriComponentsBuilder;
  * - OIDC identity validation fails.
  */
 @Component
-public class GoogleOAuth2FailureHandler
-        implements AuthenticationFailureHandler {
+public class GoogleOAuth2FailureHandler implements AuthenticationFailureHandler {
 
     // Fixed frontend callback URL.
     // Keeping this backend-controlled prevents arbitrary redirects.
     private final String frontendCallbackUrl;
 
     public GoogleOAuth2FailureHandler(
-            @Value("${fintracker.security.oauth.frontend-callback-url}")
-            String frontendCallbackUrl) {
+            @Value("${fintracker.security.oauth.frontend-callback-url}") String frontendCallbackUrl) {
 
         this.frontendCallbackUrl = frontendCallbackUrl;
     }
@@ -50,9 +45,7 @@ public class GoogleOAuth2FailureHandler
      */
     @Override
     public void onAuthenticationFailure(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AuthenticationException exception)
+            HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
             throws IOException, ServletException {
 
         /*
@@ -70,8 +63,7 @@ public class GoogleOAuth2FailureHandler
          * We do not put exception messages, stack traces, tokens,
          * or provider details into the redirect URL.
          */
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString(frontendCallbackUrl)
+        String redirectUrl = UriComponentsBuilder.fromUriString(frontendCallbackUrl)
                 .queryParam("error", "google_authentication_failed")
                 .build()
                 .encode()
@@ -86,8 +78,7 @@ public class GoogleOAuth2FailureHandler
      * This is separate from FinTracker's persistent refresh-token
      * sessions stored in PostgreSQL.
      */
-    private void invalidateTemporaryOAuthSession(
-            HttpServletRequest request) {
+    private void invalidateTemporaryOAuthSession(HttpServletRequest request) {
 
         HttpSession session = request.getSession(false);
 

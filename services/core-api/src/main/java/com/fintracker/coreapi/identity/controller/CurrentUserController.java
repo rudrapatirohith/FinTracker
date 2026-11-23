@@ -1,42 +1,38 @@
 package com.fintracker.coreapi.identity.controller;
 
+import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
 import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Returns information about the currently authenticated user.
- *
- * The user identity comes from the verified JWT.
- * We never accept a user ID from the request to determine identity.
+ * Exposes the current authenticated application's user UUID through the shared AuthenticatedUserProvider, avoiding duplicate JWT parsing in controllers.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class CurrentUserController {
 
+    private final AuthenticatedUserProvider authenticatedUserProvider;
+
+    /**
+     * Receives the application service/provider used by this controller; constructor injection keeps the dependency explicit and immutable.
+     */
+    public CurrentUserController(AuthenticatedUserProvider authenticatedUserProvider) {
+        this.authenticatedUserProvider = authenticatedUserProvider;
+    }
+
+    /**
+     * Returns the application-user UUID associated with the authenticated JWT, delegating claim validation to AuthenticatedUserProvider.
+     */
     @GetMapping("/me")
-    public CurrentUserResponse getCurrentUser(
-            @AuthenticationPrincipal Jwt jwt) { // Instructs Spring Security to inject the decoded, cryptographically verified Jwt object from the current SecurityContext directly into the method parameter.
+    public CurrentUserResponse getCurrentUser() {
 
-        try {
-            UUID userId = UUID.fromString(jwt.getSubject()); // Reads the sub claim from the token payload, which your JwtTokenService populated with the user's immutable database UUID.
-
-            return new CurrentUserResponse(userId);
-
-        } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(
-                HttpStatus.UNAUTHORIZED,
-                "Invalid authenticated user identity."
-            );
-        }
+        return new CurrentUserResponse(authenticatedUserProvider.getRequiredUserId());
     }
 
-    public record CurrentUserResponse(UUID userId) {
-    }
+    /**
+     * Response body for the current-user endpoint; it exposes only the authenticated application's UUID.
+     */
+    public record CurrentUserResponse(UUID userId) {}
 }

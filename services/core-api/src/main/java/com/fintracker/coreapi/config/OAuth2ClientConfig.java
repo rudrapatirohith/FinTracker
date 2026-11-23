@@ -42,17 +42,14 @@ public class OAuth2ClientConfig {
          *   /oauth2/authorization/{registrationId} (e.g., /oauth2/authorization/google)
          */
         DefaultOAuth2AuthorizationRequestResolver resolver =
-                new DefaultOAuth2AuthorizationRequestResolver(
-                        clientRegistrationRepository,
-                        "/oauth2/authorization");
+                new DefaultOAuth2AuthorizationRequestResolver(clientRegistrationRepository, "/oauth2/authorization");
 
         /*
          * Enables PKCE (Steps 1–5 above):
          * - Appends `code_challenge` and `code_challenge_method=S256` to the Google redirect URL.
          * - Saves the matching `code_verifier` in the temporary HTTP session for the token exchange.
          */
-        resolver.setAuthorizationRequestCustomizer(
-                OAuth2AuthorizationRequestCustomizers.withPkce());
+        resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
         return resolver;
     }

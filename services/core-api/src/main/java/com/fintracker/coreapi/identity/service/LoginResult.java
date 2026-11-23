@@ -8,8 +8,4 @@ import com.fintracker.coreapi.identity.dto.response.LoginResponse;
  * The refresh token is used only to create the HttpOnly cookie.
  * It must never be serialized into the API response body.
  */
-public record LoginResult(
-    LoginResponse response,
-    String refreshToken
-) {
-}
+public record LoginResult(LoginResponse response, String refreshToken) {}

@@ -1,4 +1,3 @@
-
 package com.fintracker.coreapi;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -23,18 +22,14 @@ class CoreApiApplicationTests {
     private MockMvc mockMvc;
 
     @Test
-    void contextLoads() {
-    }
+    void contextLoads() {}
 
     @Test
     void healthEndpointShouldReturnUp() throws Exception {
         mockMvc.perform(get("/api/v1/health"))
-            .andExpect(status().isOk())
-            .andExpect(content().contentTypeCompatibleWith(
-                MediaType.APPLICATION_JSON
-            ))
-            .andExpect(jsonPath("$.status").value("UP"))
-            .andExpect(jsonPath("$.service")
-                .value("fintracker-core-api"));
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.service").value("fintracker-core-api"));
     }
 }

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fintracker.coreapi.identity.service.RefreshTokenService;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -57,27 +56,18 @@ class RefreshTokenServiceTest {
         String firstToken = refreshTokenService.generateToken();
         String secondToken = refreshTokenService.generateToken();
 
-        assertNotEquals(
-            refreshTokenService.hashToken(firstToken),
-            refreshTokenService.hashToken(secondToken)
-        );
+        assertNotEquals(refreshTokenService.hashToken(firstToken), refreshTokenService.hashToken(secondToken));
     }
 
     @Test
     void shouldRejectNullToken() {
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> refreshTokenService.hashToken(null)
-        );
+        assertThrows(IllegalArgumentException.class, () -> refreshTokenService.hashToken(null));
     }
 
     @Test
     void shouldRejectEmptyToken() {
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> refreshTokenService.hashToken(" ")
-        );
+        assertThrows(IllegalArgumentException.class, () -> refreshTokenService.hashToken(" "));
     }
 }

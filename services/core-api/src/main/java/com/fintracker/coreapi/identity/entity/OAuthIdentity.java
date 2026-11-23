@@ -1,8 +1,5 @@
 package com.fintracker.coreapi.identity.entity;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "oauth_identities")
@@ -41,18 +40,10 @@ public class OAuthIdentity {
         // Required by JPA.
     }
 
-    public OAuthIdentity(
-            UUID id,
-            AppUser user,
-            OAuthProvider provider,
-            String providerSubject,
-            String providerEmail) {
+    public OAuthIdentity(UUID id, AppUser user, OAuthProvider provider, String providerSubject, String providerEmail) {
 
-        if (id == null || user == null || provider == null
-                || providerSubject == null || providerSubject.isBlank()) {
-            throw new IllegalArgumentException(
-                "OAuth identity fields are required"
-            );
+        if (id == null || user == null || provider == null || providerSubject == null || providerSubject.isBlank()) {
+            throw new IllegalArgumentException("OAuth identity fields are required");
         }
 
         this.id = id;

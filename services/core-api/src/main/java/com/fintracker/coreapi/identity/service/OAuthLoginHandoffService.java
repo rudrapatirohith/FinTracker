@@ -1,16 +1,14 @@
 package com.fintracker.coreapi.identity.service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.UUID;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.fintracker.coreapi.identity.entity.AppUser;
 import com.fintracker.coreapi.identity.entity.OAuthLoginHandoff;
 import com.fintracker.coreapi.identity.repository.OAuthLoginHandoffRepository;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OAuthLoginHandoffService {
@@ -42,8 +40,7 @@ public class OAuthLoginHandoffService {
     public String createHandoff(AppUser user, String rawRefreshToken) {
 
         if (user == null || rawRefreshToken == null || rawRefreshToken.isBlank()) {
-            throw new IllegalArgumentException(
-                    "An authenticated user and refresh token are required.");
+            throw new IllegalArgumentException("An authenticated user and refresh token are required.");
         }
 
         Instant now = Instant.now();
@@ -55,13 +52,8 @@ public class OAuthLoginHandoffService {
         String codeHash = refreshTokenService.hashToken(rawCode);
         String refreshTokenHash = refreshTokenService.hashToken(rawRefreshToken);
 
-        OAuthLoginHandoff handoff = new OAuthLoginHandoff(
-                UUID.randomUUID(),
-                codeHash,
-                user,
-                refreshTokenHash,
-                now,
-                now.plus(handoffTtl));
+        OAuthLoginHandoff handoff =
+                new OAuthLoginHandoff(UUID.randomUUID(), codeHash, user, refreshTokenHash, now, now.plus(handoffTtl));
 
         handoffRepository.save(handoff);
 

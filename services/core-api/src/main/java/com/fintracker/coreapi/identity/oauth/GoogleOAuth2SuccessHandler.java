@@ -1,14 +1,14 @@
-
 package com.fintracker.coreapi.identity.oauth;
 
-import java.io.IOException;
-import java.time.Duration;
-
+import com.fintracker.coreapi.identity.dto.response.OAuthLoginCompletion;
+import com.fintracker.coreapi.identity.exception.OAuthAccountLinkRequiredException;
+import com.fintracker.coreapi.identity.service.OAuthLoginCompletionService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-
+import java.io.IOException;
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -17,10 +17,6 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import com.fintracker.coreapi.identity.dto.response.OAuthLoginCompletion;
-import com.fintracker.coreapi.identity.exception.OAuthAccountLinkRequiredException;
-import com.fintracker.coreapi.identity.service.OAuthLoginCompletionService;
 
 /**
  * Handles a successful Google OAuth2 / OpenID Connect login.
@@ -33,8 +29,7 @@ import com.fintracker.coreapi.identity.service.OAuthLoginCompletionService;
  * FinTracker's user, refresh-token, and handoff systems.
  */
 @Component
-public class GoogleOAuth2SuccessHandler
-        implements AuthenticationSuccessHandler {
+public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final OAuthLoginCompletionService completionService;
 
@@ -45,27 +40,22 @@ public class GoogleOAuth2SuccessHandler
     // Refresh-token cookie configuration.
     private final String refreshCookieName;
     private final boolean refreshCookieSecure;
+    private final String refreshCookieSameSite;
     private final Duration refreshTokenTtl;
 
     public GoogleOAuth2SuccessHandler(
             OAuthLoginCompletionService completionService,
-
-            @Value("${fintracker.security.oauth.frontend-callback-url}")
-            String frontendCallbackUrl,
-
-            @Value("${fintracker.security.refresh-token.cookie-name}")
-            String refreshCookieName,
-
-            @Value("${fintracker.security.refresh-token.cookie-secure}")
-            boolean refreshCookieSecure,
-
-            @Value("${fintracker.security.refresh-token.ttl}")
-            Duration refreshTokenTtl) {
+            @Value("${fintracker.security.oauth.frontend-callback-url}") String frontendCallbackUrl,
+            @Value("${fintracker.security.refresh-token.cookie-name}") String refreshCookieName,
+            @Value("${fintracker.security.refresh-token.cookie-secure}") boolean refreshCookieSecure,
+            @Value("${fintracker.security.refresh-token.cookie-same-site}") String refreshCookieSameSite,
+            @Value("${fintracker.security.refresh-token.ttl}") Duration refreshTokenTtl) {
 
         this.completionService = completionService;
         this.frontendCallbackUrl = frontendCallbackUrl;
         this.refreshCookieName = refreshCookieName;
         this.refreshCookieSecure = refreshCookieSecure;
+        this.refreshCookieSameSite = refreshCookieSameSite;
         this.refreshTokenTtl = refreshTokenTtl;
     }
 
@@ -78,9 +68,7 @@ public class GoogleOAuth2SuccessHandler
      */
     @Override
     public void onAuthenticationSuccess(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            Authentication authentication)
+            HttpServletRequest request, HttpServletResponse response, Authentication authentication)
             throws IOException, ServletException {
 
         try {
@@ -109,15 +97,14 @@ public class GoogleOAuth2SuccessHandler
              * Database operations are coordinated by the
              * OAuthLoginCompletionService transaction.
              */
-            OAuthLoginCompletion completion =
-                    completionService.completeLogin(oidcUser);
+            OAuthLoginCompletion completion = completionService.completeLogin(oidcUser);
 
             /*
              * STEP 3: Store the refresh token in an HttpOnly cookie.
              *
              * HttpOnly prevents JavaScript from reading this cookie.
              * Secure controls whether the browser sends it only over HTTPS.
-             * SameSite=Lax provides additional cross-site request protection.
+             * SameSite follows the active environment's cookie policy; production uses None with Secure for cross-site SPA/API requests.
              *
              * The refresh token is NOT placed in the redirect URL.
              */
@@ -130,8 +117,7 @@ public class GoogleOAuth2SuccessHandler
              * The frontend will exchange it for an access JWT through
              * our protected-by-CSRF API flow.
              */
-            String redirectUrl = UriComponentsBuilder
-                    .fromUriString(frontendCallbackUrl)
+            String redirectUrl = UriComponentsBuilder.fromUriString(frontendCallbackUrl)
                     .queryParam("code", completion.handoffCode())
                     .build()
                     .encode()
@@ -185,34 +171,26 @@ public class GoogleOAuth2SuccessHandler
      * so the browser sends it to our auth endpoints rather than
      * exposing it to frontend JavaScript.
      */
-    private void addRefreshCookie(
-            HttpServletResponse response,
-            String refreshToken) {
+    private void addRefreshCookie(HttpServletResponse response, String refreshToken) {
 
-        ResponseCookie cookie = ResponseCookie
-                .from(refreshCookieName, refreshToken)
+        ResponseCookie cookie = ResponseCookie.from(refreshCookieName, refreshToken)
                 .httpOnly(true)
                 .secure(refreshCookieSecure)
                 .path("/api/v1/auth")
-                .sameSite("Lax")
+                .sameSite(refreshCookieSameSite)
                 .maxAge(refreshTokenTtl)
                 .build();
 
-        response.addHeader(
-                HttpHeaders.SET_COOKIE,
-                cookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     /**
      * Redirects to the fixed frontend callback with a controlled
      * error code instead of exposing internal exception messages.
      */
-    private void redirectWithError(
-            HttpServletResponse response,
-            String errorCode) throws IOException {
+    private void redirectWithError(HttpServletResponse response, String errorCode) throws IOException {
 
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString(frontendCallbackUrl)
+        String redirectUrl = UriComponentsBuilder.fromUriString(frontendCallbackUrl)
                 .queryParam("error", errorCode)
                 .build()
                 .encode()
@@ -227,8 +205,7 @@ public class GoogleOAuth2SuccessHandler
      * This does not revoke the persistent FinTracker refresh-token
      * session stored in PostgreSQL.
      */
-    private void invalidateTemporaryOAuthSession(
-            HttpServletRequest request) {
+    private void invalidateTemporaryOAuthSession(HttpServletRequest request) {
 
         HttpSession session = request.getSession(false);
 
