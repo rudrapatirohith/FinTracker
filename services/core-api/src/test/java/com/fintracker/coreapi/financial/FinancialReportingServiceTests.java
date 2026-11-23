@@ -26,6 +26,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Unit tests for the reporting service. The repository is mocked so these tests
+ * focus on service behavior: date validation, current-user lookup, and delegation.
+ * Real SQL behavior is covered by FinancialReportingRepositoryPostgresIntegrationTests.
+ */
 @ExtendWith(MockitoExtension.class)
 class FinancialReportingServiceTests {
 
@@ -39,6 +44,8 @@ class FinancialReportingServiceTests {
 
     @BeforeEach
     void setUp() {
+        // Build an authenticated test principal. The service must derive this ID,
+        // rather than accepting an owner ID from the HTTP request.
         ownerId = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("test-token")
                 .header("alg", "HS256")
@@ -51,6 +58,7 @@ class FinancialReportingServiceTests {
 
     @AfterEach
     void clearSecurityContext() {
+        // Avoid leaking the authenticated test principal into another test.
         SecurityContextHolder.clearContext();
     }
 
@@ -63,6 +71,7 @@ class FinancialReportingServiceTests {
         when(reportingRepository.summarize(ownerId, from, to)).thenReturn(expected);
 
         assertThat(reportingService.summarize(from, to)).containsExactlyElementsOf(expected);
+        // Verify that the ID from the authenticated principal is passed to the repository.
         verify(reportingRepository).summarize(ownerId, from, to);
     }
 
@@ -80,6 +89,7 @@ class FinancialReportingServiceTests {
 
     @Test
     void summarizeRejectsMissingDatesAsBadRequest() {
+        // Missing either boundary should fail before the repository is called.
         assertThatThrownBy(() -> reportingService.summarize(null, LocalDate.now()))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting("statusCode")
@@ -88,6 +98,7 @@ class FinancialReportingServiceTests {
 
     @Test
     void summarizeRejectsInvertedDateRangeAsBadRequest() {
+        // A start date after the end date is not a meaningful reporting interval.
         assertThatThrownBy(() -> reportingService.summarize(
                         LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1)))
                 .isInstanceOf(ResponseStatusException.class)
@@ -97,6 +108,7 @@ class FinancialReportingServiceTests {
 
     @Test
     void summarizeRejectsFutureEndDateAsBadRequest() {
+        // This API reports recorded history, so the requested end date cannot be in the future.
         assertThatThrownBy(() -> reportingService.summarize(
                         LocalDate.now(), LocalDate.now().plusDays(1)))
                 .isInstanceOf(ResponseStatusException.class)
