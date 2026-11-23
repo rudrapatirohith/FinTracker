@@ -14,11 +14,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HTTP entry points for dashboard, category analytics, monthly trends, and reports.
+ * Receives the frontend's requests for dashboard totals, category analytics,
+ * monthly trends, and financial reports.
  *
- * <p>The controller's responsibility is deliberately small: parse the HTTP
- * request, require the date parameters, and delegate business rules to the
- * service. It does not run SQL or decide which user owns the data.</p>
+ * <p>Think of this class as the reception desk: it accepts the requested report
+ * and its date range, then hands the request to the service that knows how to
+ * validate it and retrieve the correct user's data. It does not calculate money,
+ * run SQL, or accept a user ID from the browser.</p>
+ *
+ * <p>Request journey: browser URL -> Spring converts the date text into
+ * {@link LocalDate} values -> this controller calls {@link FinancialReportingService}
+ * -> the service returns result objects -> Spring converts those objects to JSON.</p>
+ *
+ * <p>The dashboard, category, and report routes currently share the same summary
+ * result to keep financial definitions consistent. They are separate URLs for
+ * their different consumers, not separate calculations. If their response needs
+ * diverge later, introduce a specific response model/use case rather than copying SQL.</p>
  */
 @RestController
 @Validated
@@ -32,8 +43,9 @@ public class FinancialReportingController {
     }
 
     /**
-     * Dashboard totals for the requested date range.
-     * Example: GET /api/v1/dashboard/summary?from=2026-01-01&to=2026-01-31
+     * Returns the summary rows used by the dashboard for the requested dates.
+     * Example: GET /api/v1/dashboard/summary?from=2026-01-01&to=2026-01-31.
+     * The service handles validation and identifies the signed-in account.
      */
     @GetMapping("/dashboard/summary")
     public List<FinancialReportRow> dashboardSummary(
@@ -43,8 +55,10 @@ public class FinancialReportingController {
     }
 
     /**
-     * Category breakdown for the requested date range.
-     * The repository groups each result by category as well as metric and currency.
+     * Returns the shared summary rows for category-oriented screens.
+     * Each row includes its category, financial metric, and currency. This route
+     * currently delegates to the same calculation as the dashboard; it does not
+     * run a second category-specific SQL query.
      */
     @GetMapping("/analytics/categories")
     public List<FinancialReportRow> categoryAnalytics(
@@ -54,8 +68,9 @@ public class FinancialReportingController {
     }
 
     /**
-     * Monthly chart data. Each result represents one month, metric, and currency.
-     * Example period value: 2026-01.
+     * Returns monthly chart data. Each result represents one month, metric, and
+     * currency, for example January 2026 income in USD. The repository performs
+     * the month grouping; this controller only forwards the requested date range.
      */
     @GetMapping("/analytics/monthly-trends")
     public List<FinancialTrendRow> monthlyTrends(
@@ -65,8 +80,9 @@ public class FinancialReportingController {
     }
 
     /**
-     * Date-bounded financial report. Uses the same currency-safe aggregate model
-     * as the dashboard, so reporting clients receive consistent definitions.
+     * Returns the shared currency-safe summary for report screens.
+     * It deliberately reuses the dashboard calculation so the same financial
+     * source is not calculated differently in two places.
      */
     @GetMapping("/reports/summary")
     public List<FinancialReportRow> reportSummary(
