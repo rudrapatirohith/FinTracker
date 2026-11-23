@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HTTP endpoints for dashboard summaries, category analytics, and monthly
- * reporting. The authenticated owner is always resolved by the service.
+ * HTTP entry points for dashboard, category analytics, monthly trends, and reports.
+ *
+ * <p>The controller's responsibility is deliberately small: parse the HTTP
+ * request, require the date parameters, and delegate business rules to the
+ * service. It does not run SQL or decide which user owns the data.</p>
  */
 @RestController
 @Validated
@@ -28,7 +31,10 @@ public class FinancialReportingController {
         this.reportingService = reportingService;
     }
 
-    /** Returns owner-scoped financial metrics grouped by metric, category, and currency. */
+    /**
+     * Dashboard totals for the requested date range.
+     * Example: GET /api/v1/dashboard/summary?from=2026-01-01&to=2026-01-31
+     */
     @GetMapping("/dashboard/summary")
     public List<FinancialReportRow> dashboardSummary(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -36,7 +42,10 @@ public class FinancialReportingController {
         return reportingService.summarize(from, to);
     }
 
-    /** Returns category-level income and outflow aggregates without mixing currencies. */
+    /**
+     * Category breakdown for the requested date range.
+     * The repository groups each result by category as well as metric and currency.
+     */
     @GetMapping("/analytics/categories")
     public List<FinancialReportRow> categoryAnalytics(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -44,7 +53,10 @@ public class FinancialReportingController {
         return reportingService.summarize(from, to);
     }
 
-    /** Returns monthly trend rows suitable for income, expense, transfer, and payment charts. */
+    /**
+     * Monthly chart data. Each result represents one month, metric, and currency.
+     * Example period value: 2026-01.
+     */
     @GetMapping("/analytics/monthly-trends")
     public List<FinancialTrendRow> monthlyTrends(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -52,7 +64,10 @@ public class FinancialReportingController {
         return reportingService.monthlyTrends(from, to);
     }
 
-    /** Returns the same currency-safe aggregates as a date-bounded financial report. */
+    /**
+     * Date-bounded financial report. Uses the same currency-safe aggregate model
+     * as the dashboard, so reporting clients receive consistent definitions.
+     */
     @GetMapping("/reports/summary")
     public List<FinancialReportRow> reportSummary(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
