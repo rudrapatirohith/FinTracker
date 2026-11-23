@@ -27,26 +27,30 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Runs the real reporting SQL against a disposable PostgreSQL instance.
+ * Checks that the reporting repository returns correct results from real PostgreSQL.
  *
- * <p>These are integration tests rather than mocked repository tests: Flyway
- * builds the schema, test rows are inserted into the actual tables, and the
- * repository queries PostgreSQL. This catches SQL/schema/parameter mistakes
- * that a mocked unit test would not detect.</p>
+ * <p>Think of this as a rehearsal database. The test starts a temporary PostgreSQL
+ * server, lets Flyway create the same tables used by the application, inserts
+ * carefully chosen sample financial records, and calls the real repository SQL.
+ * It then checks the returned totals. Nothing is mocked at the database layer.</p>
+ *
+ * <p>This catches problems that a fake repository cannot catch, such as a wrong
+ * table/column name, incorrect SQL placeholder order, incorrect grouping, or
+ * a query that accidentally includes another user's records.</p>
  */
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
 class FinancialReportingRepositoryPostgresIntegrationTests {
 
-    // A real PostgreSQL 16 container keeps the test behavior close to production PostgreSQL.
+    // Start a disposable PostgreSQL 16 database for this test class; it is not the developer's database.
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
             .withDatabaseName("fintracker_reporting_test")
             .withUsername("fintracker_test")
             .withPassword("test_password");
 
-    // Point the Spring test application at the temporary container database.
+    // Tell Spring to connect to the temporary test database and apply the real Flyway migrations.
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -73,6 +77,11 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
     }
 
     @Test
+    /**
+     * Uses two accounts and deliberately varied sample rows to check the important reporting rules:
+     * date boundaries, owner isolation, currency separation, source-specific filters,
+     * transfer amount selection, and normalized loan status grouping.
+     */
     void summaryAndMonthlyTrendsCoverFinancialSourcesWithTenantCurrencyAndDateIsolation() {
         // Two owners prove that one user's financial data never leaks into another user's report.
         AppUser owner = users.save(new AppUser(UUID.randomUUID(), "report.owner@example.com", null));
@@ -142,7 +151,8 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 VALUES (?, 'expense', 'Dining', 30.00, 'CAD', DATE '2026-01-25')
                 """, owner.getId());
 
-        // Key the result by all grouping dimensions so each expected aggregate is unambiguous.
+        // Build a lookup using every field that defines a group. This also makes the test fail
+        // if the SQL accidentally returns two rows with the same metric/category/currency key.
         List<FinancialReportRow> rows = reportingRepository.summarize(owner.getId(), from, to);
         Map<String, FinancialReportRow> byMetricAndCurrency = rows.stream()
                 .collect(Collectors.toMap(
@@ -175,7 +185,8 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         assertThat(rows).noneMatch(row -> row.totalAmount().compareTo(new BigDecimal("8000.00")) == 0
                 || row.totalAmount().compareTo(new BigDecimal("900.00")) == 0);
 
-        // All activity was in January, so each trend row should carry the 2026-01 period.
+        // Every inserted activity date is in January, so all trend rows must use 2026-01.
+        // The expected row count also ensures each source/currency group is represented.
         List<FinancialTrendRow> trends = reportingRepository.monthlyTrends(owner.getId(), from, to);
         assertThat(trends).hasSize(7);
         assertThat(trends).allSatisfy(row -> assertThat(row.period()).isEqualTo("2026-01"));
