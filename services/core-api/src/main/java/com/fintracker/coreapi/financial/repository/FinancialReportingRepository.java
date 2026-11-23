@@ -10,19 +10,18 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
- * Reads pre-calculated financial summaries from PostgreSQL.
+ * Gathers financial totals and monthly chart numbers from the database.
  *
- * <p>This class is the database layer for dashboard and analytics read models.
- * It does not create or update financial records. Instead, it combines rows
- * from the existing financial tables and lets PostgreSQL calculate totals.</p>
+ * <p>Think of this file as an accountant that goes through 6 different folders
+ * (Income, Expenses, Loan Payments, Transfers, Scheduled Bills, and General Transactions),
+ * sorts all your receipts into neat piles, and adds up the totals for your dashboard.</p>
  *
- * <p>Important rules:
+ * <p><b>4 Golden Rules this file always follows:</b>
  * <ul>
- *   <li>Every financial source is filtered by the authenticated user's ID.</li>
- *   <li>Every period-based source uses an inclusive from/to date range.</li>
- *   <li>Amounts are grouped by currency; USD, INR, CAD, etc. are never added together.</li>
- *   <li>Dedicated income/expense records and generic transactions stay separate
- *       metrics so the same real-world event is not silently counted twice.</li>
+ *   <li><b>Privacy first:</b> Every search checks your personal User ID so you never see anyone else's money.</li>
+ *   <li><b>Exact date window:</b> Only counts money between your chosen Start Date and End Date.</li>
+ *   <li><b>Never mixes currencies:</b> Dollars (USD), Rupees (INR), and Canadian Dollars (CAD) are kept in separate totals—never added together.</li>
+ *   <li><b>No double-counting:</b> Special records (like Monthly Expenses) and General Transactions get different labels so the same purchase is never counted twice.</li>
  * </ul>
  * </p>
  */
@@ -30,23 +29,31 @@ import org.springframework.stereotype.Repository;
 public class FinancialReportingRepository {
 
     /*
-     * Builds the dashboard/report result in two stages:
+     * =========================================================================
+     * QUERY 1: DASHBOARD TOTALS BY CATEGORY (REPORT_SQL)
+     * =========================================================================
+     * What it does:
+     * Calculates how much money came in and went out between two dates, broken
+     * down by category (e.g., Salary, Rent, Loan Payments) and currency.
      *
-     * 1. The inner query selects a common set of columns from each financial
-     *    table. UNION ALL stacks those source rows vertically without removing
-     *    duplicates. We intentionally keep duplicates because two legitimate
-     *    financial entries can have identical values.
-     * 2. The outer query groups those rows by metric, category, and currency,
-     *    then calculates the total amount and number of records in each group.
+     * How it works in 2 simple steps:
+     * Step 1 (Inside the brackets): Collects matching receipts from 6 separate
+     *        database tables and stacks them into one combined pile ("UNION ALL").
+     *        Even if two receipts have the exact same amount on the same day,
+     *        both are kept so nothing is lost.
+     * Step 2 (Top & bottom lines): Groups that big pile by Type, Category, and
+     *        Currency, then adds up the dollar/rupee amounts ("SUM") and counts
+     *        how many receipts were in each pile ("COUNT").
      *
-     * Each SELECT has the same four output columns: metric, category, currency,
-     * and amount. The question marks are JDBC parameters, not string
-     * concatenation. Each source receives the same user ID and date range.
+     * Note on the "?" symbols:
+     * Each "?" is a safe placeholder where Java plugs in your User ID, Start Date,
+     * and End Date right before asking the database for the numbers.
      */
     private static final String REPORT_SQL = """
             SELECT metric, category, currency, SUM(amount) AS total_amount, COUNT(*) AS record_count
             FROM (
-                -- Dedicated income entries recorded during the requested period.
+                -- Pile 1: Money earned from the dedicated Income table.
+                -- If a category is blank, label it 'Uncategorized'. If currency is blank, assume 'USD'.
                 SELECT 'INCOME' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
@@ -56,7 +63,8 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Monthly expense entries. Kept separate from generic EXPENSE transactions.
+                -- Pile 2: Bills and spending from the Monthly Expenses table.
+                -- Labeled 'MONTHLY_EXPENSE' so it stays separate from general transactions below.
                 SELECT 'MONTHLY_EXPENSE' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency,
@@ -66,8 +74,8 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Actual loan repayments made in the requested period.
-                -- This is the payment amount (principal plus interest), not the remaining balance.
+                -- Pile 3: Actual loan payments made during this period.
+                -- Note: This counts the monthly payment made, NOT the total loan balance still owed.
                 SELECT 'LOAN_PAYMENT' AS metric, 'Loan Payments' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency,
                        amount
@@ -76,9 +84,9 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Money sent out in an international transfer.
-                -- Use amount_sent/currency_sent so we do not add the converted
-                -- amount_received as if it were a second expense.
+                -- Pile 4: International money transfers sent out.
+                -- We only count the money SENT (amount_sent), ignoring the converted amount
+                -- received on the other side so the same transfer isn't counted twice.
                 SELECT 'TRANSFER' AS metric, 'Transfers' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency,
                        amount_sent AS amount
@@ -87,8 +95,8 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- A scheduled payment is historical spending only after it is paid.
-                -- Pending, overdue, or cancelled scheduled items are not counted here.
+                -- Pile 5: Scheduled bills that have actually been PAID.
+                -- Unpaid, upcoming, or cancelled bills are ignored here.
                 SELECT 'SCHEDULED_PAYMENT' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
@@ -98,9 +106,9 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Generic transactions are labelled by their type (for example,
-                -- TRANSACTION_INCOME or TRANSACTION_EXPENSE). They are not merged
-                -- into the dedicated income/monthly-expense metrics.
+                -- Pile 6: General day-to-day entries from the main Transactions table.
+                -- Labeled 'TRANSACTION_INCOME' or 'TRANSACTION_EXPENSE' to keep them separate
+                -- from the dedicated Income and Monthly Expenses piles above.
                 SELECT 'TRANSACTION_' || UPPER(type) AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
@@ -109,28 +117,29 @@ public class FinancialReportingRepository {
                 WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ?
                   AND UPPER(type) IN ('INCOME', 'EXPENSE')
             ) financial_rows
-            -- One output row per metric + category + currency combination.
+            -- Combine matching piles and sort the final list alphabetically
             GROUP BY metric, category, currency
             ORDER BY metric, currency, category
             """;
 
     /*
-     * Produces chart-ready monthly totals.
+     * =========================================================================
+     * QUERY 2: MONTH-BY-MONTH CHART DATA (MONTHLY_TREND_SQL)
+     * =========================================================================
+     * What it does:
+     * Prepares numbers for your dashboard's bar and line charts over time.
      *
-     * The inner query uses the same financial sources and safety filters as
-     * REPORT_SQL, but also exposes each source's date as event_date.
-     * DATE_TRUNC('month', event_date) puts dates in the same calendar month;
-     * TO_CHAR formats that month as YYYY-MM (for example, 2026-01).
-     *
-     * The outer GROUP BY creates one row for each month + metric + currency.
-     * This means a chart can plot income and expenses separately and cannot
-     * accidentally combine different currencies.
+     * How it differs from Query 1:
+     * Instead of grouping by Category (Rent, Food, Salary), it groups every
+     * receipt by the Calendar Month it happened in (for example, '2026-01' for
+     * January 2026). That way, the chart can draw one bar per month while still
+     * keeping Income, Expenses, and different currencies completely separate.
      */
     private static final String MONTHLY_TREND_SQL = """
             SELECT TO_CHAR(DATE_TRUNC('month', event_date), 'YYYY-MM') AS period,
                    metric, currency, SUM(amount) AS total_amount, COUNT(*) AS record_count
             FROM (
-                -- Income grouped by the month in which it was recorded.
+                -- 1. Income grouped by the month it was received
                 SELECT date AS event_date, 'INCOME' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
                 FROM income
@@ -138,7 +147,7 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Monthly expenses grouped by their expense date.
+                -- 2. Monthly expenses grouped by the month they occurred
                 SELECT expense_date AS event_date, 'MONTHLY_EXPENSE' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency, amount
                 FROM monthly_expenses
@@ -146,7 +155,7 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Loan repayments grouped by the date the payment was made.
+                -- 3. Loan payments grouped by the month they were paid
                 SELECT payment_date AS event_date, 'LOAN_PAYMENT' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency, amount
                 FROM loan_payments
@@ -154,8 +163,7 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Transfers use the sent side only, to avoid counting converted
-                -- received money as another event.
+                -- 4. International transfers (sent amount only) grouped by transfer month
                 SELECT transfer_date AS event_date, 'TRANSFER' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency, amount_sent
                 FROM international_transfers
@@ -163,7 +171,7 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Only completed-as-paid scheduled payments belong in historical trends.
+                -- 5. Paid scheduled bills grouped by the month they were due
                 SELECT due_date AS event_date, 'SCHEDULED_PAYMENT' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
                 FROM scheduled_payments
@@ -171,32 +179,31 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Generic transactions remain their own metrics.
+                -- 6. General income/expense transactions grouped by transaction month
                 SELECT transaction_date AS event_date, 'TRANSACTION_' || UPPER(type) AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
                 FROM transactions
                 WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ?
                   AND UPPER(type) IN ('INCOME', 'EXPENSE')
             ) financial_events
-            -- DATE_TRUNC groups all dates in a month together; metric/currency
-            -- keep unlike financial concepts and currencies in separate rows.
+            -- Group all dates within the same month together (e.g., Jan 3 and Jan 25 both become '2026-01')
             GROUP BY DATE_TRUNC('month', event_date), metric, currency
             ORDER BY period, metric, currency
             """;
 
     /*
-     * Returns the currently stored outstanding balances for loans that had started
-     * on or before the report's 'to' date.
+     * =========================================================================
+     * QUERY 3: CURRENT LOAN DEBT SNAPSHOT (LOAN_BALANCE_SQL)
+     * =========================================================================
+     * What it does:
+     * Checks how much total money you currently still owe on your loans.
      *
-     * Unlike the activity queries above, this query does not sum payments made
-     * between from and to. It reads each loan's current_balance and groups those
-     * values by loan status and currency. The start-date condition excludes loans
-     * that had not yet begun by the requested end date.
-     *
-     * Important limitation: current_balance is the loan's present stored value.
-     * This query does not reconstruct a historical balance as it existed on the
-     * requested 'to' date. A true historical balance would require dated balance
-     * snapshots or a complete principal/payment ledger and a separate calculation.
+     * Important detail to keep in mind:
+     * Unlike Queries 1 & 2 (which look at money moving in and out during a date
+     * range), this checks your loans' CURRENT remaining balance today—as long as
+     * the loan started on or before your chosen End Date. Even if you look at a
+     * report for last year, this still shows today's remaining balance, not what
+     * the balance was back then.
      */
     private static final String LOAN_BALANCE_SQL = """
             SELECT 'LOAN_OUTSTANDING' AS metric,
@@ -211,8 +218,9 @@ public class FinancialReportingRepository {
             """;
 
     /*
-     * Converts one SQL result row into the API's summary DTO.
-     * Column names here match the aliases in REPORT_SQL and LOAN_BALANCE_SQL.
+     * Translator 1:
+     * Takes each summary row returned by the database (Query 1 & Query 3) and
+     * packages it into a clean Java object (FinancialReportRow) for the app to use.
      */
     private static final RowMapper<FinancialReportRow> REPORT_ROW_MAPPER =
             (rs, row) -> new FinancialReportRow(
@@ -223,7 +231,9 @@ public class FinancialReportingRepository {
                     rs.getLong("record_count"));
 
     /*
-     * Converts one monthly SQL result row into the API's trend DTO.
+     * Translator 2:
+     * Takes each monthly chart row returned by the database (Query 2) and
+     * packages it into a clean Java object (FinancialTrendRow) for the charts.
      */
     private static final RowMapper<FinancialTrendRow> TREND_ROW_MAPPER =
             (rs, row) -> new FinancialTrendRow(
@@ -233,6 +243,7 @@ public class FinancialReportingRepository {
                     rs.getBigDecimal("total_amount"),
                     rs.getLong("record_count"));
 
+    // Spring's built-in tool for running SQL queries safely against the database
     private final JdbcTemplate jdbcTemplate;
 
     public FinancialReportingRepository(JdbcTemplate jdbcTemplate) {
@@ -240,39 +251,47 @@ public class FinancialReportingRepository {
     }
 
     /**
-     * Runs the period summary query, then appends the loan-balance snapshot.
+     * Generates the full dashboard summary for a user between two dates.
      *
-     * <p>The six groups of (userId, from, to) values correspond to the six
-     * SELECT statements in REPORT_SQL. The loan query needs only (userId, to)
-     * because it is a point-in-time snapshot rather than period activity.</p>
+     * <p>How it executes:
+     * <ol>
+     *   <li>Runs Query 1 (REPORT_SQL). Because Query 1 combines 6 tables, we pass
+     *       (userId, from, to) 6 times—once for each table's "?" placeholders.</li>
+     *   <li>Runs Query 3 (LOAN_BALANCE_SQL) using (userId, to) to get current loan
+     *       debt, and adds those rows onto the bottom of the same list.</li>
+     * </ol>
+     * </p>
      */
     public List<FinancialReportRow> summarize(UUID userId, LocalDate from, LocalDate to) {
         List<FinancialReportRow> rows = jdbcTemplate.query(
                 REPORT_SQL,
                 REPORT_ROW_MAPPER,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to);
+                userId, from, to, // Fills "?" for Pile 1: income
+                userId, from, to, // Fills "?" for Pile 2: monthly_expenses
+                userId, from, to, // Fills "?" for Pile 3: loan_payments
+                userId, from, to, // Fills "?" for Pile 4: international_transfers
+                userId, from, to, // Fills "?" for Pile 5: scheduled_payments
+                userId, from, to); // Fills "?" for Pile 6: transactions
         rows.addAll(jdbcTemplate.query(LOAN_BALANCE_SQL, REPORT_ROW_MAPPER, userId, to));
         return rows;
     }
 
     /**
-     * Runs the monthly trend query. Each source contributes (userId, from, to)
-     * in the same order as its placeholders appear in MONTHLY_TREND_SQL.
+     * Generates the month-by-month chart numbers for a user between two dates.
+     *
+     * <p>Just like {@code summarize()}, we pass (userId, from, to) 6 times so each
+     * of the 6 tables in Query 2 (MONTHLY_TREND_SQL) filters for the right user
+     * and date window.</p>
      */
     public List<FinancialTrendRow> monthlyTrends(UUID userId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query(
                 MONTHLY_TREND_SQL,
                 TREND_ROW_MAPPER,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to,
-                userId, from, to);
+                userId, from, to, // Fills "?" for Table 1: income
+                userId, from, to, // Fills "?" for Table 2: monthly_expenses
+                userId, from, to, // Fills "?" for Table 3: loan_payments
+                userId, from, to, // Fills "?" for Table 4: international_transfers
+                userId, from, to, // Fills "?" for Table 5: scheduled_payments
+                userId, from, to); // Fills "?" for Table 6: transactions
     }
 }
