@@ -21,9 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,10 +41,11 @@ class FinancialReportingServiceTests {
     void setUp() {
         ownerId = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("test-token")
-                .header("alg", "none")
+                .header("alg", "HS256")
                 .subject(ownerId.toString())
                 .build();
-        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken(jwt, "test-credentials", "ROLE_USER"));
         reportingService = new FinancialReportingService(reportingRepository, authenticatedUserProvider);
     }
 
