@@ -12,11 +12,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Applies reporting use-case rules before asking the repository for aggregates.
+ * Coordinates the work needed to produce a safe financial report.
  *
- * <p>This is the boundary between the HTTP controller and SQL repository:
- * validate the requested dates, identify the logged-in owner, and delegate
- * the read operation. The caller never chooses a userId in the request.</p>
+ * <p>Think of this class as the report coordinator. Before asking the database
+ * for numbers, it checks that the requested date range makes sense and identifies
+ * the account that is currently signed in. It then asks the repository to fetch
+ * the report for that account.</p>
+ *
+ * <p>It intentionally does not contain SQL or add financial amounts itself.
+ * Keeping validation and identity checks here means every reporting endpoint
+ * follows the same rules. The browser never supplies the owner ID; the server
+ * gets it from the authenticated security context.</p>
  */
 @Service
 public class FinancialReportingService {
@@ -32,8 +38,12 @@ public class FinancialReportingService {
     }
 
     /**
-     * Returns grouped dashboard/report rows for the logged-in user.
-     * Read-only transaction tells Spring this operation must not modify data.
+     * Produces the shared dashboard/report summary for the signed-in user.
+     *
+     * <p>First the date range is checked. Then the signed-in user's ID is read
+     * from Spring Security and passed to the repository with the two dates.
+     * The read-only transaction marks this operation as a database read, not
+     * a request to create or change financial records.</p>
      */
     @Transactional(readOnly = true)
     public List<FinancialReportRow> summarize(LocalDate from, LocalDate to) {
@@ -44,7 +54,9 @@ public class FinancialReportingService {
     }
 
     /**
-     * Returns chart-ready monthly aggregates for the logged-in user.
+     * Produces chart-ready totals grouped by calendar month for the signed-in user.
+     * Date validation and owner lookup are identical to the summary operation,
+     * while the repository uses its monthly grouping query for the chart result.
      */
     @Transactional(readOnly = true)
     public List<FinancialTrendRow> monthlyTrends(LocalDate from, LocalDate to) {
@@ -55,11 +67,12 @@ public class FinancialReportingService {
     }
 
     /**
-     * Rejects invalid date ranges before any database query is executed.
+     * Checks the date range before the application spends time querying PostgreSQL.
      *
-     * <p>Both boundaries are inclusive in the repository SQL. Therefore,
-     * from == to is a valid single-day report, while from after to is invalid.
-     * Future end dates are rejected because this API reports recorded history.</p>
+     * <p>Both dates are required. The start date must be on or before the end date.
+     * A range where both dates are the same is valid and means one day. The SQL
+     * includes both boundary dates. Future end dates are rejected because these
+     * endpoints currently report recorded history rather than forecasts.</p>
      */
     private void validateRange(LocalDate from, LocalDate to) {
         if (from == null || to == null) {
