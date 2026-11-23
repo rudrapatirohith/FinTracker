@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fintracker.coreapi.financial.dto.response.FinancialReportRow;
+import com.fintracker.coreapi.financial.dto.response.FinancialTrendRow;
 import com.fintracker.coreapi.financial.repository.FinancialReportingRepository;
 import com.fintracker.coreapi.financial.service.FinancialReportingService;
 import com.fintracker.coreapi.identity.service.AuthenticatedUserProvider;
@@ -19,9 +20,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class FinancialReportingServiceTests {
@@ -63,25 +66,40 @@ class FinancialReportingServiceTests {
     }
 
     @Test
-    void summarizeRejectsMissingDates() {
-        assertThatThrownBy(() -> reportingService.summarize(null, LocalDate.now()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("required");
+    void monthlyTrendsUsesAuthenticatedOwnerAndReturnsTrendRows() {
+        LocalDate from = LocalDate.of(2026, 1, 1);
+        LocalDate to = LocalDate.of(2026, 1, 31);
+        List<FinancialTrendRow> expected = List.of(new FinancialTrendRow(
+                "2026-01", "INCOME", "USD", new BigDecimal("2500.00"), 1L));
+        when(reportingRepository.monthlyTrends(ownerId, from, to)).thenReturn(expected);
+
+        assertThat(reportingService.monthlyTrends(from, to)).containsExactlyElementsOf(expected);
+        verify(reportingRepository).monthlyTrends(ownerId, from, to);
     }
 
     @Test
-    void summarizeRejectsInvertedDateRange() {
+    void summarizeRejectsMissingDatesAsBadRequest() {
+        assertThatThrownBy(() -> reportingService.summarize(null, LocalDate.now()))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void summarizeRejectsInvertedDateRangeAsBadRequest() {
         assertThatThrownBy(() -> reportingService.summarize(
                         LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("on or before");
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
-    void summarizeRejectsFutureEndDate() {
+    void summarizeRejectsFutureEndDateAsBadRequest() {
         assertThatThrownBy(() -> reportingService.summarize(
                         LocalDate.now(), LocalDate.now().plusDays(1)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("future");
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }
