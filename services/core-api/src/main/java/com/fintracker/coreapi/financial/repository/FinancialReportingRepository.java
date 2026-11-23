@@ -185,13 +185,18 @@ public class FinancialReportingRepository {
             """;
 
     /*
-     * Returns the loan balances as a snapshot at the report's 'to' date.
+     * Returns the currently stored outstanding balances for loans that had started
+     * on or before the report's 'to' date.
      *
      * Unlike the activity queries above, this query does not sum payments made
-     * between from and to. It reads each loan's current_balance for loans that
-     * had started on or before the requested end date, then groups balances by
-     * loan status and currency. The start-date condition excludes loans that
-     * had not yet begun by that snapshot date.
+     * between from and to. It reads each loan's current_balance and groups those
+     * values by loan status and currency. The start-date condition excludes loans
+     * that had not yet begun by the requested end date.
+     *
+     * Important limitation: current_balance is the loan's present stored value.
+     * This query does not reconstruct a historical balance as it existed on the
+     * requested 'to' date. A true historical balance would require dated balance
+     * snapshots or a complete principal/payment ledger and a separate calculation.
      */
     private static final String LOAN_BALANCE_SQL = """
             SELECT 'LOAN_OUTSTANDING' AS metric,
