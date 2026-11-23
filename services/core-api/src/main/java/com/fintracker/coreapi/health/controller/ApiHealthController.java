@@ -15,8 +15,7 @@ public class ApiHealthController {
     @GetMapping
     public Map<String, String> getHealth() {
         return Map.of(
-            "status", "UP",
-            "service", "fintracker-core-api"
-        );
+                "status", "UP",
+                "service", "fintracker-core-api");
     }
 }

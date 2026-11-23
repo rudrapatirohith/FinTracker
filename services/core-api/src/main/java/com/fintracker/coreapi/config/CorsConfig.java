@@ -1,8 +1,6 @@
-
 package com.fintracker.coreapi.config;
 
 import java.util.List;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,8 +23,7 @@ public class CorsConfig {
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${fintracker.security.cors.allowed-origin}")
-            String frontendOrigin) {
+            @Value("${fintracker.security.cors.allowed-origin}") String frontendOrigin) {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
@@ -41,14 +38,7 @@ public class CorsConfig {
          * HTTP methods our frontend may use.
          * OPTIONS is needed for browser preflight requests.
          */
-        configuration.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE",
-                "OPTIONS"
-        ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         /*
          * Headers the frontend may send.
@@ -57,11 +47,7 @@ public class CorsConfig {
          * Content-Type: identifies JSON request bodies.
          * X-XSRF-TOKEN: carries the CSRF token.
          */
-        configuration.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "X-XSRF-TOKEN"
-        ));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN"));
 
         /*
          * Essential for our authentication design.
@@ -78,8 +64,7 @@ public class CorsConfig {
          * Apply this policy to all API endpoints.
          * The OAuth flow itself primarily uses browser redirects.
          */
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
         source.registerCorsConfiguration("/api/**", configuration);
 

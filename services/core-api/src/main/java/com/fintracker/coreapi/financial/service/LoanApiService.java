@@ -125,8 +125,7 @@ public class LoanApiService {
         if (r.endDate() != null && r.endDate().isBefore(r.startDate()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be on or after startDate.");
         if (r.currentBalance().compareTo(r.principalAmount()) > 0)
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "currentBalance cannot exceed principalAmount.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currentBalance cannot exceed principalAmount.");
         e.updateDetails(
                 r.loanName().trim(),
                 r.principalAmount(),

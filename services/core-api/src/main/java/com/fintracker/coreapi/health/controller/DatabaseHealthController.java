@@ -1,7 +1,6 @@
 package com.fintracker.coreapi.health.controller;
 
 import java.util.Map;
-
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,16 +29,14 @@ public class DatabaseHealthController {
             jdbcTemplate.queryForObject("SELECT 1", Integer.class);
 
             return ResponseEntity.ok(Map.of(
-                "status", "UP",
-                "database", "UP"
-            ));
+                    "status", "UP",
+                    "database", "UP"));
 
         } catch (DataAccessException exception) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(Map.of(
-                    "status", "DOWN",
-                    "database", "DOWN"
-                ));
+                    .body(Map.of(
+                            "status", "DOWN",
+                            "database", "DOWN"));
         }
     }
 }
