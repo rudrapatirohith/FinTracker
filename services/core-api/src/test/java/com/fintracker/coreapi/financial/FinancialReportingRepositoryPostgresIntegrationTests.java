@@ -98,7 +98,7 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                     (id, user_id, loan_name, principal_amount, current_balance, start_date, status, currency)
                 VALUES (?, ?, 'Auto loan', 5000.00, 4500.00, DATE '2025-12-01', 'active', 'INR')
                 """, loanId, owner.getId());
-        // The payment activity is in January, while current_balance is used for the outstanding snapshot.
+        // The payment activity is in January; current_balance stores the currently outstanding amount.
         jdbc.update("""
                 INSERT INTO loan_payments
                     (loan_id, user_id, amount, principal_amount, interest_amount, payment_date, currency)
