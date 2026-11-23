@@ -105,6 +105,21 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 VALUES (?, ?, 100.00, 90.00, 10.00, DATE '2026-01-22', 'INR')
                 """, loanId, owner.getId());
 
+        // NULL and whitespace-only statuses both display as "unknown" in the API.
+        // The repository must group by the normalized status so they become one total.
+        jdbc.update("""
+                INSERT INTO loans
+                    (id, user_id, loan_name, principal_amount, current_balance, start_date, status, currency)
+                VALUES (?, ?, 'Unclassified loan one', 1000.00, 200.00,
+                        DATE '2025-12-01', NULL, 'INR')
+                """, UUID.randomUUID(), owner.getId());
+        jdbc.update("""
+                INSERT INTO loans
+                    (id, user_id, loan_name, principal_amount, current_balance, start_date, status, currency)
+                VALUES (?, ?, 'Unclassified loan two', 1000.00, 300.00,
+                        DATE '2025-12-01', '   ', 'INR')
+                """, UUID.randomUUID(), owner.getId());
+
         // Store both sent and received amounts. Reporting should count only the sent side.
         jdbc.update("""
                 INSERT INTO international_transfers
@@ -152,6 +167,10 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 .isEqualByComparingTo("30.00");
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").totalAmount())
                 .isEqualByComparingTo("4500.00");
+        // Two differently stored blank statuses must be combined into one normalized API group.
+        assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").totalAmount())
+                .isEqualByComparingTo("500.00");
+        assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").recordCount()).isEqualTo(2);
         // Other owner's USD 8,000 and USD 900 records must not leak into this owner's result.
         assertThat(rows).noneMatch(row -> row.totalAmount().compareTo(new BigDecimal("8000.00")) == 0
                 || row.totalAmount().compareTo(new BigDecimal("900.00")) == 0);
