@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  *   <li><b>Privacy first:</b> Every search checks your personal User ID so you never see anyone else's money.</li>
  *   <li><b>Exact date window:</b> Only counts money between your chosen Start Date and End Date.</li>
  *   <li><b>Never mixes currencies:</b> Dollars (USD), Rupees (INR), and Canadian Dollars (CAD) are kept in separate totals—never added together.</li>
- *   <li><b>No double-counting:</b> Special records (like Monthly Expenses) and General Transactions get different labels so the same purchase is never counted twice.</li>
+ *   <li><b>Separate source totals:</b> Dedicated records and general transactions receive different metric labels. This keeps their totals visible separately; it does not detect the same real-world event entered in two tables. Preventing that requires a single-source-of-truth or deduplication rule in the write/migration design.</li>
  * </ul>
  * </p>
  */
@@ -85,8 +85,9 @@ public class FinancialReportingRepository {
                 UNION ALL
 
                 -- Pile 4: International money transfers sent out.
-                -- We only count the money SENT (amount_sent), ignoring the converted amount
-                -- received on the other side so the same transfer isn't counted twice.
+                -- We report the money SENT (amount_sent) and its sent currency. We do not
+                -- add amount_received as a second line item for the same transfer.
+                -- No status filter is applied: the existing transfer history includes all saved statuses.
                 SELECT 'TRANSFER' AS metric, 'Transfers' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency,
                        amount_sent AS amount
@@ -213,8 +214,11 @@ public class FinancialReportingRepository {
                    COUNT(*) AS record_count
             FROM loans
             WHERE user_id = ? AND start_date <= ?
-            GROUP BY status, currency
-            ORDER BY currency, status
+            -- Group by the same normalized values returned to Java. Otherwise NULL, blank,
+            -- or whitespace-only statuses could appear as multiple rows all labelled 'unknown'.
+            GROUP BY COALESCE(NULLIF(BTRIM(status), ''), 'unknown'),
+                     UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR'))
+            ORDER BY currency, category
             """;
 
     /*
@@ -257,8 +261,9 @@ public class FinancialReportingRepository {
      * <ol>
      *   <li>Runs Query 1 (REPORT_SQL). Because Query 1 combines 6 tables, we pass
      *       (userId, from, to) 6 times—once for each table's "?" placeholders.</li>
-     *   <li>Runs Query 3 (LOAN_BALANCE_SQL) using (userId, to) to get current loan
-     *       debt, and adds those rows onto the bottom of the same list.</li>
+     *   <li>Runs Query 3 (LOAN_BALANCE_SQL) using (userId, to) to get the currently
+     *       stored loan balances for loans started by the end date. These are current
+     *       balances, not reconstructed historical balances, and are appended to the result.</li>
      * </ol>
      * </p>
      */
@@ -278,6 +283,13 @@ public class FinancialReportingRepository {
 
     /**
      * Generates the month-by-month chart numbers for a user between two dates.
+     *
+     * <p>The six source-table definitions intentionally mirror REPORT_SQL so the
+     *     same financial sources, ownership rules, date boundaries, and currency
+     *     handling are applied to both report shapes. If a source is added or its
+     *     inclusion rule changes, update both queries and their integration tests.
+     *     Keeping the SQL explicit avoids hiding important reporting rules behind
+     *     complicated dynamic SQL, but it means this synchronization is deliberate.</p>
      *
      * <p>Just like {@code summarize()}, we pass (userId, from, to) 6 times so each
      * of the 6 tables in Query 2 (MONTHLY_TREND_SQL) filters for the right user
