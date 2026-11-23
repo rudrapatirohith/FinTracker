@@ -1,6 +1,7 @@
 package com.fintracker.coreapi.financial.controller;
 
 import com.fintracker.coreapi.financial.dto.response.FinancialReportRow;
+import com.fintracker.coreapi.financial.dto.response.FinancialTrendRow;
 import com.fintracker.coreapi.financial.service.FinancialReportingService;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
@@ -13,12 +14,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HTTP endpoints for dashboard summaries and category-level reporting.
- * Every request is authenticated by the API security chain; owner identity
- * is derived in the service and is never accepted from query parameters.
+ * HTTP endpoints for dashboard summaries, category analytics, and monthly
+ * reporting. The authenticated owner is always resolved by the service.
  */
 @RestController
 @Validated
+@RequestMapping("/api/v1")
 public class FinancialReportingController {
 
     private final FinancialReportingService reportingService;
@@ -27,21 +28,32 @@ public class FinancialReportingController {
         this.reportingService = reportingService;
     }
 
-    @GetMapping("/api/v1/dashboard/summary")
+    /** Returns owner-scoped financial metrics grouped by metric, category, and currency. */
+    @GetMapping("/dashboard/summary")
     public List<FinancialReportRow> dashboardSummary(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return reportingService.summarize(from, to);
     }
 
-    @GetMapping("/api/v1/analytics/categories")
+    /** Returns category-level income and outflow aggregates without mixing currencies. */
+    @GetMapping("/analytics/categories")
     public List<FinancialReportRow> categoryAnalytics(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return reportingService.summarize(from, to);
     }
 
-    @GetMapping("/api/v1/reports/summary")
+    /** Returns monthly trend rows suitable for income, expense, transfer, and payment charts. */
+    @GetMapping("/analytics/monthly-trends")
+    public List<FinancialTrendRow> monthlyTrends(
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return reportingService.monthlyTrends(from, to);
+    }
+
+    /** Returns the same currency-safe aggregates as a date-bounded financial report. */
+    @GetMapping("/reports/summary")
     public List<FinancialReportRow> reportSummary(
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
