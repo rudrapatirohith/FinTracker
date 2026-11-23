@@ -3,12 +3,16 @@ package com.fintracker.coreapi.financial.dto.response;
 import java.math.BigDecimal;
 
 /**
- * One aggregated result returned by dashboard, category analytics, or reports.
+ * One line in the dashboard/report result sent back to the frontend.
  *
- * <p>Example: metric=INCOME, category=Salary, currency=USD,
- * totalAmount=5000.00, recordCount=2 means two Salary income records
- * added up to USD 5,000.00. A separate INR row is returned rather than
- * converting or adding it to the USD amount.</p>
+ * <p>Think of this as one line in a financial summary table. For example,
+ * metric=INCOME, category=Salary, currency=USD, totalAmount=5000.00,
+ * recordCount=2 means the database found two Salary income records whose
+ * amounts add up to USD 5,000.00. INR income appears in a different line;
+ * this response never converts or adds INR to USD.</p>
+ *
+ * <p>This is a response-only object: it carries calculated results from the
+ * repository to the API caller. It does not read or change database records.</p>
  *
  * @param metric identifies the source/workflow, such as INCOME or LOAN_PAYMENT
  * @param category category label, or a fixed label for sources without categories
