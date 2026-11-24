@@ -29,171 +29,117 @@ import org.springframework.stereotype.Repository;
 public class FinancialReportingRepository {
 
     /*
-     * =========================================================================
-     * QUERY 1: DASHBOARD TOTALS BY CATEGORY (REPORT_SQL)
-     * =========================================================================
-     * What it does:
-     * Calculates how much money came in and went out between two dates, broken
-     * down by category (e.g., Salary, Rent, Loan Payments) and currency.
+     * Shared source data for both period summaries and monthly trends.
      *
-     * How it works in 2 simple steps:
-     * Step 1 (Inside the brackets): Collects matching receipts from 6 separate
-     *        database tables and stacks them into one combined pile ("UNION ALL").
-     *        Even if two receipts have the exact same amount on the same day,
-     *        both are kept so nothing is lost.
-     * Step 2 (Top & bottom lines): Groups that big pile by Type, Category, and
-     *        Currency, then adds up the dollar/rupee amounts ("SUM") and counts
-     *        how many receipts were in each pile ("COUNT").
+     * Think of this as collecting all supported financial events into one
+     * standard list before deciding how to display them. Each SELECT returns
+     * the same five columns: event date, metric, category, currency, and amount.
      *
-     * Note on the "?" symbols:
-     * Each "?" is a safe placeholder where Java plugs in your User ID, Start Date,
-     * and End Date right before asking the database for the numbers.
+     * Keeping the source definitions in one place prevents the dashboard query
+     * and monthly chart query from quietly drifting apart when a source or
+     * business rule changes. The six userId placeholders are bound by Java;
+     * the date range is applied by the outer query in each report below.
      */
-    private static final String REPORT_SQL = """
-            SELECT metric, category, currency, SUM(amount) AS total_amount, COUNT(*) AS record_count
-            FROM (
-                -- Pile 1: Money earned from the dedicated Income table.
-                -- If a category is blank, label it 'Uncategorized'. If currency is blank, assume 'USD'.
-                SELECT 'INCOME' AS metric,
+    private static final String FINANCIAL_EVENTS_CTE = """
+            WITH financial_events AS (
+                -- Source 1: dedicated income records.
+                SELECT date AS event_date, 'INCOME' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
                        amount
                 FROM income
-                WHERE user_id = ? AND date >= ? AND date <= ?
+                WHERE user_id = ?
 
                 UNION ALL
 
-                -- Pile 2: Bills and spending from the Monthly Expenses table.
-                -- Labeled 'MONTHLY_EXPENSE' so it stays separate from general transactions below.
-                SELECT 'MONTHLY_EXPENSE' AS metric,
+                -- Source 2: monthly expense records; kept separate from generic transactions.
+                SELECT expense_date AS event_date, 'MONTHLY_EXPENSE' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency,
                        amount
                 FROM monthly_expenses
-                WHERE user_id = ? AND expense_date >= ? AND expense_date <= ?
+                WHERE user_id = ?
 
                 UNION ALL
 
-                -- Pile 3: Actual loan payments made during this period.
-                -- Note: This counts the monthly payment made, NOT the total loan balance still owed.
-                SELECT 'LOAN_PAYMENT' AS metric, 'Loan Payments' AS category,
+                -- Source 3: loan repayments made on payment_date (not outstanding loan balances).
+                SELECT payment_date AS event_date, 'LOAN_PAYMENT' AS metric,
+                       'Loan Payments' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency,
                        amount
                 FROM loan_payments
-                WHERE user_id = ? AND payment_date >= ? AND payment_date <= ?
+                WHERE user_id = ?
 
                 UNION ALL
 
-                -- Pile 4: International money transfers sent out.
-                -- We report the money SENT (amount_sent) and its sent currency. We do not
-                -- add amount_received as a second line item for the same transfer.
-                -- No status filter is applied: the existing transfer summary includes every saved status,
-                -- matching the current frontend's all-transfer total. This includes pending transfers.
-                -- Transfer fees are not included in amount_sent and are not reported by this metric.
-                SELECT 'TRANSFER' AS metric, 'Transfers' AS category,
+                -- Source 4: international transfers. Report sent money only, not the converted
+                -- received amount or the transfer fee. All statuses are included to match the
+                -- existing frontend's all-transfer total, including pending transfers.
+                SELECT transfer_date AS event_date, 'TRANSFER' AS metric,
+                       'Transfers' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency,
                        amount_sent AS amount
                 FROM international_transfers
-                WHERE user_id = ? AND transfer_date >= ? AND transfer_date <= ?
+                WHERE user_id = ?
 
                 UNION ALL
 
-                -- Pile 5: Scheduled bills whose status is PAID.
-                -- The schema has no actual paid_at date, so this report attributes the payment
-                -- to due_date. A late payment therefore appears in its due-date period, not
-                -- necessarily the calendar period when the user marked it paid.
-                -- Unpaid, upcoming, or cancelled bills are ignored here.
-                SELECT 'SCHEDULED_PAYMENT' AS metric,
+                -- Source 5: scheduled payments marked paid. The current schema has no paid_at
+                -- date, so event_date is due_date; late payments are attributed to the due period.
+                SELECT due_date AS event_date, 'SCHEDULED_PAYMENT' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
                        amount
                 FROM scheduled_payments
-                WHERE user_id = ? AND status = 'paid' AND due_date >= ? AND due_date <= ?
+                WHERE user_id = ? AND status = 'paid'
 
                 UNION ALL
 
-                -- Pile 6: General day-to-day entries from the main Transactions table.
-                -- Labeled 'TRANSACTION_INCOME' or 'TRANSACTION_EXPENSE' to keep them separate
-                -- from the dedicated Income and Monthly Expenses piles above.
-                SELECT 'TRANSACTION_' || UPPER(type) AS metric,
+                -- Source 6: generic income/expense transactions. They remain distinct metrics
+                -- from dedicated income and monthly-expense records.
+                SELECT transaction_date AS event_date, 'TRANSACTION_' || UPPER(type) AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
                        amount
                 FROM transactions
-                WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ?
-                  AND UPPER(type) IN ('INCOME', 'EXPENSE')
-            ) financial_rows
-            -- Combine matching piles and sort the final list alphabetically
+                WHERE user_id = ? AND UPPER(type) IN ('INCOME', 'EXPENSE')
+            )
+            """;
+
+    /*
+     * QUERY 1: TOTALS FOR A SELECTED DATE RANGE
+     *
+     * The shared CTE above supplies the six source tables. This query decides
+     * how to summarize them: one row for each metric + category + currency.
+     * SUM adds the money in each group; COUNT tells us how many records were used.
+     * Different currencies and different financial sources stay in separate rows.
+     */
+    private static final String REPORT_SQL = FINANCIAL_EVENTS_CTE + """
+            SELECT metric, category, currency,
+                   SUM(amount) AS total_amount,
+                   COUNT(*) AS record_count
+            FROM financial_events
+            WHERE event_date >= ? AND event_date <= ?
             GROUP BY metric, category, currency
             ORDER BY metric, currency, category
             """;
 
     /*
-     * =========================================================================
-     * QUERY 2: MONTH-BY-MONTH CHART DATA (MONTHLY_TREND_SQL)
-     * =========================================================================
-     * What it does:
-     * Prepares numbers for your dashboard's bar and line charts over time.
+     * QUERY 2: MONTH-BY-MONTH CHART DATA
      *
-     * How it differs from Query 1:
-     * Instead of grouping by Category (Rent, Food, Salary), it groups every
-     * receipt by the Calendar Month it happened in (for example, '2026-01' for
-     * January 2026). That way, the chart can draw one bar per month while still
-     * keeping Income, Expenses, and different currencies completely separate.
+     * It uses the exact same financial events and filters as Query 1, but groups
+     * them by calendar month instead of category. DATE_TRUNC puts all dates in
+     * the same month together; TO_CHAR returns a chart-friendly value such as
+     * "2026-01". The metric and currency remain separate.
      */
-    private static final String MONTHLY_TREND_SQL = """
+    private static final String MONTHLY_TREND_SQL = FINANCIAL_EVENTS_CTE + """
             SELECT TO_CHAR(DATE_TRUNC('month', event_date), 'YYYY-MM') AS period,
-                   metric, currency, SUM(amount) AS total_amount, COUNT(*) AS record_count
-            FROM (
-                -- 1. Income grouped by the month it was received
-                SELECT date AS event_date, 'INCOME' AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
-                FROM income
-                WHERE user_id = ? AND date >= ? AND date <= ?
-
-                UNION ALL
-
-                -- 2. Monthly expenses grouped by the month they occurred
-                SELECT expense_date AS event_date, 'MONTHLY_EXPENSE' AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency, amount
-                FROM monthly_expenses
-                WHERE user_id = ? AND expense_date >= ? AND expense_date <= ?
-
-                UNION ALL
-
-                -- 3. Loan payments grouped by the month they were paid
-                SELECT payment_date AS event_date, 'LOAN_PAYMENT' AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency, amount
-                FROM loan_payments
-                WHERE user_id = ? AND payment_date >= ? AND payment_date <= ?
-
-                UNION ALL
-
-                -- 4. International transfers (sent amount only) grouped by transfer month
-                SELECT transfer_date AS event_date, 'TRANSFER' AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency, amount_sent
-                FROM international_transfers
-                WHERE user_id = ? AND transfer_date >= ? AND transfer_date <= ?
-
-                UNION ALL
-
-                -- 5. Paid scheduled bills grouped by due-date month. There is no paid_at
-                -- column in the current model, so this is due-date attribution, not settlement date.
-                SELECT due_date AS event_date, 'SCHEDULED_PAYMENT' AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
-                FROM scheduled_payments
-                WHERE user_id = ? AND status = 'paid' AND due_date >= ? AND due_date <= ?
-
-                UNION ALL
-
-                -- 6. General income/expense transactions grouped by transaction month
-                SELECT transaction_date AS event_date, 'TRANSACTION_' || UPPER(type) AS metric,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
-                FROM transactions
-                WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ?
-                  AND UPPER(type) IN ('INCOME', 'EXPENSE')
-            ) financial_events
-            -- Group all dates within the same month together (e.g., Jan 3 and Jan 25 both become '2026-01')
+                   metric,
+                   currency,
+                   SUM(amount) AS total_amount,
+                   COUNT(*) AS record_count
+            FROM financial_events
+            WHERE event_date >= ? AND event_date <= ?
             GROUP BY DATE_TRUNC('month', event_date), metric, currency
             ORDER BY period, metric, currency
             """;
@@ -265,8 +211,8 @@ public class FinancialReportingRepository {
      *
      * <p>How it executes:
      * <ol>
-     *   <li>Runs Query 1 (REPORT_SQL). Because Query 1 combines 6 tables, we pass
-     *       (userId, from, to) 6 times—once for each table's "?" placeholders.</li>
+     *   <li>Runs the shared source query with the user's ID six times (once per
+     *       source table), then supplies from and to for the outer date filter.</li>
      *   <li>Runs Query 3 (LOAN_BALANCE_SQL) using (userId, to) to get the currently
      *       stored loan balances for loans started by the end date. These are current
      *       balances, not reconstructed historical balances, and are appended to the result.</li>
@@ -277,12 +223,8 @@ public class FinancialReportingRepository {
         List<FinancialReportRow> rows = jdbcTemplate.query(
                 REPORT_SQL,
                 REPORT_ROW_MAPPER,
-                userId, from, to, // Fills "?" for Pile 1: income
-                userId, from, to, // Fills "?" for Pile 2: monthly_expenses
-                userId, from, to, // Fills "?" for Pile 3: loan_payments
-                userId, from, to, // Fills "?" for Pile 4: international_transfers
-                userId, from, to, // Fills "?" for Pile 5: scheduled_payments
-                userId, from, to); // Fills "?" for Pile 6: transactions
+                userId, userId, userId, userId, userId, userId, // One owner ID for each source table.
+                from, to); // Inclusive date range applied after the source rows are combined.
         rows.addAll(jdbcTemplate.query(LOAN_BALANCE_SQL, REPORT_ROW_MAPPER, userId, to));
         return rows;
     }
@@ -290,26 +232,15 @@ public class FinancialReportingRepository {
     /**
      * Generates the month-by-month chart numbers for a user between two dates.
      *
-     * <p>The six source-table definitions intentionally mirror REPORT_SQL so the
-     *     same financial sources, ownership rules, date boundaries, and currency
-     *     handling are applied to both report shapes. If a source is added or its
-     *     inclusion rule changes, update both queries and their integration tests.
-     *     Keeping the SQL explicit avoids hiding important reporting rules behind
-     *     complicated dynamic SQL, but it means this synchronization is deliberate.</p>
-     *
-     * <p>Just like {@code summarize()}, we pass (userId, from, to) 6 times so each
-     * of the 6 tables in Query 2 (MONTHLY_TREND_SQL) filters for the right user
-     * and date window.</p>
+     * <p>The same shared source query is used by the summary and trend operations.
+     * We pass the authenticated user ID six times (one per source table), followed
+     * by from and to for the date range.</p>
      */
     public List<FinancialTrendRow> monthlyTrends(UUID userId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query(
                 MONTHLY_TREND_SQL,
                 TREND_ROW_MAPPER,
-                userId, from, to, // Fills "?" for Table 1: income
-                userId, from, to, // Fills "?" for Table 2: monthly_expenses
-                userId, from, to, // Fills "?" for Table 3: loan_payments
-                userId, from, to, // Fills "?" for Table 4: international_transfers
-                userId, from, to, // Fills "?" for Table 5: scheduled_payments
-                userId, from, to); // Fills "?" for Table 6: transactions
+                userId, userId, userId, userId, userId, userId, // One owner ID for each source table.
+                from, to); // Inclusive date range applied after the source rows are combined.
     }
 }
