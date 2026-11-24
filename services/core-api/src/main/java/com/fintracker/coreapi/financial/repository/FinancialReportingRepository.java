@@ -87,7 +87,9 @@ public class FinancialReportingRepository {
                 -- Pile 4: International money transfers sent out.
                 -- We report the money SENT (amount_sent) and its sent currency. We do not
                 -- add amount_received as a second line item for the same transfer.
-                -- No status filter is applied: the existing transfer history includes all saved statuses.
+                -- No status filter is applied: the existing transfer summary includes every saved status,
+                -- matching the current frontend's all-transfer total. This includes pending transfers.
+                -- Transfer fees are not included in amount_sent and are not reported by this metric.
                 SELECT 'TRANSFER' AS metric, 'Transfers' AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(currency_sent), ''), 'USD')) AS currency,
                        amount_sent AS amount
@@ -96,7 +98,10 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Pile 5: Scheduled bills that have actually been PAID.
+                -- Pile 5: Scheduled bills whose status is PAID.
+                -- The schema has no actual paid_at date, so this report attributes the payment
+                -- to due_date. A late payment therefore appears in its due-date period, not
+                -- necessarily the calendar period when the user marked it paid.
                 -- Unpaid, upcoming, or cancelled bills are ignored here.
                 SELECT 'SCHEDULED_PAYMENT' AS metric,
                        COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
@@ -172,7 +177,8 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- 5. Paid scheduled bills grouped by the month they were due
+                -- 5. Paid scheduled bills grouped by due-date month. There is no paid_at
+                -- column in the current model, so this is due-date attribution, not settlement date.
                 SELECT due_date AS event_date, 'SCHEDULED_PAYMENT' AS metric,
                        UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency, amount
                 FROM scheduled_payments
