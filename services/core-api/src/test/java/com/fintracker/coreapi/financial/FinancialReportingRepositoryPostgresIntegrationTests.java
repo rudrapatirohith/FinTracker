@@ -138,11 +138,16 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                         DATE '2026-01-23', 'completed')
                 """, owner.getId());
 
-        // A paid scheduled payment should count; other statuses are intentionally excluded by the SQL.
+        // A paid scheduled payment should count; a pending one must not be included.
         jdbc.update("""
                 INSERT INTO scheduled_payments
                     (user_id, payment_name, amount, currency, category, due_date, status)
                 VALUES (?, 'Electric bill', 75.00, 'USD', 'Utilities', DATE '2026-01-24', 'paid')
+                """, owner.getId());
+        jdbc.update("""
+                INSERT INTO scheduled_payments
+                    (user_id, payment_name, amount, currency, category, due_date, status)
+                VALUES (?, 'Upcoming phone bill', 900.00, 'USD', 'Utilities', DATE '2026-01-25', 'pending')
                 """, owner.getId());
 
         jdbc.update("""
@@ -173,6 +178,7 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 .isEqualByComparingTo("100.00");
         assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").totalAmount())
                 .isEqualByComparingTo("75.00");
+        assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").recordCount()).isEqualTo(1);
         assertThat(byMetricAndCurrency.get("TRANSACTION_EXPENSE:CAD:Dining").totalAmount())
                 .isEqualByComparingTo("30.00");
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").totalAmount())
