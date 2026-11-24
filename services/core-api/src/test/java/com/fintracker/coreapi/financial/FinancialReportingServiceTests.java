@@ -67,11 +67,11 @@ class FinancialReportingServiceTests {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
     /**
      * Confirms that summary results are passed back unchanged and that the repository
      * is called with the signed-in user's ID, not an ID supplied by the caller.
      */
+    @Test
     void summarizeUsesAuthenticatedOwnerAndReturnsCurrencyScopedRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
@@ -84,8 +84,8 @@ class FinancialReportingServiceTests {
         verify(reportingRepository).summarize(ownerId, from, to);
     }
 
-    @Test
     /** Confirms monthly chart requests use the same authenticated-owner protection. */
+    @Test
     void monthlyTrendsUsesAuthenticatedOwnerAndReturnsTrendRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
@@ -97,8 +97,8 @@ class FinancialReportingServiceTests {
         verify(reportingRepository).monthlyTrends(ownerId, from, to);
     }
 
-    @Test
     /** A missing start or end date is a client request error and must not reach the repository. */
+    @Test
     void summarizeRejectsMissingDatesAsBadRequest() {
         // Missing either boundary should fail before the repository is called.
         assertThatThrownBy(() -> reportingService.summarize(null, LocalDate.now()))
@@ -107,8 +107,8 @@ class FinancialReportingServiceTests {
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
-    @Test
     /** A start date after the end date is invalid and must be rejected before SQL runs. */
+    @Test
     void summarizeRejectsInvertedDateRangeAsBadRequest() {
         // A start date after the end date is not a meaningful reporting interval.
         assertThatThrownBy(() -> reportingService.summarize(
@@ -118,8 +118,8 @@ class FinancialReportingServiceTests {
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
-    @Test
     /** A future end date is rejected because these endpoints report history, not forecasts. */
+    @Test
     void summarizeRejectsFutureEndDateAsBadRequest() {
         // This API reports recorded history, so the requested end date cannot be in the future.
         assertThatThrownBy(() -> reportingService.summarize(
