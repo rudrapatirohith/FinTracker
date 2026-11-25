@@ -36,8 +36,8 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 ## Files
 
 1. `01_create_staging.sql` — creates isolated source staging tables in schema `migration_source`.
-2. `02_import.sql` — validates source identities/relationships and atomically imports all 62 rows.
-3. `03_reconcile.sql` — reports source-vs-target counts, per-user counts and exact financial totals grouped by currency.
+2. `02_import.sql` — validates source identities/relationships and atomically imports the 52 financial rows plus 10 profiles (and their identity records).
+3. `03_reconcile.sql` — reports source-vs-target counts, per-user counts, exact financial totals grouped by currency, and full-row equality checks.
 4. `04_rollback.sql` — preview and explicit rollback of the migration batch.
 
 ## Prepare source exports
@@ -64,7 +64,7 @@ Run `02_import.sql` in a single psql session with `ON_ERROR_STOP=1`, e.g.:
 psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\02_import.sql
 ```
 
-Then run `03_reconcile.sql` and inspect every result. The expected total is 62 financial rows plus 10 app users, 10 profiles, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
+Then run `03_reconcile.sql` and inspect every result. The supplied dataset contains 52 financial rows plus 10 profile rows (62 source rows total). In addition, import creates 10 app users, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
 
 The target `oauth_identities` table has no `updated_at` column, so the source Google identity `created_at` is preserved; identity `updated_at` is retained in the private source export as audit evidence but has no target column. The target schema also has no profile email column: Auth email is authoritative for `app_users.email`; profile email is not copied. The import rejects profile/Auth email mismatches after case/whitespace normalization rather than silently choosing one.
 
