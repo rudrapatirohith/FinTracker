@@ -10,7 +10,9 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -41,7 +43,7 @@ public class TransactionService {
         FinancialTransaction entity = new FinancialTransaction(
                 userId, request.type().trim(), request.category().trim(), request.amount(), request.transactionDate());
 
-        apply(entity, request);
+        apply(entity, request, userId);
         return TransactionResponse.from(repository.save(entity));
     }
 
@@ -71,7 +73,7 @@ public class TransactionService {
     public TransactionResponse update(UUID id, TransactionRequest request) {
         FinancialTransaction entity = findOwned(id);
 
-        apply(entity, request);
+        apply(entity, request, entity.getUserId());
         return TransactionResponse.from(entity);
     }
 
@@ -94,7 +96,8 @@ public class TransactionService {
     /**
      * Trims the required type/category fields, normalizes a missing currency to USD or uppercases the supplied code, and passes tags through the request's defensive-copy accessor before updating the entity.
      */
-    private void apply(FinancialTransaction entity, TransactionRequest request) {
+    private void apply(FinancialTransaction entity, TransactionRequest request, UUID userId) {
+        validateReference(userId, request.referenceId());
         entity.updateDetails(
                 request.type().trim(),
                 request.category().trim(),
@@ -107,6 +110,18 @@ public class TransactionService {
                 request.paymentMethod(),
                 request.referenceId(),
                 request.tags());
+    }
+
+    /**
+     * A non-null referenceId represents a history mirror of an existing domain event.
+     * Verify that the referenced row belongs to this same user before persisting it.
+     */
+    private void validateReference(UUID userId, UUID referenceId) {
+        if (referenceId != null && !repository.existsCanonicalSourceForUser(referenceId, userId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "referenceId must identify a financial source record owned by the signed-in user.");
+        }
     }
 
     /**
