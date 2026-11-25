@@ -11,9 +11,9 @@ import java.util.UUID;
 
 /**
  * Validated client input; user ownership is always derived from the JWT.
- * A non-null referenceId links a generic history row to a canonical income,
- * expense, loan-payment, transfer, or scheduled-payment record owned by the same user.
- * Leave it null for a standalone transaction that is not a mirror of another record.
+ * On create, a non-null referenceId links a generic history row to a canonical income,
+ * expense, loan-payment, transfer, or scheduled-payment record owned by the same user;
+ * null means the transaction is standalone. On update, null preserves an existing link.
  */
 public record TransactionRequest(
         @NotBlank @Size(max = 100) String type,
