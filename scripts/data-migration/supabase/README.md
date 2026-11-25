@@ -20,6 +20,8 @@ Expected source counts (from the unfiltered Supabase exports supplied for this m
 
 The 10 profiles correspond to 10 Supabase Auth users. An additional Auth-only account was explicitly excluded after confirming it owns no financial rows. Do not delete or modify that account in Supabase.
 
+The read-only Auth lifecycle check for these 10 in-scope users confirmed all 10 are `ACTIVE`: none is currently banned (`banned_until` is NULL), deleted (`deleted_at` is NULL), or anonymous (`is_anonymous` is false). The import status column remains derived from the Auth export at export time so a later source-side status change is not silently ignored.
+
 Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 email identity rows; one user has both email and Google). The target schema stores Google identities in `oauth_identities`; email/password login is represented by `app_users.email` and a nullable password hash. Supabase password hashes and sessions are not migrated. The current backend has no password-reset endpoint, so the two email-only accounts cannot use password login after cutover until a secure reset flow is implemented. The one account that has both email and Google identities can continue through its imported Google identity; the seven Google-only accounts can continue through Google. Existing Google provider subject IDs are imported unchanged. Do not announce an authentication cutover until the reset/recovery path for email-only users is available and tested.
 
 ## Safety rules
