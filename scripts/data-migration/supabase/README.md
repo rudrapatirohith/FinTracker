@@ -80,7 +80,21 @@ For example, with psql and files stored in the private ignored directory, load t
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
 
-## Execute
+## Dry run and execute
+
+First run the complete import in dry-run mode. The script executes all inserts and database constraints inside one transaction, then rolls the transaction back:
+
+```powershell
+psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=true -f .\\scripts\\data-migration\\supabase\\02_import.sql
+```
+
+If the dry run succeeds, review the output and run the same script with `dry_run=false` to commit:
+
+```powershell
+psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=false -f .\\scripts\\data-migration\\supabase\\02_import.sql
+```
+
+The batch marker prevents a second committed import. A dry run does not create the marker because its transaction is rolled back.
 
 Run `02_import.sql` in a single psql session with `ON_ERROR_STOP=1`, e.g.:
 
