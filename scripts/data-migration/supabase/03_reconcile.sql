@@ -131,7 +131,7 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM (
         (SELECT a.id, a.email, lower(trim(a.email)), NULL::varchar(255),
-                a.email_confirmed_at, 'ACTIVE'::varchar(20), a.created_at, a.updated_at
+                a.email_confirmed_at, a.status, a.created_at, a.updated_at
          FROM migration_source.auth_users a
          EXCEPT ALL
          SELECT t.id, t.email, t.email_normalized, t.password_hash,
@@ -145,7 +145,7 @@ BEGIN
          JOIN migration_source.auth_users a ON a.id = t.id
          EXCEPT ALL
          SELECT a.id, a.email, lower(trim(a.email)), NULL::varchar(255),
-                a.email_confirmed_at, 'ACTIVE'::varchar(20), a.created_at, a.updated_at
+                a.email_confirmed_at, a.status, a.created_at, a.updated_at
          FROM migration_source.auth_users a)
     ) d) THEN RAISE EXCEPTION 'App user row mismatch'; END IF;
 
