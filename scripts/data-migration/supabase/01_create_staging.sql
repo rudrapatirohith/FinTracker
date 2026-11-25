@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS migration_source.google_identities (
     UNIQUE (provider_subject)
 );
 
+-- Source IDs must be unique in staging so duplicate exports fail before import.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_income_id ON migration_source.income(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_monthly_expenses_id ON migration_source.monthly_expenses(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_loans_id ON migration_source.loans(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_loan_payments_id ON migration_source.loan_payments(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_international_transfers_id ON migration_source.international_transfers(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_scheduled_payments_id ON migration_source.scheduled_payments(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_migration_source_transactions_id ON migration_source.transactions(id);
+
 CREATE TABLE IF NOT EXISTS migration_source.import_batches (
     batch_name TEXT PRIMARY KEY,
     imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
