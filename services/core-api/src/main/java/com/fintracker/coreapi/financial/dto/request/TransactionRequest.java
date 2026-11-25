@@ -9,7 +9,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Validated client input; user ownership is always derived from the JWT. */
+/**
+ * Validated client input; user ownership is always derived from the JWT.
+ * A non-null referenceId links a generic history row to a canonical income,
+ * expense, loan-payment, transfer, or scheduled-payment record owned by the same user.
+ * Leave it null for a standalone transaction that is not a mirror of another record.
+ */
 public record TransactionRequest(
         @NotBlank @Size(max = 100) String type,
         @NotBlank @Size(max = 150) String category,
