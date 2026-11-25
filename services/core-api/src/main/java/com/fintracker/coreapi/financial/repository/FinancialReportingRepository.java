@@ -97,12 +97,27 @@ public class FinancialReportingRepository {
 
                 -- Source 6: generic income/expense transactions. They remain distinct metrics
                 -- from dedicated income and monthly-expense records.
-                SELECT transaction_date AS event_date, 'TRANSACTION_' || UPPER(type) AS metric,
-                       COALESCE(NULLIF(BTRIM(category), ''), 'Uncategorized') AS category,
-                       UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'USD')) AS currency,
-                       amount
-                FROM transactions
-                WHERE user_id = ? AND UPPER(type) IN ('INCOME', 'EXPENSE')
+                SELECT t.transaction_date AS event_date, 'TRANSACTION_' || UPPER(t.type) AS metric,
+                       COALESCE(NULLIF(BTRIM(t.category), ''), 'Uncategorized') AS category,
+                       UPPER(COALESCE(NULLIF(BTRIM(t.currency), ''), 'USD')) AS currency,
+                       t.amount
+                FROM transactions t
+                WHERE t.user_id = ? AND UPPER(t.type) IN ('INCOME', 'EXPENSE')
+                  -- A transaction may also appear in a domain table for unified history.
+                  -- When reference_id points to that same user's canonical source row, count
+                  -- the domain row only; otherwise the generic transaction is standalone.
+                  AND (t.reference_id IS NULL OR (
+                      NOT EXISTS (SELECT 1 FROM income i
+                                  WHERE i.id = t.reference_id AND i.user_id = t.user_id)
+                      AND NOT EXISTS (SELECT 1 FROM monthly_expenses e
+                                      WHERE e.id = t.reference_id AND e.user_id = t.user_id)
+                      AND NOT EXISTS (SELECT 1 FROM loan_payments lp
+                                      WHERE lp.id = t.reference_id AND lp.user_id = t.user_id)
+                      AND NOT EXISTS (SELECT 1 FROM international_transfers tr
+                                      WHERE tr.id = t.reference_id AND tr.user_id = t.user_id)
+                      AND NOT EXISTS (SELECT 1 FROM scheduled_payments sp
+                                      WHERE sp.id = t.reference_id AND sp.user_id = t.user_id)
+                  ))
             )
             """;
 
@@ -117,7 +132,8 @@ public class FinancialReportingRepository {
     private static final String REPORT_SQL = FINANCIAL_EVENTS_CTE + """
             SELECT metric, category, currency,
                    SUM(amount) AS total_amount,
-                   COUNT(*) AS record_count
+                   COUNT(*) AS record_count,
+                   NULL::date AS snapshot_date
             FROM financial_events
             WHERE event_date >= ? AND event_date <= ?
             GROUP BY metric, category, currency
@@ -155,15 +171,16 @@ public class FinancialReportingRepository {
      * Unlike Queries 1 & 2 (which look at money moving in and out during a date
      * range), this checks your loans' CURRENT remaining balance today—as long as
      * the loan started on or before your chosen End Date. Even if you look at a
-     * report for last year, this still shows today's remaining balance, not what
-     * the balance was back then.
+     * report for last year, this still shows the database's current remaining balance,
+     * not what the balance was back then. The response includes snapshotDate for clarity.
      */
     private static final String LOAN_BALANCE_SQL = """
             SELECT 'LOAN_OUTSTANDING' AS metric,
                    COALESCE(NULLIF(BTRIM(status), ''), 'unknown') AS category,
                    UPPER(COALESCE(NULLIF(BTRIM(currency), ''), 'INR')) AS currency,
                    SUM(current_balance) AS total_amount,
-                   COUNT(*) AS record_count
+                   COUNT(*) AS record_count,
+                   CURRENT_DATE AS snapshot_date
             FROM loans
             WHERE user_id = ? AND start_date <= ?
             -- Group by the same normalized values returned to Java. Otherwise NULL, blank,
@@ -184,7 +201,8 @@ public class FinancialReportingRepository {
                     rs.getString("category"),
                     rs.getString("currency"),
                     rs.getBigDecimal("total_amount"),
-                    rs.getLong("record_count"));
+                    rs.getLong("record_count"),
+                    rs.getObject("snapshot_date", LocalDate.class));
 
     /*
      * Translator 2:
@@ -215,7 +233,9 @@ public class FinancialReportingRepository {
      *       source table), then supplies from and to for the outer date filter.</li>
      *   <li>Runs Query 3 (LOAN_BALANCE_SQL) using (userId, to) to get the currently
      *       stored loan balances for loans started by the end date. These are current
-     *       balances, not reconstructed historical balances, and are appended to the result.</li>
+     *       balances, not reconstructed historical balances, and are appended to the result.
+     *       Each loan row includes snapshotDate (PostgreSQL CURRENT_DATE) so clients can
+     *       distinguish today's balance from activity inside the requested period.</li>
      * </ol>
      * </p>
      */
