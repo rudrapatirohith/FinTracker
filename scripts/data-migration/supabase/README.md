@@ -49,7 +49,7 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 5. Execute `01_create_staging.sql` on the target database:
    `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\01_create_staging.sql`
 6. Execute the transformed combined INSERT statements on the target database using the private working file, for example:
-   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\private\\financial-staging.sql`. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
+   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\private\financial-staging.sql`. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
 7. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
 8. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
@@ -88,8 +88,8 @@ Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUI
 Before creating staging or importing, take a custom-format backup and verify that it can be listed/restored in a non-production test database:
 
 ```powershell
-pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\scripts\data-migration\supabase\private\\fintracker-before-phase5.dump
-pg_restore --list .\scripts\data-migration\supabase\private\\fintracker-before-phase5.dump
+pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
+pg_restore --list .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
 ```
 
 ## Dry run and execute
@@ -108,13 +108,7 @@ psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=fals
 
 The batch marker prevents a second committed import. A dry run does not create the marker because its transaction is rolled back.
 
-Run `02_import.sql` in a single psql session with `ON_ERROR_STOP=1`, e.g.:
-
-```powershell
-psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\02_import.sql
-```
-
-Then run `03_reconcile.sql` and inspect every result. The supplied dataset contains 52 financial rows plus 10 profile rows (62 source rows total). In addition, import creates 10 app users, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
+After the committed import, run reconciliation and inspect every result: The supplied dataset contains 52 financial rows plus 10 profile rows (62 source rows total). In addition, import creates 10 app users, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
 
 The target `oauth_identities` table has no `updated_at` column, so the source Google identity `created_at` is preserved; identity `updated_at` is retained in the private source export as audit evidence but has no target column. The target schema also has no profile email column: Auth email is authoritative for `app_users.email`; profile email is not copied. The import rejects profile/Auth email mismatches after case/whitespace normalization rather than silently choosing one.
 
