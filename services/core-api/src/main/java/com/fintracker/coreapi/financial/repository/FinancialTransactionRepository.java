@@ -3,11 +3,11 @@ package com.fintracker.coreapi.financial.repository;
 import com.fintracker.coreapi.financial.entity.FinancialTransaction;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface FinancialTransactionRepository extends JpaRepository<FinancialTransaction, UUID> {
     /**
@@ -38,6 +38,5 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
                 SELECT 1 FROM scheduled_payments WHERE id = :referenceId AND user_id = :userId
             )
             """, nativeQuery = true)
-    boolean existsCanonicalSourceForUser(
-            @Param("referenceId") UUID referenceId, @Param("userId") UUID userId);
+    boolean existsCanonicalSourceForUser(@Param("referenceId") UUID referenceId, @Param("userId") UUID userId);
 }

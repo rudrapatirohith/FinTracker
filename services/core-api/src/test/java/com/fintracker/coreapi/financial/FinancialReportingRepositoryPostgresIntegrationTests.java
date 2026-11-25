@@ -90,8 +90,7 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         LocalDate to = LocalDate.of(2026, 1, 31);
 
         // Include first-day and last-day rows to prove both date boundaries are inclusive.
-        UUID salaryIncomeId = insertIncome(
-                owner.getId(), "Salary", "1000.00", "USD", LocalDate.of(2026, 1, 1));
+        UUID salaryIncomeId = insertIncome(owner.getId(), "Salary", "1000.00", "USD", LocalDate.of(2026, 1, 1));
         insertIncome(owner.getId(), "Consulting", "500.00", "USD", LocalDate.of(2026, 1, 31));
         insertIncome(owner.getId(), "Contract", "700.00", "INR", LocalDate.of(2026, 1, 15));
         // This row is outside the requested period and must not be counted.
@@ -171,15 +170,12 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         List<FinancialReportRow> rows = reportingRepository.summarize(owner.getId(), from, to);
         Map<String, FinancialReportRow> byMetricAndCurrency = rows.stream()
                 .collect(Collectors.toMap(
-                        row -> row.metric() + ":" + row.currency() + ":" + row.category(),
-                        Function.identity()));
+                        row -> row.metric() + ":" + row.currency() + ":" + row.category(), Function.identity()));
 
         // Verify source totals, separate currencies, and record counts.
-        assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").totalAmount())
-                .isEqualByComparingTo("1500.00");
+        assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").totalAmount()).isEqualByComparingTo("1500.00");
         assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").recordCount()).isEqualTo(2);
-        assertThat(byMetricAndCurrency.get("INCOME:INR:Earnings").totalAmount())
-                .isEqualByComparingTo("700.00");
+        assertThat(byMetricAndCurrency.get("INCOME:INR:Earnings").totalAmount()).isEqualByComparingTo("700.00");
         assertThat(byMetricAndCurrency.get("MONTHLY_EXPENSE:USD:Food").totalAmount())
                 .isEqualByComparingTo("250.00");
         assertThat(byMetricAndCurrency.get("LOAN_PAYMENT:INR:Loan Payments").totalAmount())
@@ -188,7 +184,8 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 .isEqualByComparingTo("100.00");
         assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").totalAmount())
                 .isEqualByComparingTo("75.00");
-        assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").recordCount()).isEqualTo(1);
+        assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").recordCount())
+                .isEqualTo(1);
         assertThat(byMetricAndCurrency.get("TRANSACTION_EXPENSE:CAD:Dining").totalAmount())
                 .isEqualByComparingTo("30.00");
         // The linked generic income mirror must not be added on top of the canonical income row.
@@ -200,14 +197,17 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").snapshotDate())
                 .isEqualTo(databaseSnapshotDate);
         // Activity totals belong to the requested period and do not carry a loan snapshot date.
-        assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").snapshotDate()).isNull();
+        assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").snapshotDate())
+                .isNull();
         // Two differently stored blank statuses must be combined into one normalized API group.
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").totalAmount())
                 .isEqualByComparingTo("500.00");
-        assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").recordCount()).isEqualTo(2);
+        assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").recordCount())
+                .isEqualTo(2);
         // Other owner's USD 8,000 and USD 900 records must not leak into this owner's result.
-        assertThat(rows).noneMatch(row -> row.totalAmount().compareTo(new BigDecimal("8000.00")) == 0
-                || row.totalAmount().compareTo(new BigDecimal("900.00")) == 0);
+        assertThat(rows)
+                .noneMatch(row -> row.totalAmount().compareTo(new BigDecimal("8000.00")) == 0
+                        || row.totalAmount().compareTo(new BigDecimal("900.00")) == 0);
 
         // Every inserted activity date is in January, so all trend rows must use 2026-01.
         // The expected row count also ensures each source/currency group is represented.
@@ -223,14 +223,26 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         jdbc.update(
                 "INSERT INTO income (id, user_id, source, amount, currency, category, date) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                incomeId, userId, source, new BigDecimal(amount), currency, "Earnings", date);
+                incomeId,
+                userId,
+                source,
+                new BigDecimal(amount),
+                currency,
+                "Earnings",
+                date);
         return incomeId;
     }
 
-    private void insertExpense(UUID userId, String name, String amount, String currency, String category, LocalDate date) {
+    private void insertExpense(
+            UUID userId, String name, String amount, String currency, String category, LocalDate date) {
         jdbc.update(
                 "INSERT INTO monthly_expenses (user_id, expense_name, amount, currency, category, expense_date) "
                         + "VALUES (?, ?, ?, ?, ?, ?)",
-                userId, name, new BigDecimal(amount), currency, category, date);
+                userId,
+                name,
+                new BigDecimal(amount),
+                currency,
+                category,
+                date);
     }
 }

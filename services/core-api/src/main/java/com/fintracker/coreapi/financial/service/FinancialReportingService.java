@@ -31,8 +31,7 @@ public class FinancialReportingService {
     private final AuthenticatedUserProvider authenticatedUserProvider;
 
     public FinancialReportingService(
-            FinancialReportingRepository reportingRepository,
-            AuthenticatedUserProvider authenticatedUserProvider) {
+            FinancialReportingRepository reportingRepository, AuthenticatedUserProvider authenticatedUserProvider) {
         this.reportingRepository = reportingRepository;
         this.authenticatedUserProvider = authenticatedUserProvider;
     }

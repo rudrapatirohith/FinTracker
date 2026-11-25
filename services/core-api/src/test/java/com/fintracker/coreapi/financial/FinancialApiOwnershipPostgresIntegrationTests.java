@@ -448,16 +448,27 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         jdbc.update(
                 "INSERT INTO income (id, user_id, source, amount, currency, category, date) "
                         + "VALUES (?, ?, 'Salary', 100.00, 'USD', 'Earnings', DATE '2026-11-01')",
-                ownerIncomeId, owner.getId());
+                ownerIncomeId,
+                owner.getId());
         jdbc.update(
                 "INSERT INTO income (id, user_id, source, amount, currency, category, date) "
                         + "VALUES (?, ?, 'Salary', 200.00, 'USD', 'Earnings', DATE '2026-11-01')",
-                otherIncomeId, other.getId());
+                otherIncomeId,
+                other.getId());
 
         authenticate(owner);
         TransactionRequest linkedToOwnerRecord = new TransactionRequest(
-                "income", "Earnings", null, new BigDecimal("100.00"), "USD", null, null,
-                LocalDate.of(2026, 11, 1), null, ownerIncomeId, null);
+                "income",
+                "Earnings",
+                null,
+                new BigDecimal("100.00"),
+                "USD",
+                null,
+                null,
+                LocalDate.of(2026, 11, 1),
+                null,
+                ownerIncomeId,
+                null);
         var linkedMirror = transactions.create(linkedToOwnerRecord);
         assertThat(linkedMirror.id()).isNotNull();
 
@@ -465,15 +476,33 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         transactions.update(
                 linkedMirror.id(),
                 new TransactionRequest(
-                        "income", "Earnings", null, new BigDecimal("100.00"), "USD", "Updated note", null,
-                        LocalDate.of(2026, 11, 2), null, null, null));
+                        "income",
+                        "Earnings",
+                        null,
+                        new BigDecimal("100.00"),
+                        "USD",
+                        "Updated note",
+                        null,
+                        LocalDate.of(2026, 11, 2),
+                        null,
+                        null,
+                        null));
         assertThat(jdbc.queryForObject(
                         "SELECT reference_id FROM transactions WHERE id = ?", UUID.class, linkedMirror.id()))
                 .isEqualTo(ownerIncomeId);
 
         TransactionRequest linkedToOtherOwnerRecord = new TransactionRequest(
-                "income", "Earnings", null, new BigDecimal("200.00"), "USD", null, null,
-                LocalDate.of(2026, 11, 1), null, otherIncomeId, null);
+                "income",
+                "Earnings",
+                null,
+                new BigDecimal("200.00"),
+                "USD",
+                null,
+                null,
+                LocalDate.of(2026, 11, 1),
+                null,
+                otherIncomeId,
+                null);
         assertThatThrownBy(() -> transactions.create(linkedToOtherOwnerRecord))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting("statusCode")

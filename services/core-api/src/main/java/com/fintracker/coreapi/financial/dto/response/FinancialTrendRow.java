@@ -20,8 +20,4 @@ import java.math.BigDecimal;
  * @param recordCount number of source records included in the sum
  */
 public record FinancialTrendRow(
-        String period,
-        String metric,
-        String currency,
-        BigDecimal totalAmount,
-        long recordCount) {}
+        String period, String metric, String currency, BigDecimal totalAmount, long recordCount) {}

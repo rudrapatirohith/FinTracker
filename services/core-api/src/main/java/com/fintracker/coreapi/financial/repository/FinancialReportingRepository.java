@@ -196,27 +196,25 @@ public class FinancialReportingRepository {
      * Takes each summary row returned by the database (Query 1 & Query 3) and
      * packages it into a clean Java object (FinancialReportRow) for the app to use.
      */
-    private static final RowMapper<FinancialReportRow> REPORT_ROW_MAPPER =
-            (rs, row) -> new FinancialReportRow(
-                    rs.getString("metric"),
-                    rs.getString("category"),
-                    rs.getString("currency"),
-                    rs.getBigDecimal("total_amount"),
-                    rs.getLong("record_count"),
-                    rs.getObject("snapshot_date", LocalDate.class));
+    private static final RowMapper<FinancialReportRow> REPORT_ROW_MAPPER = (rs, row) -> new FinancialReportRow(
+            rs.getString("metric"),
+            rs.getString("category"),
+            rs.getString("currency"),
+            rs.getBigDecimal("total_amount"),
+            rs.getLong("record_count"),
+            rs.getObject("snapshot_date", LocalDate.class));
 
     /*
      * Translator 2:
      * Takes each monthly chart row returned by the database (Query 2) and
      * packages it into a clean Java object (FinancialTrendRow) for the charts.
      */
-    private static final RowMapper<FinancialTrendRow> TREND_ROW_MAPPER =
-            (rs, row) -> new FinancialTrendRow(
-                    rs.getString("period"),
-                    rs.getString("metric"),
-                    rs.getString("currency"),
-                    rs.getBigDecimal("total_amount"),
-                    rs.getLong("record_count"));
+    private static final RowMapper<FinancialTrendRow> TREND_ROW_MAPPER = (rs, row) -> new FinancialTrendRow(
+            rs.getString("period"),
+            rs.getString("metric"),
+            rs.getString("currency"),
+            rs.getBigDecimal("total_amount"),
+            rs.getLong("record_count"));
 
     // Spring's built-in tool for running SQL queries safely against the database
     private final JdbcTemplate jdbcTemplate;
@@ -244,8 +242,14 @@ public class FinancialReportingRepository {
         List<FinancialReportRow> rows = jdbcTemplate.query(
                 REPORT_SQL,
                 REPORT_ROW_MAPPER,
-                userId, userId, userId, userId, userId, userId, // One owner ID for each source table.
-                from, to); // Inclusive date range applied after the source rows are combined.
+                userId,
+                userId,
+                userId,
+                userId,
+                userId,
+                userId, // One owner ID for each source table.
+                from,
+                to); // Inclusive date range applied after the source rows are combined.
         rows.addAll(jdbcTemplate.query(LOAN_BALANCE_SQL, REPORT_ROW_MAPPER, userId, to));
         return rows;
     }
@@ -261,7 +265,13 @@ public class FinancialReportingRepository {
         return jdbcTemplate.query(
                 MONTHLY_TREND_SQL,
                 TREND_ROW_MAPPER,
-                userId, userId, userId, userId, userId, userId, // One owner ID for each source table.
-                from, to); // Inclusive date range applied after the source rows are combined.
+                userId,
+                userId,
+                userId,
+                userId,
+                userId,
+                userId, // One owner ID for each source table.
+                from,
+                to); // Inclusive date range applied after the source rows are combined.
     }
 }

@@ -75,8 +75,8 @@ class FinancialReportingServiceTests {
     void summarizeUsesAuthenticatedOwnerAndReturnsCurrencyScopedRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
-        List<FinancialReportRow> expected = List.of(new FinancialReportRow(
-                "INCOME", "Salary", "USD", new BigDecimal("2500.00"), 1L, null));
+        List<FinancialReportRow> expected =
+                List.of(new FinancialReportRow("INCOME", "Salary", "USD", new BigDecimal("2500.00"), 1L, null));
         when(reportingRepository.summarize(ownerId, from, to)).thenReturn(expected);
 
         assertThat(reportingService.summarize(from, to)).containsExactlyElementsOf(expected);
@@ -89,8 +89,8 @@ class FinancialReportingServiceTests {
     void monthlyTrendsUsesAuthenticatedOwnerAndReturnsTrendRows() {
         LocalDate from = LocalDate.of(2026, 1, 1);
         LocalDate to = LocalDate.of(2026, 1, 31);
-        List<FinancialTrendRow> expected = List.of(new FinancialTrendRow(
-                "2026-01", "INCOME", "USD", new BigDecimal("2500.00"), 1L));
+        List<FinancialTrendRow> expected =
+                List.of(new FinancialTrendRow("2026-01", "INCOME", "USD", new BigDecimal("2500.00"), 1L));
         when(reportingRepository.monthlyTrends(ownerId, from, to)).thenReturn(expected);
 
         assertThat(reportingService.monthlyTrends(from, to)).containsExactlyElementsOf(expected);
@@ -111,8 +111,7 @@ class FinancialReportingServiceTests {
     @Test
     void summarizeRejectsInvertedDateRangeAsBadRequest() {
         // A start date after the end date is not a meaningful reporting interval.
-        assertThatThrownBy(() -> reportingService.summarize(
-                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1)))
+        assertThatThrownBy(() -> reportingService.summarize(LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1)))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting("statusCode")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
