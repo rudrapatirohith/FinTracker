@@ -458,7 +458,18 @@ class FinancialApiOwnershipPostgresIntegrationTests {
         TransactionRequest linkedToOwnerRecord = new TransactionRequest(
                 "income", "Earnings", null, new BigDecimal("100.00"), "USD", null, null,
                 LocalDate.of(2026, 11, 1), null, ownerIncomeId, null);
-        assertThat(transactions.create(linkedToOwnerRecord).id()).isNotNull();
+        var linkedMirror = transactions.create(linkedToOwnerRecord);
+        assertThat(linkedMirror.id()).isNotNull();
+
+        // Editing a linked history row without sending a new reference must preserve the canonical link.
+        transactions.update(
+                linkedMirror.id(),
+                new TransactionRequest(
+                        "income", "Earnings", null, new BigDecimal("100.00"), "USD", "Updated note", null,
+                        LocalDate.of(2026, 11, 2), null, null, null));
+        assertThat(jdbc.queryForObject(
+                        "SELECT reference_id FROM transactions WHERE id = ?", UUID.class, linkedMirror.id()))
+                .isEqualTo(ownerIncomeId);
 
         TransactionRequest linkedToOtherOwnerRecord = new TransactionRequest(
                 "income", "Earnings", null, new BigDecimal("200.00"), "USD", null, null,
