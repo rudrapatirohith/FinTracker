@@ -80,7 +80,7 @@ CSV column order:
 For example, with psql and files stored in the private ignored directory, load them in this order:
 ```sql
 \copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
-\copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
+\copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at,updated_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
 ```
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
