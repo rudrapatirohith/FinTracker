@@ -90,7 +90,8 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         LocalDate to = LocalDate.of(2026, 1, 31);
 
         // Include first-day and last-day rows to prove both date boundaries are inclusive.
-        insertIncome(owner.getId(), "Salary", "1000.00", "USD", LocalDate.of(2026, 1, 1));
+        UUID salaryIncomeId = insertIncome(
+                owner.getId(), "Salary", "1000.00", "USD", LocalDate.of(2026, 1, 1));
         insertIncome(owner.getId(), "Consulting", "500.00", "USD", LocalDate.of(2026, 1, 31));
         insertIncome(owner.getId(), "Contract", "700.00", "INR", LocalDate.of(2026, 1, 15));
         // This row is outside the requested period and must not be counted.
@@ -150,6 +151,14 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 VALUES (?, 'Upcoming phone bill', 900.00, 'USD', 'Utilities', DATE '2026-01-25', 'pending')
                 """, owner.getId());
 
+        // This generic transaction mirrors the salary record for unified history.
+        // Its reference_id points to the canonical income row, so reporting counts it once.
+        jdbc.update("""
+                INSERT INTO transactions
+                    (user_id, type, category, amount, currency, transaction_date, reference_id)
+                VALUES (?, 'income', 'Earnings', 1000.00, 'USD', DATE '2026-01-01', ?)
+                """, owner.getId(), salaryIncomeId);
+        // A generic transaction without a matching source reference is a standalone event and counts.
         jdbc.update("""
                 INSERT INTO transactions
                     (user_id, type, category, amount, currency, transaction_date)
@@ -181,8 +190,13 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         assertThat(byMetricAndCurrency.get("SCHEDULED_PAYMENT:USD:Utilities").recordCount()).isEqualTo(1);
         assertThat(byMetricAndCurrency.get("TRANSACTION_EXPENSE:CAD:Dining").totalAmount())
                 .isEqualByComparingTo("30.00");
+        // The linked generic income mirror must not be added on top of the canonical income row.
+        assertThat(rows).noneMatch(row -> "TRANSACTION_INCOME".equals(row.metric()));
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").totalAmount())
                 .isEqualByComparingTo("4500.00");
+        // The current loan amount is explicitly labelled with the database snapshot date.
+        assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").snapshotDate())
+                .isEqualTo(LocalDate.now());
         // Two differently stored blank statuses must be combined into one normalized API group.
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").totalAmount())
                 .isEqualByComparingTo("500.00");
@@ -200,10 +214,13 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
     }
 
     // Small helpers keep test setup readable while inserting representative source records.
-    private void insertIncome(UUID userId, String source, String amount, String currency, LocalDate date) {
+    private UUID insertIncome(UUID userId, String source, String amount, String currency, LocalDate date) {
+        UUID incomeId = UUID.randomUUID();
         jdbc.update(
-                "INSERT INTO income (user_id, source, amount, currency, category, date) VALUES (?, ?, ?, ?, ?, ?)",
-                userId, source, new BigDecimal(amount), currency, "Earnings", date);
+                "INSERT INTO income (id, user_id, source, amount, currency, category, date) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                incomeId, userId, source, new BigDecimal(amount), currency, "Earnings", date);
+        return incomeId;
     }
 
     private void insertExpense(UUID userId, String name, String amount, String currency, String category, LocalDate date) {
