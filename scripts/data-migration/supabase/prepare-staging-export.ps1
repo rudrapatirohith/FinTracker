@@ -32,7 +32,7 @@ foreach ($file in $ExportFiles) {
     $content = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $file).Path)
     $matches = [regex]::Matches(
         $content,
-        '(?im)^\s*INSERT\s+INTO\s+public\.([a-z_][a-z0-9_]*)'
+        '(?im)^[ \t]*INSERT[ \t]+INTO[ \t]+public\.([a-z_][a-z0-9_]*)'
     )
 
     foreach ($match in $matches) {
@@ -45,7 +45,7 @@ foreach ($file in $ExportFiles) {
     $totalInserts += $matches.Count
     $rewritten = [regex]::Replace(
         $content,
-        '(?i)(\bINSERT\s+INTO\s+)public\.',
+        '(?im)^([ \t]*INSERT[ \t]+INTO[ \t]+)public\.',
         '$1migration_source.'
     )
 
@@ -62,7 +62,7 @@ if (-not (Test-Path -LiteralPath $outputDirectory -PathType Container)) {
 }
 
 $output = $builder.ToString()
-if ($output -match '(?i)\bINSERT\s+INTO\s+public\.') {
+if ($output -match '(?im)^[ \t]*INSERT[ \t]+INTO[ \t]+public\.') {
     throw "A public INSERT prefix remains after transformation. No output was written."
 }
 
