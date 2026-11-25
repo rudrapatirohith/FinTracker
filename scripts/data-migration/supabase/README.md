@@ -43,12 +43,13 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 ## Prepare source exports
 
 1. In Supabase, export each of the seven populated tables as SQL without filters. The `transactions` export is intentionally empty.
-2. Keep the original export files unchanged as your source evidence.
-3. Create a working copy of the financial SQL export. In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
-4. Execute `01_create_staging.sql` on the target database.
-5. Execute the transformed financial INSERT statements on the target database. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
-6. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
-7. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
+2. Keep all original exports and the two Auth CSV files in `scripts/data-migration/supabase/private/` (this directory is Git-ignored). Do not paste secrets or commit these files.
+3. Keep the original export files unchanged as your source evidence.
+4. Create one combined working SQL file from the seven table exports (profiles plus the six populated financial tables). In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
+5. Execute `01_create_staging.sql` on the target database.
+6. Execute the transformed combined INSERT statements on the target database. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
+7. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
+8. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
 Use these read-only queries to create the two CSV files (with headers). They reproduce the required column order exactly:
 
@@ -79,6 +80,15 @@ For example, with psql and files stored in the private ignored directory, load t
 ```
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
+
+## Backup
+
+Before creating staging or importing, take a custom-format backup and verify that it can be listed/restored in a non-production test database:
+
+```powershell
+pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\\scripts\\data-migration\\supabase\\private\\fintracker-before-phase5.dump
+pg_restore --list .\\scripts\\data-migration\\supabase\\private\\fintracker-before-phase5.dump
+```
 
 ## Dry run and execute
 
@@ -118,5 +128,6 @@ The source `auth.users.updated_at` value is preserved as `app_users.updated_at`;
 - No synthetic transaction records exist.
 - Login, Google OAuth, profile, dashboard, and financial CRUD smoke tests pass.
 - Keep Supabase read-only/source-of-truth until acceptance is signed off.
+- After acceptance and after retaining the required backup/evidence, remove the staging copy with `05_cleanup_staging.sql`.
 
 Do not delete the Supabase Auth-only account or source records as part of this migration.
