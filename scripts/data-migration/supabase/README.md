@@ -45,7 +45,9 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 1. In Supabase, export each of the seven populated tables as SQL without filters. The `transactions` export is intentionally empty.
 2. Keep all original exports and the two Auth CSV files in `scripts/data-migration/supabase/private/` (this directory is Git-ignored). Do not paste secrets or commit these files.
 3. Keep the original export files unchanged as your source evidence.
-4. Create one combined working SQL file from the seven table exports (profiles plus the six populated financial tables). In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
+4. Use the included PowerShell helper to combine the seven table exports (profiles plus the six populated financial tables) and rewrite only the INSERT schema prefix. Supply the seven local export paths in any order:
+   `.\scripts\data-migration\supabase\prepare-staging-export.ps1 -ExportFiles @(".\private\profiles.sql", ".\private\income.sql", ".\private\monthly-expenses.sql", ".\private\loans.sql", ".\private\loan-payments.sql", ".\private\international-transfers.sql", ".\private\scheduled-payments.sql")`
+   Replace the example filenames with the actual filenames you exported. The helper reads source files without modifying them, rejects INSERTs for unexpected tables, and writes the transformed file to the Git-ignored `private` directory. Do not globally replace the word `public` or alter values/column lists.
 5. Execute `01_create_staging.sql` on the target database:
    `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\01_create_staging.sql`
 6. Execute the transformed combined INSERT statements on the target database using the private working file, for example:
