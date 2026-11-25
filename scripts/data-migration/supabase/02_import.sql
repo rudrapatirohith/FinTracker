@@ -45,6 +45,23 @@ BEGIN
     END IF;
 
     IF EXISTS (
+        SELECT 1 FROM migration_source.profiles
+        WHERE currency_preference IS NULL OR timezone IS NULL
+    ) THEN
+        RAISE EXCEPTION 'A profile has NULL currency_preference/timezone, which the target schema cannot represent. Resolve explicitly before import.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM migration_source.google_identities g
+        JOIN migration_source.auth_users a ON a.id = g.user_id
+        WHERE g.provider_email IS NOT NULL
+          AND lower(trim(g.provider_email)) <> lower(trim(a.email))
+    ) THEN
+        RAISE EXCEPTION 'A Google identity email differs from its Auth email; investigate before import.';
+    END IF;
+
+    IF EXISTS (
         SELECT 1 FROM migration_source.google_identities g
         LEFT JOIN migration_source.auth_users a ON a.id = g.user_id
         WHERE a.id IS NULL
@@ -136,8 +153,8 @@ INSERT INTO public.user_profiles
     (user_id, full_name, avatar_url, currency_preference, timezone, created_at, updated_at)
 SELECT
     p.id, p.full_name, p.avatar_url,
-    COALESCE(p.currency_preference, 'USD'),
-    COALESCE(p.timezone, 'UTC'),
+    p.currency_preference,
+    p.timezone,
     p.created_at, p.updated_at
 FROM migration_source.profiles p;
 
