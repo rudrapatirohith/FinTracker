@@ -47,9 +47,9 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 3. Keep the original export files unchanged as your source evidence.
 4. Create one combined working SQL file from the seven table exports (profiles plus the six populated financial tables). In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
 5. Execute `01_create_staging.sql` on the target database:
-   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\\scripts\\data-migration\\supabase\\01_create_staging.sql`
+   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\01_create_staging.sql`
 6. Execute the transformed combined INSERT statements on the target database using the private working file, for example:
-   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\\scripts\\data-migration\\supabase\\private\\financial-staging.sql`. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
+   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\scripts\data-migration\supabase\private\\financial-staging.sql`. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
 7. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
 8. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
@@ -88,8 +88,8 @@ Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUI
 Before creating staging or importing, take a custom-format backup and verify that it can be listed/restored in a non-production test database:
 
 ```powershell
-pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\\scripts\\data-migration\\supabase\\private\\fintracker-before-phase5.dump
-pg_restore --list .\\scripts\\data-migration\\supabase\\private\\fintracker-before-phase5.dump
+pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\scripts\data-migration\supabase\private\\fintracker-before-phase5.dump
+pg_restore --list .\scripts\data-migration\supabase\private\\fintracker-before-phase5.dump
 ```
 
 ## Dry run and execute
