@@ -97,7 +97,12 @@ public class TransactionService {
      * Trims the required type/category fields, normalizes a missing currency to USD or uppercases the supplied code, and passes tags through the request's defensive-copy accessor before updating the entity.
      */
     private void apply(FinancialTransaction entity, TransactionRequest request, UUID userId) {
-        validateReference(userId, request.referenceId());
+        // A null reference on update means "leave the existing source link unchanged".
+        // This prevents an ordinary edit from turning a history mirror into a duplicate event.
+        UUID referenceId = request.referenceId() == null ? entity.getReferenceId() : request.referenceId();
+        if (request.referenceId() != null) {
+            validateReference(userId, referenceId);
+        }
         entity.updateDetails(
                 request.type().trim(),
                 request.category().trim(),
@@ -108,7 +113,7 @@ public class TransactionService {
                 request.merchant(),
                 request.transactionDate(),
                 request.paymentMethod(),
-                request.referenceId(),
+                referenceId,
                 request.tags());
     }
 
