@@ -59,7 +59,13 @@ Use these read-only queries to create the two CSV files (with headers). They rep
 
 ```sql
 -- auth_users.csv: exactly the 10 users linked to profiles
-SELECT u.id, u.email, u.created_at, u.updated_at, u.email_confirmed_at
+SELECT u.id, u.email, u.created_at, u.updated_at, u.email_confirmed_at,
+       u.banned_until, u.deleted_at, u.is_anonymous,
+       CASE
+           WHEN u.deleted_at IS NOT NULL THEN 'DISABLED'
+           WHEN u.banned_until IS NOT NULL AND u.banned_until > now() THEN 'LOCKED'
+           ELSE 'ACTIVE'
+       END AS status
 FROM auth.users u
 JOIN public.profiles p ON p.id = u.id
 ORDER BY u.id;
@@ -74,12 +80,12 @@ ORDER BY i.user_id;
 ```
 
 CSV column order:
-- auth_users: `id,email,created_at,updated_at,email_confirmed_at`
+- auth_users: `id,email,created_at,updated_at,email_confirmed_at,banned_until,deleted_at,is_anonymous,status`
 - google_identities: `user_id,provider_subject,provider_email,created_at,updated_at`
 
 For example, with psql and files stored in the private ignored directory, load them in this order:
 ```sql
-\copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
+\copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at,banned_until,deleted_at,is_anonymous,status) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
 \copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at,updated_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
 ```
 
@@ -114,7 +120,7 @@ After the committed import, run reconciliation and inspect every result: The sup
 
 The target `oauth_identities` table has no `updated_at` column, so the source Google identity `created_at` is preserved; identity `updated_at` is retained in the private source export as audit evidence but has no target column. The target schema also has no profile email column: Auth email is authoritative for `app_users.email`; profile email is not copied. The import rejects profile/Auth email mismatches after case/whitespace normalization rather than silently choosing one.
 
-The source `auth.users.updated_at` value is preserved as `app_users.updated_at`; profile timestamps are preserved in `user_profiles`. Email verification timestamps, including NULL for an unverified user, are preserved exactly.
+The source `auth.users.updated_at` value is preserved as `app_users.updated_at`; profile timestamps are preserved in `user_profiles`. Email verification timestamps, including NULL for an unverified user, are preserved exactly. The staging query also maps currently banned users to `LOCKED`, deleted users to `DISABLED`, and other non-anonymous users to `ACTIVE`. Anonymous users are rejected rather than silently converted.
 
 ## Post-import acceptance
 
