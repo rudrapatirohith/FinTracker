@@ -2,7 +2,7 @@
 -- Staging schema is isolated from application tables. No source PII is stored in Git.
 CREATE SCHEMA IF NOT EXISTS migration_source;
 
-CREATE TABLE migration_source.profiles (
+CREATE TABLE IF NOT EXISTS migration_source.profiles (
     id UUID PRIMARY KEY,
     email TEXT,
     full_name TEXT,
@@ -15,15 +15,15 @@ CREATE TABLE migration_source.profiles (
 
 -- LIKE copies the target's column definitions/defaults, not foreign keys.
 -- The staging tables intentionally have no application ownership constraints.
-CREATE TABLE migration_source.income (LIKE public.income INCLUDING DEFAULTS);
-CREATE TABLE migration_source.monthly_expenses (LIKE public.monthly_expenses INCLUDING DEFAULTS);
-CREATE TABLE migration_source.loans (LIKE public.loans INCLUDING DEFAULTS);
-CREATE TABLE migration_source.loan_payments (LIKE public.loan_payments INCLUDING DEFAULTS);
-CREATE TABLE migration_source.international_transfers (LIKE public.international_transfers INCLUDING DEFAULTS);
-CREATE TABLE migration_source.scheduled_payments (LIKE public.scheduled_payments INCLUDING DEFAULTS);
-CREATE TABLE migration_source.transactions (LIKE public.transactions INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.income (LIKE public.income INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.monthly_expenses (LIKE public.monthly_expenses INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.loans (LIKE public.loans INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.loan_payments (LIKE public.loan_payments INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.international_transfers (LIKE public.international_transfers INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.scheduled_payments (LIKE public.scheduled_payments INCLUDING DEFAULTS);
+CREATE TABLE IF NOT EXISTS migration_source.transactions (LIKE public.transactions INCLUDING DEFAULTS);
 
-CREATE TABLE migration_source.auth_users (
+CREATE TABLE IF NOT EXISTS migration_source.auth_users (
     id UUID PRIMARY KEY,
     email VARCHAR(320) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE migration_source.auth_users (
     email_confirmed_at TIMESTAMPTZ
 );
 
-CREATE TABLE migration_source.google_identities (
+CREATE TABLE IF NOT EXISTS migration_source.google_identities (
     user_id UUID NOT NULL,
     provider_subject VARCHAR(255) NOT NULL,
     provider_email VARCHAR(320),
