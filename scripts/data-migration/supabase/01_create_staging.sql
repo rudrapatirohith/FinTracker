@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS migration_source.auth_users (
     email VARCHAR(320) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    email_confirmed_at TIMESTAMPTZ
+    email_confirmed_at TIMESTAMPTZ,
+    banned_until TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ,
+    is_anonymous BOOLEAN NOT NULL,
+    status VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS migration_source.google_identities (
