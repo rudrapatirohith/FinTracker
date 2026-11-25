@@ -50,9 +50,33 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 6. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
 7. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
-Auth CSV column order:
+Use these read-only queries to create the two CSV files (with headers). They reproduce the required column order exactly:
+
+```sql
+-- auth_users.csv: exactly the 10 users linked to profiles
+SELECT u.id, u.email, u.created_at, u.updated_at, u.email_confirmed_at
+FROM auth.users u
+JOIN public.profiles p ON p.id = u.id
+ORDER BY u.id;
+
+-- google_identities.csv: exactly the eight Google identities linked to profiles
+SELECT i.user_id, i.provider_id AS provider_subject,
+       i.identity_data ->> 'email' AS provider_email, i.created_at
+FROM auth.identities i
+JOIN public.profiles p ON p.id = i.user_id
+WHERE i.provider = 'google'
+ORDER BY i.user_id;
+```
+
+CSV column order:
 - auth_users: `id,email,created_at,updated_at,email_confirmed_at`
 - google_identities: `user_id,provider_subject,provider_email,created_at`
+
+For example, with psql and files stored in the private ignored directory, load them in this order:
+```sql
+\\copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
+\\copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
+```
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
 
