@@ -1,4 +1,9 @@
 -- Atomic, one-time import. Run with psql -v ON_ERROR_STOP=1.
+-- Pass -v dry_run=true to execute all inserts/constraints and roll back safely.
+\if :{?dry_run}
+\else
+  \set dry_run false
+\endif
 BEGIN;
 
 DO $$
@@ -232,4 +237,10 @@ FROM migration_source.transactions;
 INSERT INTO migration_source.import_batches(batch_name, source_row_count)
 VALUES ('supabase-phase-5-v1', 62);
 
-COMMIT;
+\if :dry_run
+    ROLLBACK;
+    \\echo 'Dry-run successful: all validation and inserts passed; transaction rolled back.'
+\else
+    COMMIT;
+    \\echo 'Import committed successfully.'
+\endif
