@@ -239,8 +239,8 @@ VALUES ('supabase-phase-5-v1', 62);
 
 \if :dry_run
     ROLLBACK;
-    \\echo 'Dry-run successful: all validation and inserts passed; transaction rolled back.'
+    \echo 'Dry-run successful: all validation and inserts passed; transaction rolled back.'
 \else
     COMMIT;
-    \\echo 'Import committed successfully.'
+    \echo 'Import committed successfully.'
 \endif
