@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS migration_source.google_identities (
     provider_subject VARCHAR(255) NOT NULL,
     provider_email VARCHAR(320),
     created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ,
     PRIMARY KEY (user_id, provider_subject),
     UNIQUE (provider_subject)
 );
