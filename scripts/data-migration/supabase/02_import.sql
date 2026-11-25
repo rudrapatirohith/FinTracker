@@ -50,6 +50,13 @@ BEGIN
     END IF;
 
     IF EXISTS (
+        SELECT 1 FROM migration_source.auth_users
+        WHERE is_anonymous OR status NOT IN ('ACTIVE', 'LOCKED', 'DISABLED')
+    ) THEN
+        RAISE EXCEPTION 'An in-scope Auth account is anonymous or has an unsupported status; resolve explicitly before import.';
+    END IF;
+
+    IF EXISTS (
         SELECT 1 FROM migration_source.profiles
         WHERE currency_preference IS NULL OR timezone IS NULL
     ) THEN
@@ -150,7 +157,7 @@ END $$;
 INSERT INTO public.app_users
     (id, email, email_normalized, password_hash, email_verified_at, status, created_at, updated_at)
 SELECT
-    a.id, a.email, lower(trim(a.email)), NULL, a.email_confirmed_at, 'ACTIVE',
+    a.id, a.email, lower(trim(a.email)), NULL, a.email_confirmed_at, a.status,
     a.created_at, a.updated_at
 FROM migration_source.auth_users a;
 
