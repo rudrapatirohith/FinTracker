@@ -47,7 +47,7 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 3. Create a working copy of the financial SQL export. In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
 4. Execute `01_create_staging.sql` on the target database.
 5. Execute the transformed financial INSERT statements on the target database. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
-6. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
+6. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
 7. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
 Use these read-only queries to create the two CSV files (with headers). They reproduce the required column order exactly:
@@ -74,8 +74,8 @@ CSV column order:
 
 For example, with psql and files stored in the private ignored directory, load them in this order:
 ```sql
-\\copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
-\\copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
+\copy migration_source.auth_users(id,email,created_at,updated_at,email_confirmed_at) FROM 'scripts/data-migration/supabase/private/auth-users.csv' WITH (FORMAT csv, HEADER true);
+\copy migration_source.google_identities(user_id,provider_subject,provider_email,created_at) FROM 'scripts/data-migration/supabase/private/google-identities.csv' WITH (FORMAT csv, HEADER true);
 ```
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
@@ -85,13 +85,13 @@ Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUI
 First run the complete import in dry-run mode. The script executes all inserts and database constraints inside one transaction, then rolls the transaction back:
 
 ```powershell
-psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=true -f .\\scripts\\data-migration\\supabase\\02_import.sql
+psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=true -f .\scripts\data-migration\supabase\02_import.sql
 ```
 
 If the dry run succeeds, review the output and run the same script with `dry_run=false` to commit:
 
 ```powershell
-psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=false -f .\\scripts\\data-migration\\supabase\\02_import.sql
+psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=false -f .\scripts\data-migration\supabase\02_import.sql
 ```
 
 The batch marker prevents a second committed import. A dry run does not create the marker because its transaction is rolled back.
