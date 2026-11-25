@@ -95,8 +95,9 @@ public class FinancialReportingRepository {
 
                 UNION ALL
 
-                -- Source 6: generic income/expense transactions. They remain distinct metrics
-                -- from dedicated income and monthly-expense records.
+                -- Source 6: standalone generic income/expense transactions. A row linked to
+                -- a same-owner domain record through reference_id is a history mirror, not a
+                -- second financial event, and is excluded by the NOT EXISTS checks below.
                 SELECT t.transaction_date AS event_date, 'TRANSACTION_' || UPPER(t.type) AS metric,
                        COALESCE(NULLIF(BTRIM(t.category), ''), 'Uncategorized') AS category,
                        UPPER(COALESCE(NULLIF(BTRIM(t.currency), ''), 'USD')) AS currency,
