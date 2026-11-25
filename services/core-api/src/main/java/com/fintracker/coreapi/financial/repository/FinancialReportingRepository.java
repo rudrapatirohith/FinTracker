@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  *   <li><b>Privacy first:</b> Every search checks your personal User ID so you never see anyone else's money.</li>
  *   <li><b>Exact date window:</b> Activity records use your chosen Start Date and End Date. Loan balances are a separate current snapshot, not historical activity.</li>
  *   <li><b>Never mixes currencies:</b> Dollars (USD), Rupees (INR), and Canadian Dollars (CAD) are kept in separate totals—never added together.</li>
- *   <li><b>Separate source totals:</b> Dedicated records and general transactions receive different metric labels. This keeps their totals visible separately; it does not detect the same real-world event entered in two tables. Preventing that requires a single-source-of-truth or deduplication rule in the write/migration design.</li>
+ *   <li><b>Canonical event counting:</b> Dedicated domain records are the source of truth. A generic history mirror must reference its same-owner source row; reporting then counts the domain record once. Standalone generic transactions remain included.</li>
  * </ul>
  * </p>
  */
