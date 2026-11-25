@@ -254,7 +254,7 @@ This is the target learning architecture, not a requirement to deploy every comp
 - Pagination and sorting.
 - Consistent financial event representation.
 - Correct currency and transaction-type handling.
-- Avoid duplicate transaction representations.
+- Avoid duplicate transaction representations. Dedicated domain tables are the canonical source for income, expenses, loan payments, transfers, and scheduled payments. A generic `transactions` row that mirrors one of those records must set `reference_id` to that same source row UUID; reporting counts the canonical domain row and excludes the linked generic mirror. A generic transaction with no matching same-owner source reference represents a standalone event and is counted normally.
 
 ## 5.8 Dashboard and Analytics
 
