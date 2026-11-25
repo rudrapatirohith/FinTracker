@@ -20,7 +20,7 @@ Expected source counts (from the unfiltered Supabase exports supplied for this m
 
 The 10 profiles correspond to 10 Supabase Auth users. An additional Auth-only account was explicitly excluded after confirming it owns no financial rows. Do not delete or modify that account in Supabase.
 
-Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 email identity rows; one user has both email and Google). The target schema stores Google identities in `oauth_identities`; email/password login is represented by `app_users.email` and a nullable password hash. Supabase password hashes and sessions are not migrated. Users requiring password login must use the new application's password recovery/reset flow. Existing Google provider subject IDs are imported unchanged.
+Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 email identity rows; one user has both email and Google). The target schema stores Google identities in `oauth_identities`; email/password login is represented by `app_users.email` and a nullable password hash. Supabase password hashes and sessions are not migrated. The current backend has no password-reset endpoint, so the two email-only accounts cannot use password login after cutover until a secure reset flow is implemented. The one account that has both email and Google identities can continue through its imported Google identity; the seven Google-only accounts can continue through Google. Existing Google provider subject IDs are imported unchanged. Do not announce an authentication cutover until the reset/recovery path for email-only users is available and tested.
 
 ## Safety rules
 
@@ -46,8 +46,10 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 2. Keep all original exports and the two Auth CSV files in `scripts/data-migration/supabase/private/` (this directory is Git-ignored). Do not paste secrets or commit these files.
 3. Keep the original export files unchanged as your source evidence.
 4. Create one combined working SQL file from the seven table exports (profiles plus the six populated financial tables). In that working copy only, replace the prefix `INSERT INTO public.` with `INSERT INTO migration_source.`. Do not globally replace the word `public` or alter values/column lists.
-5. Execute `01_create_staging.sql` on the target database.
-6. Execute the transformed combined INSERT statements on the target database. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
+5. Execute `01_create_staging.sql` on the target database:
+   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\\scripts\\data-migration\\supabase\\01_create_staging.sql`
+6. Execute the transformed combined INSERT statements on the target database using the private working file, for example:
+   `psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f .\\scripts\\data-migration\\supabase\\private\\financial-staging.sql`. The script creates staging tables with the target's compatible column types; source rows remain isolated in `migration_source`.
 7. Export two CSV files from the read-only Auth queries: one row per in-scope Auth user, and one row per Google identity. Include headers. Use the exact column order specified in the `auth_users` and `google_identities` staging table definitions in `01_create_staging.sql`. Load them using psql `\copy` commands, or use a trusted PostgreSQL client import. The Auth users CSV must include only the 10 users that have a profile; do not include the excluded Auth-only account. The Google CSV must contain the eight Google rows. Email identity rows are not OAuth identities in the target.
 8. Verify staging counts before proceeding: profiles 10, income 19, monthly_expenses 14, loans 1, loan_payments 13, international_transfers 4, scheduled_payments 1, transactions 0, auth_users 10, google_identities 8.
 
