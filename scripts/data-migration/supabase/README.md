@@ -66,7 +66,7 @@ ORDER BY u.id;
 
 -- google_identities.csv: exactly the eight Google identities linked to profiles
 SELECT i.user_id, i.provider_id AS provider_subject,
-       i.identity_data ->> 'email' AS provider_email, i.created_at
+       i.identity_data ->> 'email' AS provider_email, i.created_at, i.updated_at
 FROM auth.identities i
 JOIN public.profiles p ON p.id = i.user_id
 WHERE i.provider = 'google'
@@ -75,7 +75,7 @@ ORDER BY i.user_id;
 
 CSV column order:
 - auth_users: `id,email,created_at,updated_at,email_confirmed_at`
-- google_identities: `user_id,provider_subject,provider_email,created_at`
+- google_identities: `user_id,provider_subject,provider_email,created_at,updated_at`
 
 For example, with psql and files stored in the private ignored directory, load them in this order:
 ```sql
