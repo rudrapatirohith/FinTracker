@@ -106,6 +106,84 @@ BEGIN
     ) d) THEN RAISE EXCEPTION 'Transaction row mismatch'; END IF;
 END $$;
 
+\echo 'Identity and profile exactness checks (raises on any mismatch)'
+DO $
+BEGIN
+    IF EXISTS (SELECT 1 FROM (
+        (SELECT p.id, p.full_name, p.avatar_url, p.currency_preference, p.timezone,
+                p.created_at, p.updated_at
+         FROM migration_source.profiles p
+         EXCEPT ALL
+         SELECT t.user_id, t.full_name, t.avatar_url, t.currency_preference, t.timezone,
+                t.created_at, t.updated_at
+         FROM public.user_profiles t
+         JOIN migration_source.profiles p ON p.id = t.user_id)
+        UNION ALL
+        (SELECT t.user_id, t.full_name, t.avatar_url, t.currency_preference, t.timezone,
+                t.created_at, t.updated_at
+         FROM public.user_profiles t
+         JOIN migration_source.profiles p ON p.id = t.user_id
+         EXCEPT ALL
+         SELECT p.id, p.full_name, p.avatar_url, p.currency_preference, p.timezone,
+                p.created_at, p.updated_at
+         FROM migration_source.profiles p)
+    ) d) THEN RAISE EXCEPTION 'Profile row mismatch'; END IF;
+
+    IF EXISTS (SELECT 1 FROM (
+        (SELECT a.id, a.email, lower(trim(a.email)), NULL::varchar(255),
+                a.email_confirmed_at, 'ACTIVE'::varchar(20), a.created_at, a.updated_at
+         FROM migration_source.auth_users a
+         EXCEPT ALL
+         SELECT t.id, t.email, t.email_normalized, t.password_hash,
+                t.email_verified_at, t.status, t.created_at, t.updated_at
+         FROM public.app_users t
+         JOIN migration_source.auth_users a ON a.id = t.id)
+        UNION ALL
+        (SELECT t.id, t.email, t.email_normalized, t.password_hash,
+                t.email_verified_at, t.status, t.created_at, t.updated_at
+         FROM public.app_users t
+         JOIN migration_source.auth_users a ON a.id = t.id
+         EXCEPT ALL
+         SELECT a.id, a.email, lower(trim(a.email)), NULL::varchar(255),
+                a.email_confirmed_at, 'ACTIVE'::varchar(20), a.created_at, a.updated_at
+         FROM migration_source.auth_users a)
+    ) d) THEN RAISE EXCEPTION 'App user row mismatch'; END IF;
+
+    IF EXISTS (SELECT 1 FROM (
+        (SELECT g.user_id, 'GOOGLE'::varchar(30), g.provider_subject, g.provider_email, g.created_at
+         FROM migration_source.google_identities g
+         EXCEPT ALL
+         SELECT t.user_id, t.provider, t.provider_subject, t.provider_email, t.created_at
+         FROM public.oauth_identities t
+         JOIN migration_source.google_identities g ON g.provider_subject = t.provider_subject)
+        UNION ALL
+        (SELECT t.user_id, t.provider, t.provider_subject, t.provider_email, t.created_at
+         FROM public.oauth_identities t
+         JOIN migration_source.google_identities g ON g.provider_subject = t.provider_subject
+         EXCEPT ALL
+         SELECT g.user_id, 'GOOGLE'::varchar(30), g.provider_subject, g.provider_email, g.created_at
+         FROM migration_source.google_identities g)
+    ) d) THEN RAISE EXCEPTION 'Google OAuth identity mismatch'; END IF;
+
+    IF EXISTS (SELECT 1 FROM (
+        (SELECT 'SUPABASE'::varchar(30), a.id, a.id, a.created_at
+         FROM migration_source.auth_users a
+         EXCEPT ALL
+         SELECT m.provider, m.legacy_user_id, m.app_user_id, m.created_at
+         FROM public.legacy_user_mappings m
+         JOIN migration_source.auth_users a ON a.id = m.legacy_user_id
+         WHERE m.provider = 'SUPABASE')
+        UNION ALL
+        (SELECT m.provider, m.legacy_user_id, m.app_user_id, m.created_at
+         FROM public.legacy_user_mappings m
+         JOIN migration_source.auth_users a ON a.id = m.legacy_user_id
+         WHERE m.provider = 'SUPABASE'
+         EXCEPT ALL
+         SELECT 'SUPABASE'::varchar(30), a.id, a.id, a.created_at
+         FROM migration_source.auth_users a)
+    ) d) THEN RAISE EXCEPTION 'Legacy user mapping mismatch'; END IF;
+END $;
+
 \echo 'Exact financial totals by table and currency (source)'
 SELECT 'income' AS table_name, currency, count(*) AS rows, sum(amount) AS amount_total,
        sum(inr_equivalent) AS inr_equivalent_total
