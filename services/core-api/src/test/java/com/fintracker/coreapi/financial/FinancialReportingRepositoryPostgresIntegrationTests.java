@@ -140,6 +140,7 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
                 """, owner.getId());
 
         // A paid scheduled payment should count; a pending one must not be included.
+        // Its created_at defaults to the test execution date, but reporting deliberately uses due_date.
         jdbc.update("""
                 INSERT INTO scheduled_payments
                     (user_id, payment_name, amount, currency, category, due_date, status)
@@ -195,8 +196,11 @@ class FinancialReportingRepositoryPostgresIntegrationTests {
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").totalAmount())
                 .isEqualByComparingTo("4500.00");
         // The current loan amount is explicitly labelled with the database snapshot date.
+        LocalDate databaseSnapshotDate = jdbc.queryForObject("SELECT CURRENT_DATE", LocalDate.class);
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:active").snapshotDate())
-                .isEqualTo(LocalDate.now());
+                .isEqualTo(databaseSnapshotDate);
+        // Activity totals belong to the requested period and do not carry a loan snapshot date.
+        assertThat(byMetricAndCurrency.get("INCOME:USD:Earnings").snapshotDate()).isNull();
         // Two differently stored blank statuses must be combined into one normalized API group.
         assertThat(byMetricAndCurrency.get("LOAN_OUTSTANDING:INR:unknown").totalAmount())
                 .isEqualByComparingTo("500.00");
