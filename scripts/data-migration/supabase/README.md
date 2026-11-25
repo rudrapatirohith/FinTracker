@@ -42,6 +42,15 @@ Auth identity inventory: 10 users, 11 identities (8 Google identity rows and 3 e
 3. `03_reconcile.sql` — reports source-vs-target counts, per-user counts, exact financial totals grouped by currency, and full-row equality checks.
 4. `04_rollback.sql` — preview and explicit rollback of the migration batch.
 
+## Backup
+
+Before creating staging or importing, take a custom-format backup and verify that it can be listed/restored in a non-production test database:
+
+```powershell
+pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
+pg_restore --list .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
+```
+
 ## Prepare source exports
 
 1. In Supabase, export each of the seven populated tables as SQL without filters. The `transactions` export is intentionally empty.
@@ -92,15 +101,6 @@ For example, with psql and files stored in the private ignored directory, load t
 ```
 
 Timestamps must be exported in ISO-8601 with timezone offsets. Keep original UUIDs and decimal values. Do not calculate or normalize financial values.
-
-## Backup
-
-Before creating staging or importing, take a custom-format backup and verify that it can be listed/restored in a non-production test database:
-
-```powershell
-pg_dump "$env:FINTRACKER_MIGRATION_DATABASE_URL" --format=custom --file .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
-pg_restore --list .\scripts\data-migration\supabase\private\fintracker-before-phase5.dump
-```
 
 ## Dry run and execute
 
