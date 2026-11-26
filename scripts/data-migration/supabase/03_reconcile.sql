@@ -107,7 +107,7 @@ BEGIN
 END $$;
 
 \echo 'Identity and profile exactness checks (raises on any mismatch)'
-DO $
+DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM (
         (SELECT p.id, p.full_name, p.avatar_url, p.currency_preference, p.timezone,
@@ -182,7 +182,7 @@ BEGIN
          SELECT 'SUPABASE'::varchar(30), a.id, a.id, a.created_at
          FROM migration_source.auth_users a)
     ) d) THEN RAISE EXCEPTION 'Legacy user mapping mismatch'; END IF;
-END $;
+END $$;
 
 \echo 'Exact financial totals by table and currency (source)'
 SELECT 'income' AS table_name, currency, count(*) AS rows, sum(amount) AS amount_total,
