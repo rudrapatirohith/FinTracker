@@ -18,7 +18,7 @@ BEGIN
     FOR expected IN
         SELECT * FROM (VALUES
             ('profiles', 10), ('auth_users', 10), ('google_identities', 8),
-            ('income', 19), ('monthly_expenses', 14), ('loans', 1),
+            ('income', 19), ('monthly_expenses', 15), ('loans', 1),
             ('loan_payments', 13), ('international_transfers', 4),
             ('scheduled_payments', 1), ('transactions', 0)
         ) AS counts(table_name, expected_rows)
@@ -242,7 +242,7 @@ SELECT id,user_id,type,category,subcategory,amount,currency,description,merchant
 FROM migration_source.transactions;
 
 INSERT INTO migration_source.import_batches(batch_name, source_row_count)
-VALUES ('supabase-phase-5-v1', 62);
+VALUES ('supabase-phase-5-v1', 63);
 
 \if :dry_run
     ROLLBACK;
