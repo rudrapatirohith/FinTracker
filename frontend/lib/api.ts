@@ -32,6 +32,7 @@ export const API = {
   analyticsWeeklyTrends: "/api/v1/analytics/weekly-trends",
   reportsSummary: "/api/v1/reports/summary",
   profile: "/api/v1/profile",
+  aiChat: "/api/v1/ai/chat",
 } as const;
 
 export interface CsrfTokenResponse {
