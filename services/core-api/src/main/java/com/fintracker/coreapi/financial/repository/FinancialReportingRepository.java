@@ -162,6 +162,23 @@ public class FinancialReportingRepository {
             """;
 
     /*
+     * Weekly activity uses the same canonical event set as monthly reporting.
+     * PostgreSQL's DATE_TRUNC('week') gives a stable Monday-based bucket; the
+     * API returns its start date so clients can format it for the chart locale.
+     */
+    private static final String WEEKLY_TREND_SQL = FINANCIAL_EVENTS_CTE + """
+            SELECT TO_CHAR(DATE_TRUNC('week', event_date), 'YYYY-MM-DD') AS period,
+                   metric,
+                   currency,
+                   SUM(amount) AS total_amount,
+                   COUNT(*) AS record_count
+            FROM financial_events
+            WHERE event_date >= ? AND event_date <= ?
+            GROUP BY DATE_TRUNC('week', event_date), metric, currency
+            ORDER BY period, metric, currency
+            """;
+
+    /*
      * =========================================================================
      * QUERY 3: CURRENT LOAN DEBT SNAPSHOT (LOAN_BALANCE_SQL)
      * =========================================================================
@@ -252,6 +269,24 @@ public class FinancialReportingRepository {
                 to); // Inclusive date range applied after the source rows are combined.
         rows.addAll(jdbcTemplate.query(LOAN_BALANCE_SQL, REPORT_ROW_MAPPER, userId, to));
         return rows;
+    }
+
+    /**
+     * Generates weekly chart buckets from the same canonical, owner-scoped event
+     * stream as the dashboard and monthly reports.
+     */
+    public List<FinancialTrendRow> weeklyTrends(UUID userId, LocalDate from, LocalDate to) {
+        return jdbcTemplate.query(
+                WEEKLY_TREND_SQL,
+                TREND_ROW_MAPPER,
+                userId,
+                userId,
+                userId,
+                userId,
+                userId,
+                userId,
+                from,
+                to);
     }
 
     /**

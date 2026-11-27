@@ -66,6 +66,16 @@ public class FinancialReportingService {
     }
 
     /**
+     * Produces chart-ready totals grouped by Monday-based calendar week. Identity
+     * and date validation are shared with the monthly reporting operation.
+     */
+    @Transactional(readOnly = true)
+    public List<FinancialTrendRow> weeklyTrends(LocalDate from, LocalDate to) {
+        validateRange(from, to);
+        return reportingRepository.weeklyTrends(authenticatedUserProvider.getRequiredUserId(), from, to);
+    }
+
+    /**
      * Checks the date range before the application spends time querying PostgreSQL.
      *
      * <p>Both dates are required. The start date must be on or before the end date.

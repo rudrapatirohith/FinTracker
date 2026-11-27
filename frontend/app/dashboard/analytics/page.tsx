@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic"
 
 import { useCallback, useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiRequest } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
@@ -63,214 +64,131 @@ interface AnalyticsState {
   categoryBreakdown: CategoryData[]
 }
 
-type IncomeAnalyticsRow = { amount: number; currency: string | null; inr_equivalent: number | null; date: string; category: string | null }
-type TransferAnalyticsRow = { amount_sent: number; currency_sent: string | null; inr_equivalent: number | null; transfer_date: string }
-type LoanPaymentAnalyticsRow = { amount: number; payment_date: string }
-type ScheduledAnalyticsRow = { amount: number; currency: string | null; category: string | null; due_date: string }
-type ExpenseAnalyticsRow = { inr_equivalent: number | null; category: string | null; expense_date: string }
+interface FinancialTrendRow {
+  period: string
+  metric: string
+  currency: string
+  totalAmount: number
+  recordCount: number
+}
+
+interface FinancialReportRow {
+  metric: string
+  category: string
+  currency: string
+  totalAmount: number
+  recordCount: number
+  snapshotDate: string | null
+}
 
 export default function AnalyticsPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [data, setData] = useState<AnalyticsState | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState("6months")
 
   const fetchAnalyticsData = useCallback(async () => {
+    if (authLoading) return
+    if (!accessToken) {
+      setData(null)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
       const endDate = new Date()
       const startDate = new Date()
       const monthsBack = selectedPeriod === "3months" ? 3 : selectedPeriod === "6months" ? 6 : 12
       startDate.setMonth(endDate.getMonth() - monthsBack)
+      startDate.setDate(1)
 
-      const [incomeRes, transferRes, loanPayRes, scheduledRes, expensesRes] = await Promise.all([
-        supabase
-          .from("income")
-          .select("amount, currency, inr_equivalent, date, category")
-          .eq("user_id", user.id)
-          .gte("date", startDate.toISOString().split("T")[0]),
-        supabase
-          .from("international_transfers")
-          .select("amount_sent, currency_sent, inr_equivalent, transfer_date")
-          .eq("user_id", user.id)
-          .gte("transfer_date", startDate.toISOString().split("T")[0]),
-        supabase
-          .from("loan_payments")
-          .select("amount, payment_date")
-          .eq("user_id", user.id)
-          .gte("payment_date", startDate.toISOString().split("T")[0]),
-        supabase
-          .from("scheduled_payments")
-          .select("amount, currency, category, due_date")
-          .eq("user_id", user.id)
-          .eq("status", "paid")
-          .gte("due_date", startDate.toISOString().split("T")[0]),
-        supabase
-          .from("monthly_expenses")
-          .select("inr_equivalent, category, expense_date")
-          .eq("user_id", user.id)
-          .gte("expense_date", startDate.toISOString().split("T")[0]),
+      // Use local calendar dates rather than UTC conversion so users west/east
+      // of UTC do not accidentally shift the reporting window by one day.
+      const asLocalDate = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, "0")
+        const day = String(date.getDate()).padStart(2, "0")
+        return `${year}-${month}-${day}`
+      }
+      const query = `?from=${asLocalDate(startDate)}&to=${asLocalDate(endDate)}`
+      const [monthlyRows, weeklyRows, categoryRows] = await Promise.all([
+        apiRequest<FinancialTrendRow[]>(`${API.analyticsMonthlyTrends}${query}`, accessToken),
+        apiRequest<FinancialTrendRow[]>(`${API.analyticsWeeklyTrends}${query}`, accessToken),
+        apiRequest<FinancialReportRow[]>(`${API.analyticsCategories}${query}`, accessToken),
       ])
 
-      // Helper to get USD value from a record with inr_equivalent or direct amount
-      const incomeItems = (incomeRes.data || []) as IncomeAnalyticsRow[]
-      const transferItems = (transferRes.data || []) as TransferAnalyticsRow[]
-      const loanPayItems = (loanPayRes.data || []) as LoanPaymentAnalyticsRow[]
-      const scheduledItems = (scheduledRes.data || []) as ScheduledAnalyticsRow[]
-      const expenseItems = (expensesRes.data || []) as ExpenseAnalyticsRow[]
-
-      // Build per-month buckets
       const monthBuckets: Record<string, { income: number; expenses: number }> = {}
-      for (let i = monthsBack - 1; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+      for (let index = 0; index < monthsBack; index++) {
+        const month = new Date(startDate.getFullYear(), startDate.getMonth() + index, 1)
+        const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`
         monthBuckets[key] = { income: 0, expenses: 0 }
       }
 
-      const monthKey = (dateStr: string) => {
-        const d = new Date(dateStr)
-        return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
-      }
-
-      incomeItems.forEach((item) => {
-        const key = monthKey(item.date)
-        if (monthBuckets[key]) {
-          const usd = item.inr_equivalent
-            ? toUSD(item.inr_equivalent, "INR")
-            : toUSD(Number(item.amount), item.currency || "USD")
-          monthBuckets[key].income += usd
+      monthlyRows.forEach((row) => {
+        const bucket = monthBuckets[row.period]
+        if (!bucket) return
+        const amount = toUSD(Number(row.totalAmount), row.currency || "USD")
+        if (row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME") {
+          bucket.income += amount
+        } else {
+          bucket.expenses += amount
         }
       })
 
-      transferItems.forEach((item) => {
-        const key = monthKey(item.transfer_date)
-        if (monthBuckets[key]) {
-          const usd = item.inr_equivalent
-            ? toUSD(item.inr_equivalent, "INR")
-            : toUSD(Number(item.amount_sent), item.currency_sent || "USD")
-          monthBuckets[key].expenses += usd
+      const monthlyTrends: MonthlyTrend[] = Object.entries(monthBuckets).map(([period, values]) => {
+        const date = new Date(`${period}-01T00:00:00`)
+        return {
+          month: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+          income: Math.round(values.income * 100) / 100,
+          expenses: Math.round(values.expenses * 100) / 100,
+          net: Math.round((values.income - values.expenses) * 100) / 100,
         }
       })
 
-      loanPayItems.forEach((item) => {
-        const key = monthKey(item.payment_date)
-        if (monthBuckets[key]) {
-          monthBuckets[key].expenses += toUSD(Number(item.amount), "USD")
-        }
+      const weeklyMap = new Map<string, number>()
+      weeklyRows.forEach((row) => {
+        if (row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME") return
+        const weekStart = row.period
+        weeklyMap.set(weekStart, (weeklyMap.get(weekStart) ?? 0) + toUSD(Number(row.totalAmount), row.currency || "USD"))
       })
+      const weeklySpend: WeeklySpend[] = Array.from(weeklyMap.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .slice(-8)
+        .map(([weekStart, amount]) => ({
+          week: new Date(`${weekStart}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          amount: Math.round(amount * 100) / 100,
+        }))
 
-      scheduledItems.forEach((item) => {
-        const key = monthKey(item.due_date)
-        if (monthBuckets[key]) {
-          monthBuckets[key].expenses += toUSD(Number(item.amount), item.currency || "USD")
-        }
+      const categoryTotals = new Map<string, number>()
+      categoryRows.forEach((row) => {
+        if (row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME" || row.metric === "LOAN_OUTSTANDING") return
+        const category = row.category || "Other"
+        categoryTotals.set(category, (categoryTotals.get(category) ?? 0) + toUSD(Number(row.totalAmount), row.currency || "USD"))
       })
-
-      expenseItems.forEach((item) => {
-        const key = monthKey(item.expense_date)
-        if (monthBuckets[key]) {
-          monthBuckets[key].expenses += toUSD(item.inr_equivalent || 0, "INR")
-        }
-      })
-
-      const monthlyTrends: MonthlyTrend[] = Object.entries(monthBuckets).map(([month, vals]) => ({
-        month,
-        income: Math.round(vals.income * 100) / 100,
-        expenses: Math.round(vals.expenses * 100) / 100,
-        net: Math.round((vals.income - vals.expenses) * 100) / 100,
-      }))
-
-      // Weekly spending (last 8 weeks)
-      const weeklyMap: Record<string, number> = {}
-      const now = Date.now()
-      for (let w = 7; w >= 0; w--) {
-        const d = new Date(now - w * 7 * 24 * 60 * 60 * 1000)
-        const wk = `W${Math.ceil(d.getDate() / 7)} ${d.toLocaleDateString("en-US", { month: "short" })}`
-        weeklyMap[wk] = 0
-      }
-
-      const addToWeek = (dateStr: string, usdAmt: number) => {
-        const d = new Date(dateStr)
-        const wk = `W${Math.ceil(d.getDate() / 7)} ${d.toLocaleDateString("en-US", { month: "short" })}`
-        if (weeklyMap[wk] !== undefined) weeklyMap[wk] += usdAmt
-      }
-
-      loanPayItems.forEach((item) => addToWeek(item.payment_date, toUSD(Number(item.amount), "USD")))
-      scheduledItems.forEach((item) =>
-        addToWeek(item.due_date, toUSD(Number(item.amount), item.currency || "USD")),
-      )
-      transferItems.forEach((item) => {
-        const usd = item.inr_equivalent
-          ? toUSD(item.inr_equivalent, "INR")
-          : toUSD(Number(item.amount_sent), item.currency_sent || "USD")
-        addToWeek(item.transfer_date, usd)
-      })
-      expenseItems.forEach((item) =>
-        addToWeek(item.expense_date, toUSD(item.inr_equivalent || 0, "INR")),
-      )
-
-      const weeklySpend: WeeklySpend[] = Object.entries(weeklyMap).map(([week, amount]) => ({
-        week,
-        amount: Math.round(amount * 100) / 100,
-      }))
-
-      // Category breakdown (expenses)
-      const catMap: Record<string, number> = {}
-
-      scheduledItems.forEach((item) => {
-        const cat = item.category || "Other"
-        catMap[cat] = (catMap[cat] || 0) + toUSD(Number(item.amount), item.currency || "USD")
-      })
-      transferItems.forEach((item) => {
-        const usd = item.inr_equivalent
-          ? toUSD(item.inr_equivalent, "INR")
-          : toUSD(Number(item.amount_sent), item.currency_sent || "USD")
-        catMap["Transfers"] = (catMap["Transfers"] || 0) + usd
-      })
-      loanPayItems.forEach((item) => {
-        catMap["Loan Payments"] = (catMap["Loan Payments"] || 0) + toUSD(Number(item.amount), "USD")
-      })
-      expenseItems.forEach((item) => {
-        const cat = item.category || "Expenses"
-        catMap[cat] = (catMap[cat] || 0) + toUSD(item.inr_equivalent || 0, "INR")
-      })
-
-      const totalExp = Object.values(catMap).reduce((s, v) => s + v, 0)
-      const categoryBreakdown: CategoryData[] = Object.entries(catMap)
+      const totalCategorySpend = Array.from(categoryTotals.values()).reduce((sum, value) => sum + value, 0)
+      const categoryBreakdown: CategoryData[] = Array.from(categoryTotals.entries())
         .map(([category, amount]) => ({
           category,
           amount: Math.round(amount * 100) / 100,
-          percentage: totalExp > 0 ? (amount / totalExp) * 100 : 0,
+          percentage: totalCategorySpend > 0 ? (amount / totalCategorySpend) * 100 : 0,
         }))
-        .sort((a, b) => b.amount - a.amount)
+        .sort((left, right) => right.amount - left.amount)
         .slice(0, 6)
 
-      // Totals
-      const totalIncome = monthlyTrends.reduce((s, m) => s + m.income, 0)
-      const totalExpenses = monthlyTrends.reduce((s, m) => s + m.expenses, 0)
+      const totalIncome = monthlyTrends.reduce((sum, month) => sum + month.income, 0)
+      const totalExpenses = monthlyTrends.reduce((sum, month) => sum + month.expenses, 0)
       const netSavings = totalIncome - totalExpenses
       const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0
 
-      setData({
-        totalIncome,
-        totalExpenses,
-        netSavings,
-        savingsRate,
-        monthlyTrends,
-        weeklySpend,
-        categoryBreakdown,
-      })
-    } catch (err) {
-      console.error("Error fetching analytics data:", err)
+      setData({ totalIncome, totalExpenses, netSavings, savingsRate, monthlyTrends, weeklySpend, categoryBreakdown })
+    } catch (error) {
+      console.error("Error fetching analytics data:", error)
+      setData(null)
     } finally {
       setLoading(false)
     }
-  }, [selectedPeriod])
+  }, [accessToken, authLoading, selectedPeriod])
 
   useEffect(() => {
     void fetchAnalyticsData()

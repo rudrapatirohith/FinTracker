@@ -29,6 +29,7 @@ export const API = {
   dashboardSummary: "/api/v1/dashboard/summary",
   analyticsCategories: "/api/v1/analytics/categories",
   analyticsMonthlyTrends: "/api/v1/analytics/monthly-trends",
+  analyticsWeeklyTrends: "/api/v1/analytics/weekly-trends",
   reportsSummary: "/api/v1/reports/summary",
 } as const;
 
