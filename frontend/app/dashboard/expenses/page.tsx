@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic"
 
 import { useCallback, useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +25,7 @@ interface Expense {
   currency: string
   date: string
   description: string
-  created_at: string
+  createdAt: string
 }
 
 interface MonthlyStats {
@@ -47,6 +48,7 @@ const EXPENSE_CATEGORIES = [
 ]
 
 export default function ExpenseTrackerPage() {
+  const { accessToken } = useAuth()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -78,29 +80,38 @@ export default function ExpenseTrackerPage() {
 
   const fetchExpensesForMonth = useCallback(async () => {
     setLoading(true)
+    if (!accessToken) {
+      setExpenses([])
+      calculateMonthlyStats([])
+      setLoading(false)
+      return
+    }
     try {
       const start = startOfMonth(currentDate)
       const end = endOfMonth(currentDate)
-
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
-        .gte("date", format(start, "yyyy-MM-dd"))
-        .lte("date", format(end, "yyyy-MM-dd"))
-        .order("date", { ascending: false })
-
-      if (error) throw error
-
-      setExpenses(data || [])
-      calculateMonthlyStats(data || [])
+      const page = await apiGetPage<{
+        id: string; category: string | null; amount: number; currency: string
+        expenseDate: string; expenseName: string; notes: string | null; createdAt: string
+      }>(`${API.monthlyExpenses}?page=0&size=1000&sort=expenseDate,desc`, accessToken)
+      const startDate = format(start, "yyyy-MM-dd")
+      const endDate = format(end, "yyyy-MM-dd")
+      const monthExpenses: Expense[] = page.content
+        .filter((item) => item.expenseDate >= startDate && item.expenseDate <= endDate)
+        .map((item) => ({
+          id: item.id, category: item.category || "Other", amount: Number(item.amount),
+          currency: item.currency, date: item.expenseDate,
+          description: item.notes || item.expenseName, createdAt: item.createdAt,
+        }))
+      setExpenses(monthExpenses)
+      calculateMonthlyStats(monthExpenses)
     } catch (error) {
-      console.error("[v0] Error fetching expenses:", error)
+      console.error("Error fetching expenses:", error)
       setExpenses([])
       calculateMonthlyStats([])
     } finally {
       setLoading(false)
     }
-  }, [currentDate])
+  }, [accessToken, currentDate])
 
   // Fetch expenses for current month
   useEffect(() => {
@@ -127,55 +138,51 @@ export default function ExpenseTrackerPage() {
       alert("Please enter a valid amount")
       return
     }
-
+    if (!accessToken) {
+      alert("Your session has expired. Please sign in again.")
+      return
+    }
     try {
-      const amountInUSD =
-        newExpense.currency === "INR"
-          ? parseFloat(newExpense.amount) / parseFloat(newExpense.exchangeRate)
-          : parseFloat(newExpense.amount)
-
-      const { error } = await supabase.from("expenses").insert([
-        {
-          category: newExpense.category,
+      const exchangeRate = Number.parseFloat(newExpense.exchangeRate)
+      const amountInUSD = newExpense.currency === "INR"
+        ? Number.parseFloat(newExpense.amount) / exchangeRate
+        : Number.parseFloat(newExpense.amount)
+      await apiRequest(API.monthlyExpenses, accessToken, {
+        method: "POST",
+        body: JSON.stringify({
+          expenseName: newExpense.description.trim() || newExpense.category,
           amount: amountInUSD,
           currency: "USD",
-          date: newExpense.date,
-          description: newExpense.description,
-        },
-      ])
-
-      if (error) throw error
-
-      // Reset form and refresh
+          exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate : null,
+          inrEquivalent: Number.isFinite(exchangeRate) ? amountInUSD * exchangeRate : null,
+          category: newExpense.category,
+          expenseDate: newExpense.date,
+          paymentMethod: null,
+          notes: newExpense.description || null,
+        }),
+      })
       setNewExpense({
-        category: "Food & Dining",
-        amount: "",
-        currency: "USD",
-        exchangeRate: currentExchangeRate,
-        date: format(new Date(), "yyyy-MM-dd"),
-        description: "",
+        category: "Food & Dining", amount: "", currency: "USD",
+        exchangeRate: currentExchangeRate, date: format(new Date(), "yyyy-MM-dd"), description: "",
       })
       setIsAddDialogOpen(false)
-      fetchExpensesForMonth()
+      await fetchExpensesForMonth()
     } catch (error) {
-      console.error("[v0] Error adding expense:", error)
-      alert("Failed to add expense")
+      console.error("Error adding expense:", error)
+      alert(error instanceof Error ? error.message : "Failed to add expense")
     }
   }
 
   const handleDeleteExpense = async (id: string) => {
     if (!confirm("Are you sure you want to delete this expense?")) return
-
+    if (!accessToken) return
     try {
-      const { error } = await supabase.from("expenses").delete().eq("id", id)
-
-      if (error) throw error
-
-      setExpenses(expenses.filter((e) => e.id !== id))
-      fetchExpensesForMonth()
+      await apiRequest<void>(`${API.monthlyExpenses}/${id}`, accessToken, { method: "DELETE" })
+      setExpenses((current) => current.filter((expense) => expense.id !== id))
+      await fetchExpensesForMonth()
     } catch (error) {
-      console.error("[v0] Error deleting expense:", error)
-      alert("Failed to delete expense")
+      console.error("Error deleting expense:", error)
+      alert(error instanceof Error ? error.message : "Failed to delete expense")
     }
   }
 
