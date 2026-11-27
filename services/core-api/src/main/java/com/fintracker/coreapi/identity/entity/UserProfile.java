@@ -93,4 +93,8 @@ public class UserProfile {
     public String getTimezone() {
         return timezone;
     }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }
