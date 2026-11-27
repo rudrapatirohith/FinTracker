@@ -1,3 +1,7 @@
 .env
 .env.*
 .env.example
+# Private, user-specific Supabase migration exports (never commit)
+scripts/data-migration/supabase/private/
+*.supabase-export.sql
+*.supabase-auth.csv
