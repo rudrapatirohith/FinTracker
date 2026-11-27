@@ -2,19 +2,20 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { useAuth, type AuthUser } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DollarSign, ArrowRight, LogOut } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
+
 
 interface UserProfileProps {
-  user: User
+  user: AuthUser
 }
 
 export default function UserProfile({ user }: UserProfileProps) {
   const router = useRouter()
+  const { signOut } = useAuth()
 
   // Automatically redirect to dashboard
   useEffect(() => {
@@ -30,7 +31,8 @@ export default function UserProfile({ user }: UserProfileProps) {
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await signOut()
+    router.replace("/")
   }
 
   return (
@@ -54,7 +56,7 @@ export default function UserProfile({ user }: UserProfileProps) {
         <Card className="border-0 shadow-xl dark:bg-gray-800/50 backdrop-blur-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-green-600 dark:text-green-400">Authentication Successful</CardTitle>
-            <CardDescription>Hello, {user.user_metadata?.full_name || user.email?.split("@")[0]}!</CardDescription>
+            <CardDescription>Hello, {user.displayName || user.email.split("@")[0]}!</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -81,7 +83,7 @@ export default function UserProfile({ user }: UserProfileProps) {
 
             <div className="text-center text-sm text-gray-500 dark:text-gray-400">
               <p>Email: {user.email}</p>
-              <p>Signed in at: {new Date(user.last_sign_in_at || "").toLocaleString()}</p>
+              <p>Signed in at: {"Current session"}</p>
             </div>
           </CardContent>
         </Card>

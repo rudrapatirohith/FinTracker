@@ -31,6 +31,7 @@ export const API = {
   analyticsMonthlyTrends: "/api/v1/analytics/monthly-trends",
   analyticsWeeklyTrends: "/api/v1/analytics/weekly-trends",
   reportsSummary: "/api/v1/reports/summary",
+  profile: "/api/v1/profile",
 } as const;
 
 export interface CsrfTokenResponse {

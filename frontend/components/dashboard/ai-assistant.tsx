@@ -2,7 +2,8 @@
 
 import type React from "react"
 import { useEffect, useRef, useState, useCallback } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -43,14 +44,20 @@ declare global {
   }
 }
 
-type AIIncomeRow = { amount: number; currency: string | null; inr_equivalent: number | null; category: string | null; date: string }
-type AITransferRow = { amount_sent: number; currency_sent: string | null; inr_equivalent: number | null; transfer_date: string }
-type AILoanRow = { loan_name: string; current_balance: number; currency: string | null; status: string }
-type AILoanPaymentRow = { amount: number; payment_date: string }
-type AIScheduledPaymentRow = { payment_name: string; amount: number; currency: string | null; category: string | null; due_date: string; status: string }
-type AIExpenseRow = { inr_equivalent: number | null; category: string | null; expense_date: string }
+interface FinancialReportRow {
+  metric: string
+  category: string
+  currency: string
+  totalAmount: number
+  recordCount: number
+  snapshotDate: string | null
+}
+interface AILoanRow { id: string; loanName: string; currentBalance: number; currency: string; status: string }
+interface AIScheduledPaymentRow { paymentName: string; amount: number; currency: string; category: string | null; status: string }
+interface AIExpenseRow { inrEquivalent: number | null; amount: number; currency: string; category: string | null; expenseDate: string }
 
 export default function AIAssistant() {
+  const { accessToken } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -71,79 +78,82 @@ export default function AIAssistant() {
   }, [messages, loading])
 
   const buildFinancialContext = useCallback(async () => {
+    if (!accessToken) return
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
       const now = new Date()
-      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
       const sixMonthsAgo = new Date()
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
-      const [incomeRes, transferRes, loanRes, loanPayRes, scheduledRes, expensesRes] = await Promise.all([
-        supabase.from("income").select("amount, currency, inr_equivalent, category, date").eq("user_id", user.id),
-        supabase.from("international_transfers").select("amount_sent, currency_sent, inr_equivalent, transfer_date").eq("user_id", user.id),
-        supabase.from("loans").select("loan_name, current_balance, currency, status").eq("user_id", user.id),
-        supabase.from("loan_payments").select("amount, payment_date").eq("user_id", user.id).gte("payment_date", sixMonthsAgo.toISOString().split("T")[0]),
-        supabase.from("scheduled_payments").select("payment_name, amount, currency, category, due_date, status").eq("user_id", user.id),
-        supabase.from("monthly_expenses").select("inr_equivalent, category, expense_date").eq("user_id", user.id).gte("expense_date", firstOfMonth),
+      const asLocalDate = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, "0")
+        const day = String(date.getDate()).padStart(2, "0")
+        return `${year}-${month}-${day}`
+      }
+      const [summaryRows, recentRows, loanPage, scheduledPage, expensePage] = await Promise.all([
+        apiRequest<FinancialReportRow[]>(
+          `${API.dashboardSummary}?from=2000-01-01&to=${asLocalDate(now)}`, accessToken
+        ),
+        apiRequest<FinancialReportRow[]>(
+          `${API.dashboardSummary}?from=${asLocalDate(sixMonthsAgo)}&to=${asLocalDate(now)}`, accessToken
+        ),
+        apiGetPage<AILoanRow>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, accessToken),
+        apiGetPage<AIScheduledPaymentRow>(`${API.scheduledPayments}?page=0&size=1000&sort=dueDate,asc`, accessToken),
+        apiGetPage<AIExpenseRow>(`${API.monthlyExpenses}?page=0&size=1000&sort=expenseDate,desc`, accessToken),
       ])
 
-      const totalIncomeUSD = (incomeRes.data || []).reduce((s: number, i: AIIncomeRow) => {
-        return s + (i.inr_equivalent ? toUSD(i.inr_equivalent, "INR") : toUSD(Number(i.amount), i.currency || "USD"))
-      }, 0)
-
-      const totalTransfersUSD = (transferRes.data || []).reduce((s: number, i: AITransferRow) => {
-        return s + (i.inr_equivalent ? toUSD(i.inr_equivalent, "INR") : toUSD(Number(i.amount_sent), i.currency_sent || "USD"))
-      }, 0)
-
-      const totalLoanPaymentsUSD = (loanPayRes.data || []).reduce((s: number, i: AILoanPaymentRow) => s + toUSD(Number(i.amount), "USD"), 0)
-
-      const pendingPaymentsUSD = (scheduledRes.data || [])
-        .filter((p: AIScheduledPaymentRow) => p.status === "pending")
-        .reduce((s: number, p: AIScheduledPaymentRow) => s + toUSD(Number(p.amount), p.currency || "USD"), 0)
-
-      const monthExpensesUSD = (expensesRes.data || []).reduce((s: number, e: AIExpenseRow) => s + toUSD(e.inr_equivalent || 0, "INR"), 0)
-
+      const totalIncomeUSD = summaryRows
+        .filter((row) => row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME")
+        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
+      const totalTransfersUSD = summaryRows
+        .filter((row) => row.metric === "TRANSFER")
+        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
+      const totalLoanPaymentsUSD = recentRows
+        .filter((row) => row.metric === "LOAN_PAYMENT")
+        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
+      const pendingPaymentsUSD = scheduledPage.content
+        .filter((payment) => payment.status === "pending")
+        .reduce((sum, payment) => sum + toUSD(Number(payment.amount), payment.currency), 0)
+      const monthExpensesUSD = expensePage.content
+        .filter((expense) => expense.expenseDate >= asLocalDate(start) && expense.expenseDate <= asLocalDate(now))
+        .reduce((sum, expense) => sum + toUSD(Number(expense.amount), expense.currency), 0)
       const totalExpensesUSD = totalTransfersUSD + totalLoanPaymentsUSD
 
-      // Category breakdown of scheduled payments
-      const catMap: Record<string, number> = {}
-      ;(scheduledRes.data || []).forEach((p: AIScheduledPaymentRow) => {
-        const cat = p.category || "Other"
-        catMap[cat] = (catMap[cat] || 0) + toUSD(Number(p.amount), p.currency || "USD")
-      })
-      const topCats = Object.entries(catMap)
-        .sort((a, b) => b[1] - a[1])
+      const categoryTotals = new Map<string, number>()
+      summaryRows.filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
+        .forEach((row) => categoryTotals.set(
+          row.category || "Other",
+          (categoryTotals.get(row.category || "Other") || 0) + toUSD(Number(row.totalAmount), row.currency)
+        ))
+      const topCats = Array.from(categoryTotals.entries())
+        .sort((left, right) => right[1] - left[1])
         .slice(0, 5)
-        .map(([cat, amt]) => `${cat}: ${formatUSDDisplay(amt)}`)
+        .map(([category, amount]) => `${category}: ${formatUSDDisplay(amount)}`)
         .join(", ")
 
-      const activeLoans = (loanRes.data || []).filter((l: AILoanRow) => l.status === "active")
+      const activeLoans = loanPage.content.filter((loan) => loan.status === "active")
       const loanSummary = activeLoans
-        .map((l: AILoanRow) => `${l.loan_name} (${formatUSDDisplay(toUSD(Number(l.current_balance), l.currency || "USD"))} remaining)`)
+        .map((loan) => `${loan.loanName} (${formatUSDDisplay(toUSD(Number(loan.currentBalance), loan.currency))} remaining)`)
         .join("; ")
 
       const ctx = `
 User Financial Summary (all values in USD):
-- Total all-time income: ${formatUSDDisplay(totalIncomeUSD)}
-- Total all-time international transfers sent: ${formatUSDDisplay(totalTransfersUSD)}
-- Total loan payments (last 6 months): ${formatUSDDisplay(totalLoanPaymentsUSD)}
-- Total expenses (all time): ${formatUSDDisplay(totalExpensesUSD)}
+- Total recorded income: ${formatUSDDisplay(totalIncomeUSD)}
+- Total international transfers sent: ${formatUSDDisplay(totalTransfersUSD)}
+- Loan payments (last 6 months): ${formatUSDDisplay(totalLoanPaymentsUSD)}
+- Transfers and loan payments (reporting period): ${formatUSDDisplay(totalExpensesUSD)}
 - Current month expenses: ${formatUSDDisplay(monthExpensesUSD)}
 - Pending scheduled payments: ${formatUSDDisplay(pendingPaymentsUSD)}
 - Net savings estimate: ${formatUSDDisplay(totalIncomeUSD - totalExpensesUSD)}
 - Active loans: ${loanSummary || "None"}
 - Top spending categories: ${topCats || "No data"}
 `.trim()
-
       setFinancialContext(ctx)
-    } catch (err) {
-      console.error("Error building financial context:", err)
+    } catch (error) {
+      console.error("Error building financial context:", error)
+      setFinancialContext("Financial data is temporarily unavailable.")
     }
-  }, [])
+  }, [accessToken])
 
   // Fetch financial context once panel opens
   useEffect(() => {
