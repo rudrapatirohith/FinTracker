@@ -3,11 +3,10 @@
 import type React from "react"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useAuth } from "@/components/auth/auth-provider"
-import { API, apiGetPage, apiRequest } from "@/lib/api"
+import { API, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { toUSD, formatUSDDisplay } from "@/lib/utils"
 import { Bot, X, Send, Mic, MicOff, Loader2, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -44,18 +43,6 @@ declare global {
   }
 }
 
-interface FinancialReportRow {
-  metric: string
-  category: string
-  currency: string
-  totalAmount: number
-  recordCount: number
-  snapshotDate: string | null
-}
-interface AILoanRow { id: string; loanName: string; currentBalance: number; currency: string; status: string }
-interface AIScheduledPaymentRow { paymentName: string; amount: number; currency: string; category: string | null; status: string }
-interface AIExpenseRow { inrEquivalent: number | null; amount: number; currency: string; category: string | null; expenseDate: string }
-
 export default function AIAssistant() {
   const { accessToken } = useAuth()
   const [open, setOpen] = useState(false)
@@ -63,12 +50,10 @@ export default function AIAssistant() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [listening, setListening] = useState(false)
-  const [financialContext, setFinancialContext] = useState("")
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -77,191 +62,49 @@ export default function AIAssistant() {
     }
   }, [messages, loading])
 
-  const buildFinancialContext = useCallback(async () => {
-    if (!accessToken) return
-    try {
-      const now = new Date()
-      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      const sixMonthsAgo = new Date()
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-      const asLocalDate = (date: Date) => {
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, "0")
-        const day = String(date.getDate()).padStart(2, "0")
-        return `${year}-${month}-${day}`
-      }
-      const [summaryRows, recentRows, loanPage, scheduledPage, expensePage] = await Promise.all([
-        apiRequest<FinancialReportRow[]>(
-          `${API.dashboardSummary}?from=2000-01-01&to=${asLocalDate(now)}`, accessToken
-        ),
-        apiRequest<FinancialReportRow[]>(
-          `${API.dashboardSummary}?from=${asLocalDate(sixMonthsAgo)}&to=${asLocalDate(now)}`, accessToken
-        ),
-        apiGetPage<AILoanRow>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, accessToken),
-        apiGetPage<AIScheduledPaymentRow>(`${API.scheduledPayments}?page=0&size=1000&sort=dueDate,asc`, accessToken),
-        apiGetPage<AIExpenseRow>(`${API.monthlyExpenses}?page=0&size=1000&sort=expenseDate,desc`, accessToken),
-      ])
-
-      const totalIncomeUSD = summaryRows
-        .filter((row) => row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME")
-        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
-      const totalTransfersUSD = summaryRows
-        .filter((row) => row.metric === "TRANSFER")
-        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
-      const totalLoanPaymentsUSD = recentRows
-        .filter((row) => row.metric === "LOAN_PAYMENT")
-        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
-      const pendingPaymentsUSD = scheduledPage.content
-        .filter((payment) => payment.status === "pending")
-        .reduce((sum, payment) => sum + toUSD(Number(payment.amount), payment.currency), 0)
-      const monthExpensesUSD = expensePage.content
-        .filter((expense) => expense.expenseDate >= asLocalDate(start) && expense.expenseDate <= asLocalDate(now))
-        .reduce((sum, expense) => sum + toUSD(Number(expense.amount), expense.currency), 0)
-      const totalExpensesUSD = summaryRows
-        .filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
-        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
-
-      const categoryTotals = new Map<string, number>()
-      summaryRows.filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
-        .forEach((row) => categoryTotals.set(
-          row.category || "Other",
-          (categoryTotals.get(row.category || "Other") || 0) + toUSD(Number(row.totalAmount), row.currency)
-        ))
-      const topCats = Array.from(categoryTotals.entries())
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, 5)
-        .map(([category, amount]) => `${category}: ${formatUSDDisplay(amount)}`)
-        .join(", ")
-
-      const activeLoans = loanPage.content.filter((loan) => loan.status === "active")
-      const loanSummary = activeLoans
-        .map((loan) => `${loan.loanName} (${formatUSDDisplay(toUSD(Number(loan.currentBalance), loan.currency))} remaining)`)
-        .join("; ")
-
-      const ctx = `
-User Financial Summary (all values in USD):
-- Total recorded income: ${formatUSDDisplay(totalIncomeUSD)}
-- Total international transfers sent: ${formatUSDDisplay(totalTransfersUSD)}
-- Loan payments (last 6 months): ${formatUSDDisplay(totalLoanPaymentsUSD)}
-- Transfers and loan payments (reporting period): ${formatUSDDisplay(totalExpensesUSD)}
-- Current month expenses: ${formatUSDDisplay(monthExpensesUSD)}
-- Pending scheduled payments: ${formatUSDDisplay(pendingPaymentsUSD)}
-- Net savings estimate: ${formatUSDDisplay(totalIncomeUSD - totalExpensesUSD)}
-- Active loans: ${loanSummary || "None"}
-- Top spending categories: ${topCats || "No data"}
-`.trim()
-      setFinancialContext(ctx)
-    } catch (error) {
-      console.error("Error building financial context:", error)
-      setFinancialContext("Financial data is temporarily unavailable.")
-    }
-  }, [accessToken])
-
-  // Fetch financial context once panel opens
-  useEffect(() => {
-    if (open && !financialContext) {
-      void buildFinancialContext()
-    }
-  }, [open, financialContext, buildFinancialContext])
-
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim()) return
 
-      const userMsg: Message = { role: "user", content: text }
-      const updatedMessages = [...messages, userMsg].slice(-10) // keep last 10
+      const updatedMessages = [...messages, { role: "user" as const, content: text }].slice(-10)
       setMessages(updatedMessages)
       setInput("")
       setLoading(true)
 
-      if (!GEMINI_API_KEY) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "Add GEMINI_API_KEY to your .env.local to enable AI",
-          },
+      if (!accessToken) {
+        setMessages((previous) => [
+          ...previous,
+          { role: "assistant", content: "Please sign in again to use the financial assistant." },
         ])
         setLoading(false)
         return
       }
 
       try {
-        const systemPrompt = `You are a friendly and knowledgeable personal financial advisor. 
-Answer questions about the user's finances based on the data below. 
-Be specific, actionable, and concise. Always display amounts in USD.
-
-${financialContext}`
-
-        // Build Gemini contents array
-        const contents = [
-          {
-            role: "user",
-            parts: [{ text: systemPrompt + "\n\nUser: " + text }],
-          },
-          // For multi-turn, include prior messages
-          ...updatedMessages.slice(0, -1).flatMap((m) => [
-            {
-              role: m.role === "user" ? "user" : "model",
-              parts: [{ text: m.content }],
-            },
-          ]),
-          {
-            role: "user",
-            parts: [{ text: text }],
-          },
-        ]
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: `${systemPrompt}\n\n${updatedMessages
-                        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-                        .join("\n")}`,
-                    },
-                  ],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 512,
-              },
-            }),
-          },
-        )
-
-        if (!response.ok) {
-          throw new Error(`Gemini API error: ${response.status}`)
-        }
-
-        const result = await response.json()
-        const assistantText =
-          result?.candidates?.[0]?.content?.parts?.[0]?.text ||
-          "I couldn't generate a response. Please try again."
-
-        setMessages((prev) => [...prev, { role: "assistant", content: assistantText }])
-      } catch (err) {
-        console.error("AI assistant error:", err)
-        setMessages((prev) => [
-          ...prev,
+        const result = await apiRequest<{ response: string }>(API.aiChat, accessToken, {
+          method: "POST",
+          body: JSON.stringify({
+            message: text,
+            history: updatedMessages.slice(0, -1),
+          }),
+        })
+        setMessages((previous) => [...previous, { role: "assistant", content: result.response }])
+      } catch (error) {
+        console.error("AI assistant request failed:", error)
+        setMessages((previous) => [
+          ...previous,
           {
             role: "assistant",
-            content: "Sorry, I encountered an error. Please check your API key and try again.",
+            content: error instanceof Error
+              ? error.message
+              : "Sorry, the financial assistant is temporarily unavailable.",
           },
         ])
       } finally {
         setLoading(false)
       }
     },
-    [messages, financialContext, GEMINI_API_KEY],
+    [messages, accessToken],
   )
 
   const handleSubmit = (e: React.FormEvent) => {
