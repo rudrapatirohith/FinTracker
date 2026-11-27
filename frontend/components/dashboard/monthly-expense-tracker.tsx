@@ -149,7 +149,7 @@ export default function MonthlyExpenseTracker() {
       let exchangeRate: number | null = null
       let inrEquivalent: number | null = null
       if (formData.currency === "USD") {
-        const rate = Number.parseFloat(formData.exchange_rate)
+        const rate = Number.parseFloat(formData.exchangeRate)
         if (!isValidExchangeRate(rate)) {
           setError("Please enter a valid exchange rate between 1 and 200")
           return
@@ -167,7 +167,7 @@ export default function MonthlyExpenseTracker() {
         inrEquivalent,
         category: formData.category || null,
         expenseDate: formData.expense_date,
-        paymentMethod: formData.payment_method || null,
+        paymentMethod: formData.paymentMethod || null,
         notes: formData.notes || null,
       }
       if (editingExpense) {
@@ -249,7 +249,7 @@ export default function MonthlyExpenseTracker() {
       if (!acc[category]) {
         acc[category] = 0
       }
-      acc[category] += expense.inr_equivalent || 0
+      acc[category] += expense.inrEquivalent || 0
       return acc
     },
     {} as Record<string, number>,
@@ -515,14 +515,14 @@ export default function MonthlyExpenseTracker() {
                         type="number"
                         step="0.000001"
                         placeholder="83.25"
-                        value={formData.exchange_rate}
+                        value={formData.exchangeRate}
                         onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
                         required
                       />
                       {formData.amount &&
-                        formData.exchange_rate &&
+                        formData.exchangeRate &&
                         Number.parseFloat(formData.amount) > 0 &&
-                        Number.parseFloat(formData.exchange_rate) > 0 && (
+                        Number.parseFloat(formData.exchangeRate) > 0 && (
                           <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
                             <div className="flex items-center gap-1">
                               <IndianRupee className="h-3 w-3" />
@@ -531,13 +531,13 @@ export default function MonthlyExpenseTracker() {
                                 {formatINR(
                                   calculateINREquivalent(
                                     Number.parseFloat(formData.amount),
-                                    Number.parseFloat(formData.exchange_rate),
+                                    Number.parseFloat(formData.exchangeRate),
                                   ),
                                 )}
                               </span>
                             </div>
                             <div className="text-xs mt-1">
-                              Rate: ₹{formData.exchange_rate} per $1 (Live: ₹{currentExchangeRate})
+                              Rate: ₹{formData.exchangeRate} per $1 (Live: ₹{currentExchangeRate})
                             </div>
                           </div>
                         )}
@@ -567,7 +567,7 @@ export default function MonthlyExpenseTracker() {
                     <div className="space-y-2">
                       <Label htmlFor="payment_method">Payment Method</Label>
                       <Select
-                        value={formData.payment_method}
+                        value={formData.paymentMethod}
                         onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
                       >
                         <SelectTrigger>
@@ -651,18 +651,18 @@ export default function MonthlyExpenseTracker() {
                         {expense.currency === "USD" ? formatUSD(expense.amount) : formatINR(expense.amount)}
                       </TableCell>
                       <TableCell className="text-red-600 font-semibold">
-                        {formatINR(expense.inr_equivalent || 0)}
+                        {formatINR(expense.inrEquivalent || 0)}
                       </TableCell>
                       <TableCell>
                         {expense.currency === "USD" && expense.exchangeRate ? (
-                          <Badge variant="outline">₹{expense.exchange_rate}</Badge>
+                          <Badge variant="outline">₹{expense.exchangeRate}</Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>{new Date(expense.expenseDate).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {expense.paymentMethod && <Badge variant="outline">{expense.payment_method}</Badge>}
+                        {expense.paymentMethod && <Badge variant="outline">{expense.paymentMethod}</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">

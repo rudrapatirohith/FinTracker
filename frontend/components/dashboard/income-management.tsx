@@ -136,7 +136,7 @@ export default function IncomeManagement() {
       let inrEquivalent: number | null = null
 
       if (formData.currency === "USD") {
-        const rate = Number.parseFloat(formData.exchange_rate)
+        const rate = Number.parseFloat(formData.exchangeRate)
         if (!isValidExchangeRate(rate)) {
           setError("Please enter a valid exchange rate between 1 and 200")
           return
@@ -154,8 +154,8 @@ export default function IncomeManagement() {
         category: formData.category || null,
         description: formData.description || null,
         date: formData.date,
-        recurring: formData.is_recurring,
-        recurringFrequency: formData.is_recurring ? formData.recurring_frequency : null,
+        recurring: formData.recurring,
+        recurringFrequency: formData.recurring ? formData.recurringFrequency : null,
         exchangeRate,
         inrEquivalent,
       }
@@ -237,7 +237,7 @@ export default function IncomeManagement() {
   const totalIncomeINR = incomes.reduce((sum, income) => sum + (income.inrEquivalent || 0), 0)
   const monthlyRecurringINR = incomes
     .filter((income) => income.recurring && income.recurringFrequency === "monthly")
-    .reduce((sum, income) => sum + (income.inr_equivalent || 0), 0)
+    .reduce((sum, income) => sum + (income.inrEquivalent || 0), 0)
 
   if (loading) {
     return (
@@ -406,14 +406,14 @@ export default function IncomeManagement() {
                         type="number"
                         step="0.000001"
                         placeholder="83.25"
-                        value={formData.exchange_rate}
+                        value={formData.exchangeRate}
                         onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
                         required
                       />
                       {formData.amount &&
-                        formData.exchange_rate &&
+                        formData.exchangeRate &&
                         Number.parseFloat(formData.amount) > 0 &&
-                        Number.parseFloat(formData.exchange_rate) > 0 && (
+                        Number.parseFloat(formData.exchangeRate) > 0 && (
                           <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
                             <div className="flex items-center gap-1">
                               <IndianRupee className="h-3 w-3" />
@@ -422,13 +422,13 @@ export default function IncomeManagement() {
                                 {formatINR(
                                   calculateINREquivalent(
                                     Number.parseFloat(formData.amount),
-                                    Number.parseFloat(formData.exchange_rate),
+                                    Number.parseFloat(formData.exchangeRate),
                                   ),
                                 )}
                               </span>
                             </div>
                             <div className="text-xs mt-1">
-                              Rate: ₹{formData.exchange_rate} per $1 (Live: ₹{currentExchangeRate})
+                              Rate: ₹{formData.exchangeRate} per $1 (Live: ₹{currentExchangeRate})
                             </div>
                           </div>
                         )}
@@ -468,17 +468,17 @@ export default function IncomeManagement() {
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="recurring"
-                      checked={formData.is_recurring}
+                      checked={formData.recurring}
                       onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
                     />
                     <Label htmlFor="recurring">Recurring Income</Label>
                   </div>
 
-                  {formData.is_recurring && (
+                  {formData.recurring && (
                     <div className="space-y-2">
                       <Label htmlFor="frequency">Frequency</Label>
                       <Select
-                        value={formData.recurring_frequency}
+                        value={formData.recurringFrequency}
                         onValueChange={(value) => setFormData({ ...formData, recurring_frequency: value })}
                       >
                         <SelectTrigger>
@@ -551,21 +551,21 @@ export default function IncomeManagement() {
                         {income.currency === "USD" ? formatUSD(income.amount) : formatINR(income.amount)}
                       </TableCell>
                       <TableCell className="text-green-600 font-semibold">
-                        {formatINR(income.inr_equivalent || 0)}
+                        {formatINR(income.inrEquivalent || 0)}
                       </TableCell>
                       <TableCell>
                         {income.currency === "USD" && income.exchangeRate ? (
-                          <Badge variant="outline">₹{income.exchange_rate}</Badge>
+                          <Badge variant="outline">₹{income.exchangeRate}</Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>{new Date(income.date).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {income.is_recurring ? (
+                        {income.recurring ? (
                           <Badge variant="default">
                             <Repeat className="mr-1 h-3 w-3" />
-                            {income.recurring_frequency}
+                            {income.recurringFrequency}
                           </Badge>
                         ) : (
                           <Badge variant="outline">One-time</Badge>

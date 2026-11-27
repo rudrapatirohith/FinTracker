@@ -52,7 +52,7 @@ type IncomeHistoryRow = { id: string; category: string | null; amount: number; c
 type TransferHistoryRow = { id: string; amountSent: number; currencySent: string; recipientName: string; recipientCountry: string; transferDate: string; status: string }
 type LoanHistoryRow = { id: string; loanName: string }
 type LoanPaymentHistoryRow = { id: string; loanId: string; amount: number; currency: string; paymentDate: string }
-type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; paymentName: string; dueDate: string; recipient: string | null }
+type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; paymentName: string; dueDate: string; recipient: string | null; status: string }
 type MonthlyExpenseHistoryRow = { id: string; category: string | null; amount: number; currency: string; expenseName: string; expenseDate: string; notes: string | null }
 
 export default function TransactionHistoryPage() {

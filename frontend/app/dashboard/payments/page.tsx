@@ -109,17 +109,17 @@ export default function ScheduledPaymentsPage() {
     if (!accessToken) return
     try {
       const paymentData = {
-        paymentName: formData.payment_name,
+        paymentName: formData.paymentName,
         amount: Number.parseFloat(formData.amount),
         currency: formData.currency,
         category: formData.category || null,
         recipient: formData.recipient || null,
-        dueDate: formData.due_date,
+        dueDate: formData.dueDate,
         frequency: formData.frequency,
-        recurring: formData.is_recurring,
-        autoPay: formData.auto_pay,
+        recurring: formData.recurring,
+        autoPay: formData.autoPay,
         status: editingPayment?.status ?? "pending",
-        reminderDays: formData.reminder_days,
+        reminderDays: formData.reminderDays,
         notes: formData.notes || null,
       }
       if (editingPayment) {
@@ -286,7 +286,7 @@ export default function ScheduledPaymentsPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{payments.filter((p) => p.auto_pay).length}</div>
+            <div className="text-2xl font-bold text-green-600">{payments.filter((p) => p.autoPay).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -315,12 +315,12 @@ export default function ScheduledPaymentsPage() {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="payment_name">Payment Name</Label>
+                    <Label htmlFor="paymentName">Payment Name</Label>
                     <Input
-                      id="payment_name"
+                      id="paymentName"
                       placeholder="e.g., Electric Bill, Rent"
-                      value={formData.payment_name}
-                      onChange={(e) => setFormData({ ...formData, payment_name: e.target.value })}
+                      value={formData.paymentName}
+                      onChange={(e) => setFormData({ ...formData, paymentName: e.target.value })}
                       required
                     />
                   </div>
@@ -397,19 +397,19 @@ export default function ScheduledPaymentsPage() {
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            !formData.due_date && "text-muted-foreground",
+                            !formData.dueDate && "text-muted-foreground",
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.due_date ? format(new Date(formData.due_date), "PPP") : "Pick a date"}
+                          {formData.dueDate ? format(new Date(formData.dueDate), "PPP") : "Pick a date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
                         <Calendar
                           mode="single"
-                          selected={formData.due_date ? new Date(formData.due_date) : undefined}
+                          selected={formData.dueDate ? new Date(formData.dueDate) : undefined}
                           onSelect={(date) =>
-                            setFormData({ ...formData, due_date: date?.toISOString().split("T")[0] || "" })
+                            setFormData({ ...formData, dueDate: date?.toISOString().split("T")[0] || "" })
                           }
                           initialFocus
                         />
@@ -420,13 +420,13 @@ export default function ScheduledPaymentsPage() {
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="recurring"
-                      checked={formData.is_recurring}
-                      onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
+                      checked={formData.recurring}
+                      onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
                     />
                     <Label htmlFor="recurring">Recurring Payment</Label>
                   </div>
 
-                  {formData.is_recurring && (
+                  {formData.recurring && (
                     <div className="space-y-2">
                       <Label htmlFor="frequency">Frequency</Label>
                       <Select
@@ -449,18 +449,18 @@ export default function ScheduledPaymentsPage() {
 
                   <div className="flex items-center space-x-2">
                     <Switch
-                      id="auto_pay"
-                      checked={formData.auto_pay}
-                      onCheckedChange={(checked) => setFormData({ ...formData, auto_pay: checked })}
+                      id="autoPay"
+                      checked={formData.autoPay}
+                      onCheckedChange={(checked) => setFormData({ ...formData, autoPay: checked })}
                     />
-                    <Label htmlFor="auto_pay">Auto Pay (when available)</Label>
+                    <Label htmlFor="autoPay">Auto Pay (when available)</Label>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reminder_days">Reminder Days Before</Label>
+                    <Label htmlFor="reminderDays">Reminder Days Before</Label>
                     <Select
-                      value={formData.reminder_days.toString()}
-                      onValueChange={(value) => setFormData({ ...formData, reminder_days: Number.parseInt(value) })}
+                      value={formData.reminderDays.toString()}
+                      onValueChange={(value) => setFormData({ ...formData, reminderDays: Number.parseInt(value) })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -517,16 +517,16 @@ export default function ScheduledPaymentsPage() {
               </TableHeader>
               <TableBody>
                 {payments.map((payment) => {
-                  const isOverdue = new Date(payment.due_date) < new Date() && payment.status === "pending"
+                  const isOverdue = new Date(payment.dueDate) < new Date() && payment.status === "pending"
                   const isDueSoon =
-                    new Date(payment.due_date) <= new Date(Date.now() + payment.reminder_days * 24 * 60 * 60 * 1000) &&
+                    new Date(payment.dueDate) <= new Date(Date.now() + payment.reminderDays * 24 * 60 * 60 * 1000) &&
                     payment.status === "pending"
 
                   return (
                     <TableRow key={payment.id} className={isOverdue ? "bg-red-50 dark:bg-red-950/30" : isDueSoon ? "bg-yellow-50 dark:bg-yellow-950/30" : ""}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{payment.payment_name}</p>
+                          <p className="font-medium">{payment.paymentName}</p>
                           {payment.category && <p className="text-sm text-muted-foreground">{payment.category}</p>}
                         </div>
                       </TableCell>
@@ -536,7 +536,7 @@ export default function ScheduledPaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p>{formatDate(payment.due_date)}</p>
+                          <p>{formatDate(payment.dueDate)}</p>
                           {isOverdue && <p className="text-xs text-red-600">Overdue</p>}
                           {isDueSoon && !isOverdue && <p className="text-xs text-yellow-600">Due soon</p>}
                         </div>
@@ -558,8 +558,8 @@ export default function ScheduledPaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {payment.is_recurring && <Badge variant="outline">Recurring</Badge>}
-                          {payment.auto_pay && <Badge variant="secondary">Auto Pay</Badge>}
+                          {payment.recurring && <Badge variant="outline">Recurring</Badge>}
+                          {payment.autoPay && <Badge variant="secondary">Auto Pay</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
