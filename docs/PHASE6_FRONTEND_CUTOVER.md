@@ -33,9 +33,11 @@ The standalone expenses screen is backed by the existing `monthly_expenses` reso
 
 The browser no longer calls Gemini directly or receives a provider key. It calls the authenticated `POST /api/v1/ai/chat` endpoint. The backend builds the financial context from owner-scoped reporting queries and calls Gemini using the server-only `FINTRACKER_AI_GEMINI_API_KEY`.
 
-## Known migration limitation: password recovery
+## Password recovery after the migration
 
-Supabase password hashes and active sessions were not migrated. Google-authenticated users can continue through Google OAuth. Email/password accounts require a secure password-recovery flow before the custom backend can support their first password login. The settings action is intentionally disabled rather than pretending to send an email. Do not enable it until token storage, expiry, single-use enforcement, and configured email delivery are implemented and tested.
+Supabase password hashes and active sessions were not migrated. Google-authenticated users can continue through Google OAuth. Email/password users can set a new password through the one-time recovery flow. The backend stores only a SHA-256 token digest, expires links after 30 minutes, invalidates previous links, and revokes all active refresh sessions after a successful reset. The reset endpoints return the same accepted response for unknown email addresses to reduce account enumeration.
+
+Configure SMTP before enabling this flow in a deployment: `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS`, and `FRONTEND_PASSWORD_RESET_URL`. Without SMTP configuration the API returns HTTP 503 and does not claim an email was sent.
 
 ## Verification
 

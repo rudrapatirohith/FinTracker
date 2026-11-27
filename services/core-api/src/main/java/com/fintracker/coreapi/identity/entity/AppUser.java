@@ -62,6 +62,18 @@ public class AppUser {
         this.updatedAt = this.createdAt;
     }
 
+    /**
+     * Replaces the password hash after a verified, single-use recovery token.
+     * Plain-text passwords must never be passed to or stored on this entity.
+     */
+    public void changePassword(String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            throw new IllegalArgumentException("Encoded password is required.");
+        }
+        this.passwordHash = encodedPassword;
+        this.updatedAt = Instant.now();
+    }
+
     public void markEmailVerified(Instant verifiedAt) {
         if (verifiedAt == null) {
             throw new IllegalArgumentException("Verification timestamp is required.");

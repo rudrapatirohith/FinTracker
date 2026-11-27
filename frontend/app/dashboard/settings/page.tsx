@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
 import { useAuth } from "@/components/auth/auth-provider"
-import { API, apiRequest } from "@/lib/api"
+import { API, AUTH_API, apiRequest, fetchWithCsrf } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -119,10 +119,29 @@ export default function SettingsPage() {
   }
 
   const handlePasswordReset = async () => {
-    // Do not display a success state for an email that the custom backend
-    // cannot currently send. A verified recovery-token/email-delivery flow
-    // must be implemented before password reset can be enabled.
-    setError("Password recovery is not available yet. The custom backend needs a configured email-delivery and recovery-token flow before this action can be enabled safely.")
+    if (!user?.email) return
+    setError("")
+    setMessage("")
+    try {
+      const response = await fetchWithCsrf(AUTH_API.forgotPassword, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      })
+      if (!response.ok) {
+        let detail = "Password recovery could not be started."
+        try {
+          const problem = await response.json()
+          detail = problem.detail || problem.message || problem.title || detail
+        } catch {
+          // Use the safe fallback when the server response has no JSON body.
+        }
+        throw new Error(detail)
+      }
+      setMessage("If this email is registered, you will receive a password reset link shortly.")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Password recovery could not be started.")
+    }
   }
 
   if (loading) {
@@ -266,9 +285,9 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Password</h4>
-                <p className="text-sm text-muted-foreground">Password recovery will be enabled after the backend email-delivery and recovery-token flow is configured.</p>
+                <p className="text-sm text-muted-foreground">Send a single-use password reset link to your account email.</p>
               </div>
-              <Button variant="outline" onClick={handlePasswordReset} disabled>
+              <Button variant="outline" onClick={handlePasswordReset}>
                 Reset Password
               </Button>
             </div>
