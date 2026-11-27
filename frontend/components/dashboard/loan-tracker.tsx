@@ -700,7 +700,7 @@ export default function LoanTracker() {
               <TableBody>
                 {payments.slice(0, 10).map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.loan?.loan_name || "Unknown Loan"}</TableCell>
+                    <TableCell className="font-medium">{payment.loan?.loanName || "Unknown Loan"}</TableCell>
                     <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
