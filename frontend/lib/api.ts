@@ -132,6 +132,57 @@ export async function fetchWithCsrf(
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+let accessTokenRefreshListener: ((session: LoginResponse | null) => void) | null = null;
+let refreshInFlight: Promise<LoginResponse | null> | null = null;
+
+/**
+ * AuthProvider registers the state update callback. This keeps token refresh
+ * centralized without persisting access tokens outside React memory.
+ */
+export function registerAccessTokenRefreshListener(
+  listener: (session: LoginResponse | null) => void
+): () => void {
+  accessTokenRefreshListener = listener;
+  return () => {
+    if (accessTokenRefreshListener === listener) {
+      accessTokenRefreshListener = null;
+    }
+  };
+}
+
+async function refreshSession(): Promise<LoginResponse | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const response = await fetchWithCsrf(AUTH_API.refresh, { method: "POST" });
+        if (!response.ok) return null;
+
+        const session = (await response.json()) as LoginResponse;
+        if (!session.accessToken || !session.userId || !session.email) return null;
+
+        // Validate the rotated token before exposing it to React or retrying a
+        // financial request. The refresh cookie itself remains HttpOnly.
+        const validation = await fetch(`${API_BASE_URL}${AUTH_API.me}`, {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (!validation.ok) return null;
+
+        const currentUser = (await validation.json()) as CurrentUserResponse;
+        return currentUser.userId === session.userId ? session : null;
+      } catch (error) {
+        console.error("Access-token refresh failed:", error);
+        return null;
+      }
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 /**
  * Sends an authenticated API request. Spring Security's CSRF token is attached
  * to mutations in addition to the short-lived bearer token. The server remains
@@ -163,9 +214,32 @@ export async function apiRequest<T>(
     cache: "no-store",
   };
 
-  const response = MUTATING_METHODS.has(method)
-    ? await fetchWithCsrf(path, requestOptions)
-    : await fetch(`${API_BASE_URL}${path}`, requestOptions);
+  const execute = (token: string) => {
+    const retryHeaders = new Headers(requestOptions.headers);
+    retryHeaders.set("Authorization", `Bearer ${token}`);
+    const retryOptions = { ...requestOptions, headers: retryHeaders };
+    return MUTATING_METHODS.has(method)
+      ? fetchWithCsrf(path, retryOptions)
+      : fetch(`${API_BASE_URL}${path}`, retryOptions);
+  };
+
+  let activeToken = accessToken;
+  let response = await execute(activeToken);
+
+  // Access tokens are intentionally short-lived. On expiry, rotate the
+  // HttpOnly refresh session once, update AuthProvider memory, and retry the
+  // original request once. A shared promise prevents parallel 401s from
+  // racing the backend's one-time refresh-token rotation.
+  if (response.status === 401 && !path.startsWith("/api/v1/auth/")) {
+    const refreshedSession = await refreshSession();
+    if (!refreshedSession) {
+      accessTokenRefreshListener?.(null);
+    } else {
+      activeToken = refreshedSession.accessToken;
+      accessTokenRefreshListener?.(refreshedSession);
+      response = await execute(activeToken);
+    }
+  }
 
   if (!response.ok) {
     let problem: ApiProblemDetail | undefined;
