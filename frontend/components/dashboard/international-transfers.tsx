@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase, handleSupabaseError } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,22 +38,22 @@ import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, i
 
 interface Transfer {
   id: string
-  recipient_name: string
-  recipient_country: string
-  amount_sent: number
-  currency_sent: string
-  amount_received: number
-  currency_received: string
-  exchange_rate: number
-  transfer_fee: number
-  transfer_method: string | null
+  recipientName: string
+  recipientCountry: string
+  amountSent: number
+  currencySent: string
+  amountReceived: number
+  currencyReceived: string
+  exchangeRate: number
+  transferFee: number
+  transferMethod: string | null
   purpose: string | null
   status: string
-  transfer_date: string
-  completion_date: string | null
-  reference_number: string | null
-  usd_to_inr_rate: number | null
-  inr_equivalent: number | null
+  transferDate: string
+  completionDate: string | null
+  referenceNumber: string | null
+  usdToInrRate: number | null
+  inrEquivalent: number | null
 }
 
 // Countries with focus on India
@@ -86,6 +87,7 @@ const transferPurposes = [
 ]
 
 export default function InternationalTransfers() {
+  const { accessToken } = useAuth()
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -96,20 +98,20 @@ export default function InternationalTransfers() {
   const [success, setSuccess] = useState("")
 
   const [formData, setFormData] = useState({
-    recipient_name: "",
-    recipient_country: "India",
-    amount_sent: "",
-    currency_sent: "USD",
-    amount_received: "",
-    currency_received: "INR",
-    exchange_rate: "",
-    transfer_fee: "",
-    transfer_method: "",
+    recipientName: "",
+    recipientCountry: "India",
+    amountSent: "",
+    currencySent: "USD",
+    amountReceived: "",
+    currencyReceived: "INR",
+    exchangeRate: "",
+    transferFee: "",
+    transferMethod: "",
     purpose: "",
     status: "pending",
-    transfer_date: new Date().toISOString().split("T")[0],
-    reference_number: "",
-    usd_to_inr_rate: "",
+    transferDate: new Date().toISOString().split("T")[0],
+    referenceNumber: "",
+    usdToInrRate: "",
   })
 
   useEffect(() => {
@@ -124,8 +126,8 @@ export default function InternationalTransfers() {
       setCurrentExchangeRate(rate)
       setFormData((prev) => ({
         ...prev,
-        exchange_rate: rate.toString(),
-        usd_to_inr_rate: rate.toString(),
+        exchangeRate: rate.toString(),
+        usdToInrRate: rate.toString(),
       }))
     } catch (error) {
       console.error("Failed to fetch exchange rate:", error)
@@ -135,35 +137,18 @@ export default function InternationalTransfers() {
   }
 
   const fetchTransfers = async () => {
+    if (!accessToken) {
+      setError("Please sign in to view transfers.")
+      setLoading(false)
+      return
+    }
     try {
       setError("")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view transfers")
-        return
-      }
-
-      console.log("Fetching transfers for user:", user.id)
-
-      const { data, error } = await supabase
-        .from("international_transfers")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("transfer_date", { ascending: false })
-
-      if (error) {
-        handleSupabaseError(error, "fetch transfers")
-        return
-      }
-
-      console.log("Fetched transfers:", data)
-      setTransfers(data || [])
-    } catch (error: any) {
+      const page = await apiGetPage<Transfer>(`${API.transfers}?page=0&size=1000&sort=transferDate,desc`, accessToken)
+      setTransfers(page.content)
+    } catch (error) {
       console.error("Error fetching transfers:", error)
-      setError(error.message || "Failed to fetch transfers")
+      setError(error instanceof Error ? error.message : "Failed to fetch transfers")
     } finally {
       setLoading(false)
     }
@@ -182,28 +167,18 @@ export default function InternationalTransfers() {
     e.preventDefault()
     setError("")
     setSuccess("")
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add transfers")
-        return
-      }
-
-      // Validate exchange rates
       const exchangeRate = Number.parseFloat(formData.exchange_rate)
       if (!isValidExchangeRate(exchangeRate)) {
         setError("Please enter a valid exchange rate")
         return
       }
-
-      let usdToInrRate = null
-      let inrEquivalent = null
-
-      // Calculate USD to INR rate and INR equivalent
+      let usdToInrRate: number | null = null
+      let inrEquivalent: number | null = null
       if (formData.currency_sent === "USD") {
         const rate = Number.parseFloat(formData.usd_to_inr_rate)
         if (!isValidExchangeRate(rate)) {
@@ -213,116 +188,98 @@ export default function InternationalTransfers() {
         usdToInrRate = rate
         inrEquivalent = calculateINREquivalent(Number.parseFloat(formData.amount_sent), rate)
       }
-
-      console.log("Submitting transfer data...")
-
       const transferData = {
-        user_id: user.id,
-        recipient_name: formData.recipient_name,
-        recipient_country: formData.recipient_country,
-        amount_sent: Number.parseFloat(formData.amount_sent),
-        currency_sent: formData.currency_sent,
-        amount_received: Number.parseFloat(formData.amount_received),
-        currency_received: formData.currency_received,
-        exchange_rate: exchangeRate,
-        transfer_fee: Number.parseFloat(formData.transfer_fee) || 0,
-        transfer_method: formData.transfer_method || null,
+        recipientName: formData.recipient_name,
+        recipientCountry: formData.recipient_country,
+        amountSent: Number.parseFloat(formData.amount_sent),
+        currencySent: formData.currency_sent,
+        amountReceived: Number.parseFloat(formData.amount_received),
+        currencyReceived: formData.currency_received,
+        exchangeRate,
+        transferFee: Number.parseFloat(formData.transfer_fee) || 0,
+        transferMethod: formData.transfer_method || null,
         purpose: formData.purpose || null,
         status: formData.status,
-        transfer_date: formData.transfer_date,
-        reference_number: formData.reference_number || null,
-        usd_to_inr_rate: usdToInrRate,
-        inr_equivalent: inrEquivalent,
+        transferDate: formData.transfer_date,
+        completionDate: null,
+        referenceNumber: formData.reference_number || null,
+        usdToInrRate,
+        inrEquivalent,
       }
-
-      console.log("Transfer data to submit:", transferData)
-
-      let result
       if (editingTransfer) {
-        result = await supabase
-          .from("international_transfers")
-          .update(transferData)
-          .eq("id", editingTransfer.id)
-          .select()
+        await apiRequest<Transfer>(`${API.transfers}/${editingTransfer.id}`, accessToken, {
+          method: "PUT", body: JSON.stringify(transferData),
+        })
       } else {
-        result = await supabase.from("international_transfers").insert([transferData]).select()
+        await apiRequest<Transfer>(API.transfers, accessToken, {
+          method: "POST", body: JSON.stringify(transferData),
+        })
       }
-
-      if (result.error) {
-        handleSupabaseError(result.error, editingTransfer ? "update transfer" : "add transfer")
-        return
-      }
-
-      console.log("Transfer saved successfully:", result.data)
       setSuccess(editingTransfer ? "Transfer updated successfully!" : "Transfer added successfully!")
-
       await fetchTransfers()
       setDialogOpen(false)
       resetForm()
-
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error saving transfer:", error)
-      setError(error.message || "Failed to save transfer")
+      setError(error instanceof Error ? error.message : "Failed to save transfer")
     }
   }
 
   const handleEdit = (transfer: Transfer) => {
     setEditingTransfer(transfer)
     setFormData({
-      recipient_name: transfer.recipient_name,
-      recipient_country: transfer.recipient_country,
-      amount_sent: transfer.amount_sent.toString(),
-      currency_sent: transfer.currency_sent,
-      amount_received: transfer.amount_received.toString(),
-      currency_received: transfer.currency_received,
-      exchange_rate: transfer.exchange_rate.toString(),
-      transfer_fee: transfer.transfer_fee.toString(),
-      transfer_method: transfer.transfer_method || "",
+      recipientName: transfer.recipientName,
+      recipientCountry: transfer.recipientCountry,
+      amountSent: transfer.amountSent.toString(),
+      currencySent: transfer.currencySent,
+      amountReceived: transfer.amountReceived.toString(),
+      currencyReceived: transfer.currencyReceived,
+      exchangeRate: transfer.exchangeRate.toString(),
+      transferFee: transfer.transferFee.toString(),
+      transferMethod: transfer.transferMethod || "",
       purpose: transfer.purpose || "",
       status: transfer.status,
-      transfer_date: transfer.transfer_date,
-      reference_number: transfer.reference_number || "",
-      usd_to_inr_rate: transfer.usd_to_inr_rate?.toString() || "",
+      transferDate: transfer.transferDate,
+      referenceNumber: transfer.referenceNumber || "",
+      usdToInrRate: transfer.usdToInrRate?.toString() || "",
     })
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
       setError("")
-      const { error } = await supabase.from("international_transfers").delete().eq("id", id)
-
-      if (error) {
-        handleSupabaseError(error, "delete transfer")
-        return
-      }
-
+      await apiRequest<void>(`${API.transfers}/${id}`, accessToken, { method: "DELETE" })
       setSuccess("Transfer deleted successfully!")
       await fetchTransfers()
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting transfer:", error)
-      setError(error.message || "Failed to delete transfer")
+      setError(error instanceof Error ? error.message : "Failed to delete transfer")
     }
   }
 
   const resetForm = () => {
     setFormData({
-      recipient_name: "",
-      recipient_country: "India",
-      amount_sent: "",
-      currency_sent: "USD",
-      amount_received: "",
-      currency_received: "INR",
-      exchange_rate: currentExchangeRate.toString(),
-      transfer_fee: "",
-      transfer_method: "",
+      recipientName: "",
+      recipientCountry: "India",
+      amountSent: "",
+      currencySent: "USD",
+      amountReceived: "",
+      currencyReceived: "INR",
+      exchangeRate: currentExchangeRate.toString(),
+      transferFee: "",
+      transferMethod: "",
       purpose: "",
       status: "pending",
-      transfer_date: new Date().toISOString().split("T")[0],
-      reference_number: "",
-      usd_to_inr_rate: currentExchangeRate.toString(),
+      transferDate: new Date().toISOString().split("T")[0],
+      referenceNumber: "",
+      usdToInrRate: currentExchangeRate.toString(),
     })
     setEditingTransfer(null)
     setError("")
@@ -330,14 +287,14 @@ export default function InternationalTransfers() {
 
   // Calculate totals using INR equivalents
   const totalSentINR = transfers.reduce((sum, transfer) => {
-    return sum + (transfer.inr_equivalent || 0)
+    return sum + (transfer.inrEquivalent || 0)
   }, 0)
 
   const totalFeesINR = transfers.reduce((sum, transfer) => {
-    if (transfer.currency_sent === "USD" && transfer.usd_to_inr_rate) {
-      return sum + calculateINREquivalent(transfer.transfer_fee, transfer.usd_to_inr_rate)
+    if (transfer.currencySent === "USD" && transfer.usdToInrRate) {
+      return sum + calculateINREquivalent(transfer.transferFee, transfer.usdToInrRate)
     }
-    return sum + transfer.transfer_fee
+    return sum + transfer.transferFee
   }, 0)
 
   const pendingTransfers = transfers.filter((t) => t.status === "pending").length
@@ -487,8 +444,8 @@ export default function InternationalTransfers() {
                           const country = countries.find((c) => c.name === value)
                           setFormData({
                             ...formData,
-                            recipient_country: value,
-                            currency_received: country?.currency || "INR",
+                            recipientCountry: value,
+                            currencyReceived: country?.currency || "INR",
                           })
                         }}
                       >
@@ -756,31 +713,31 @@ export default function InternationalTransfers() {
                 </TableHeader>
                 <TableBody>
                   {transfers.map((transfer) => {
-                    const country = countries.find((c) => c.name === transfer.recipient_country)
+                    const country = countries.find((c) => c.name === transfer.recipientCountry)
                     return (
                       <TableRow key={transfer.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{transfer.recipient_name}</p>
+                            <p className="font-medium">{transfer.recipientName}</p>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <span>{country?.flag}</span>
-                              <span>{transfer.recipient_country}</span>
+                              <span>{transfer.recipientCountry}</span>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-red-600 font-semibold">{formatUSD(transfer.amount_sent)}</TableCell>
+                        <TableCell className="text-red-600 font-semibold">{formatUSD(transfer.amountSent)}</TableCell>
                         <TableCell className="text-green-600 font-semibold">
-                          {transfer.currency_received === "INR"
-                            ? `₹${transfer.amount_received.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
-                            : `${transfer.currency_received} ${transfer.amount_received.toLocaleString()}`}
+                          {transfer.currencyReceived === "INR"
+                            ? `₹${transfer.amountReceived.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
+                            : `${transfer.currencyReceived} ${transfer.amountReceived.toLocaleString()}`}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {transfer.exchange_rate.toFixed(transfer.currency_received === "INR" ? 2 : 4)}
+                            {transfer.exchangeRate.toFixed(transfer.currencyReceived === "INR" ? 2 : 4)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-blue-600 font-semibold">
-                          {transfer.inr_equivalent ? formatINR(transfer.inr_equivalent) : "—"}
+                          {transfer.inrEquivalent ? formatINR(transfer.inrEquivalent) : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -795,7 +752,7 @@ export default function InternationalTransfers() {
                             {transfer.status.charAt(0).toUpperCase() + transfer.status.slice(1)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{new Date(transfer.transfer_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(transfer.transferDate).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
                             <Button variant="ghost" size="sm" onClick={() => handleEdit(transfer)}>

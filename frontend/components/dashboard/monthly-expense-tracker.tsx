@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase, handleSupabaseError } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,16 +40,16 @@ import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, i
 
 interface MonthlyExpense {
   id: string
-  expense_name: string
+  expenseName: string
   amount: number
   currency: string
-  exchange_rate: number | null
-  inr_equivalent: number | null
+  exchangeRate: number | null
+  inrEquivalent: number | null
   category: string | null
-  expense_date: string
-  payment_method: string | null
+  expenseDate: string
+  paymentMethod: string | null
   notes: string | null
-  created_at: string
+  createdAt: string
 }
 
 const expenseCategories = [
@@ -69,6 +70,7 @@ const expenseCategories = [
 const paymentMethods = ["Cash", "Credit Card", "Debit Card", "Bank Transfer", "Digital Wallet", "UPI", "Other"]
 
 export default function MonthlyExpenseTracker() {
+  const { accessToken } = useAuth()
   const [expenses, setExpenses] = useState<MonthlyExpense[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -109,39 +111,26 @@ export default function MonthlyExpenseTracker() {
   }
 
   const fetchExpenses = async () => {
+    if (!accessToken) {
+      setError("Please sign in to view expenses.")
+      setLoading(false)
+      return
+    }
     try {
       setError("")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view expenses")
-        return
-      }
-
-      // Get current month&apos;s expenses
       const currentDate = new Date()
       const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
       const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-
-      const { data, error } = await supabase
-        .from("monthly_expenses")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("expense_date", firstDayOfMonth.toISOString().split("T")[0])
-        .lte("expense_date", lastDayOfMonth.toISOString().split("T")[0])
-        .order("expense_date", { ascending: false })
-
-      if (error) {
-        handleSupabaseError(error, "fetch expenses")
-        return
-      }
-
-      setExpenses(data || [])
-    } catch (error: any) {
+      const page = await apiGetPage<MonthlyExpense>(
+        `${API.monthlyExpenses}?page=0&size=100&sort=expenseDate,desc`,
+        accessToken
+      )
+      const start = firstDayOfMonth.toISOString().slice(0, 10)
+      const end = lastDayOfMonth.toISOString().slice(0, 10)
+      setExpenses(page.content.filter((expense) => expense.expenseDate >= start && expense.expenseDate <= end))
+    } catch (error) {
       console.error("Error fetching expenses:", error)
-      setError(error.message || "Failed to fetch expenses")
+      setError(error instanceof Error ? error.message : "Failed to fetch expenses")
     } finally {
       setLoading(false)
     }
@@ -151,22 +140,14 @@ export default function MonthlyExpenseTracker() {
     e.preventDefault()
     setError("")
     setSuccess("")
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add expenses")
-        return
-      }
-
       const amount = Number.parseFloat(formData.amount)
-      let exchangeRate = null
-      let inrEquivalent = null
-
-      // Handle exchange rate for USD expenses
+      let exchangeRate: number | null = null
+      let inrEquivalent: number | null = null
       if (formData.currency === "USD") {
         const rate = Number.parseFloat(formData.exchange_rate)
         if (!isValidExchangeRate(rate)) {
@@ -176,79 +157,68 @@ export default function MonthlyExpenseTracker() {
         exchangeRate = rate
         inrEquivalent = calculateINREquivalent(amount, rate)
       } else {
-        // For INR expenses, the amount is already in INR
         inrEquivalent = amount
       }
-
       const expenseData = {
-        user_id: user.id,
-        expense_name: formData.expense_name,
-        amount: amount,
+        expenseName: formData.expense_name,
+        amount,
         currency: formData.currency,
-        exchange_rate: exchangeRate,
-        inr_equivalent: inrEquivalent,
+        exchangeRate,
+        inrEquivalent,
         category: formData.category || null,
-        expense_date: formData.expense_date,
-        payment_method: formData.payment_method || null,
+        expenseDate: formData.expense_date,
+        paymentMethod: formData.payment_method || null,
         notes: formData.notes || null,
       }
-
-      let result
       if (editingExpense) {
-        result = await supabase.from("monthly_expenses").update(expenseData).eq("id", editingExpense.id).select()
+        await apiRequest<MonthlyExpense>(`${API.monthlyExpenses}/${editingExpense.id}`, accessToken, {
+          method: "PUT", body: JSON.stringify(expenseData),
+        })
       } else {
-        result = await supabase.from("monthly_expenses").insert([expenseData]).select()
+        await apiRequest<MonthlyExpense>(API.monthlyExpenses, accessToken, {
+          method: "POST", body: JSON.stringify(expenseData),
+        })
       }
-
-      if (result.error) {
-        handleSupabaseError(result.error, editingExpense ? "update expense" : "add expense")
-        return
-      }
-
       setSuccess(editingExpense ? "Expense updated successfully!" : "Expense added successfully!")
-
       await fetchExpenses()
       setDialogOpen(false)
       resetForm()
-
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error saving expense:", error)
-      setError(error.message || "Failed to save expense")
+      setError(error instanceof Error ? error.message : "Failed to save expense")
     }
   }
 
   const handleEdit = (expense: MonthlyExpense) => {
     setEditingExpense(expense)
     setFormData({
-      expense_name: expense.expense_name,
+      expense_name: expense.expenseName,
       amount: expense.amount.toString(),
       currency: expense.currency,
       category: expense.category || "",
-      expense_date: expense.expense_date,
-      payment_method: expense.payment_method || "",
+      expense_date: expense.expenseDate,
+      payment_method: expense.paymentMethod || "",
       notes: expense.notes || "",
-      exchange_rate: expense.exchange_rate?.toString() || "",
+      exchange_rate: expense.exchangeRate?.toString() || "",
     })
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
       setError("")
-      const { error } = await supabase.from("monthly_expenses").delete().eq("id", id)
-
-      if (error) {
-        handleSupabaseError(error, "delete expense")
-        return
-      }
-
+      await apiRequest<void>(`${API.monthlyExpenses}/${id}`, accessToken, { method: "DELETE" })
       setSuccess("Expense deleted successfully!")
       await fetchExpenses()
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting expense:", error)
-      setError(error.message || "Failed to delete expense")
+      setError(error instanceof Error ? error.message : "Failed to delete expense")
     }
   }
 
@@ -268,7 +238,7 @@ export default function MonthlyExpenseTracker() {
   }
 
   // Calculate totals in INR using stored INR equivalents
-  const totalExpensesINR = expenses.reduce((sum, expense) => sum + (expense.inr_equivalent || 0), 0)
+  const totalExpensesINR = expenses.reduce((sum, expense) => sum + (expense.inrEquivalent || 0), 0)
   const budgetUsedPercentage = (totalExpensesINR / monthlyBudget) * 100
   const remainingBudget = monthlyBudget - totalExpensesINR
 
@@ -675,7 +645,7 @@ export default function MonthlyExpenseTracker() {
                 <TableBody>
                   {expenses.map((expense) => (
                     <TableRow key={expense.id}>
-                      <TableCell className="font-medium">{expense.expense_name}</TableCell>
+                      <TableCell className="font-medium">{expense.expenseName}</TableCell>
                       <TableCell>{expense.category && <Badge variant="secondary">{expense.category}</Badge>}</TableCell>
                       <TableCell className="font-semibold">
                         {expense.currency === "USD" ? formatUSD(expense.amount) : formatINR(expense.amount)}
@@ -684,15 +654,15 @@ export default function MonthlyExpenseTracker() {
                         {formatINR(expense.inr_equivalent || 0)}
                       </TableCell>
                       <TableCell>
-                        {expense.currency === "USD" && expense.exchange_rate ? (
+                        {expense.currency === "USD" && expense.exchangeRate ? (
                           <Badge variant="outline">₹{expense.exchange_rate}</Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell>{new Date(expense.expense_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(expense.expenseDate).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {expense.payment_method && <Badge variant="outline">{expense.payment_method}</Badge>}
+                        {expense.paymentMethod && <Badge variant="outline">{expense.payment_method}</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">

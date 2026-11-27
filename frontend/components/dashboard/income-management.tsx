@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase, handleSupabaseError } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,10 +45,10 @@ interface Income {
   category: string | null
   description: string | null
   date: string
-  is_recurring: boolean
-  recurring_frequency: string | null
-  exchange_rate: number | null
-  inr_equivalent: number | null
+  recurring: boolean | null
+  recurringFrequency: string | null
+  exchangeRate: number | null
+  inrEquivalent: number | null
 }
 
 const incomeCategories = ["Salary", "Freelance", "Business", "Investment", "Rental", "Bonus", "Commission", "Other"]
@@ -60,6 +61,7 @@ const frequencies = [
 ]
 
 export default function IncomeManagement() {
+  const { accessToken } = useAuth()
   const [incomes, setIncomes] = useState<Income[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -100,35 +102,19 @@ export default function IncomeManagement() {
   }
 
   const fetchIncomes = async () => {
+    if (!accessToken) {
+      setError("Please sign in to view income.")
+      setLoading(false)
+      return
+    }
+
     try {
       setError("")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view income")
-        return
-      }
-
-      console.log("Fetching incomes for user:", user.id)
-
-      const { data, error } = await supabase
-        .from("income")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date", { ascending: false })
-
-      if (error) {
-        handleSupabaseError(error, "fetch income")
-        return
-      }
-
-      console.log("Fetched incomes:", data)
-      setIncomes(data || [])
-    } catch (error: any) {
+      const page = await apiGetPage<Income>(`${API.income}?page=0&size=100&sort=date,desc`, accessToken)
+      setIncomes(page.content)
+    } catch (error) {
       console.error("Error fetching incomes:", error)
-      setError(error.message || "Failed to fetch income data")
+      setError(error instanceof Error ? error.message : "Failed to fetch income data")
     } finally {
       setLoading(false)
     }
@@ -139,21 +125,16 @@ export default function IncomeManagement() {
     setError("")
     setSuccess("")
 
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
+
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add income")
-        return
-      }
-
       const amount = Number.parseFloat(formData.amount)
-      let exchangeRate = null
-      let inrEquivalent = null
+      let exchangeRate: number | null = null
+      let inrEquivalent: number | null = null
 
-      // Handle exchange rate for USD income
       if (formData.currency === "USD") {
         const rate = Number.parseFloat(formData.exchange_rate)
         if (!isValidExchangeRate(rate)) {
@@ -163,51 +144,42 @@ export default function IncomeManagement() {
         exchangeRate = rate
         inrEquivalent = calculateINREquivalent(amount, rate)
       } else {
-        // For INR income, the amount is already in INR
         inrEquivalent = amount
       }
 
-      console.log("Submitting income data...")
-
       const incomeData = {
-        user_id: user.id,
         source: formData.source,
-        amount: amount,
+        amount,
         currency: formData.currency,
         category: formData.category || null,
         description: formData.description || null,
         date: formData.date,
-        is_recurring: formData.is_recurring,
-        recurring_frequency: formData.is_recurring ? formData.recurring_frequency : null,
-        exchange_rate: exchangeRate,
-        inr_equivalent: inrEquivalent,
+        recurring: formData.is_recurring,
+        recurringFrequency: formData.is_recurring ? formData.recurring_frequency : null,
+        exchangeRate,
+        inrEquivalent,
       }
 
-      console.log("Income data to submit:", incomeData)
-
-      let result
       if (editingIncome) {
-        result = await supabase.from("income").update(incomeData).eq("id", editingIncome.id).select()
+        await apiRequest<Income>(`${API.income}/${editingIncome.id}`, accessToken, {
+          method: "PUT",
+          body: JSON.stringify(incomeData),
+        })
       } else {
-        result = await supabase.from("income").insert([incomeData]).select()
+        await apiRequest<Income>(API.income, accessToken, {
+          method: "POST",
+          body: JSON.stringify(incomeData),
+        })
       }
 
-      if (result.error) {
-        handleSupabaseError(result.error, editingIncome ? "update income" : "add income")
-        return
-      }
-
-      console.log("Income saved successfully:", result.data)
       setSuccess(editingIncome ? "Income updated successfully!" : "Income added successfully!")
-
       await fetchIncomes()
       setDialogOpen(false)
       resetForm()
-
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error saving income:", error)
-      setError(error.message || "Failed to save income")
+      setError(error instanceof Error ? error.message : "Failed to save income")
     }
   }
 
@@ -220,29 +192,28 @@ export default function IncomeManagement() {
       category: income.category || "",
       description: income.description || "",
       date: income.date,
-      is_recurring: income.is_recurring,
-      recurring_frequency: income.recurring_frequency || "",
-      exchange_rate: income.exchange_rate?.toString() || "",
+      is_recurring: Boolean(income.recurring),
+      recurring_frequency: income.recurringFrequency || "",
+      exchange_rate: income.exchangeRate?.toString() || "",
     })
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
+
     try {
       setError("")
-      const { error } = await supabase.from("income").delete().eq("id", id)
-
-      if (error) {
-        handleSupabaseError(error, "delete income")
-        return
-      }
-
+      await apiRequest<void>(`${API.income}/${id}`, accessToken, { method: "DELETE" })
       setSuccess("Income deleted successfully!")
       await fetchIncomes()
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting income:", error)
-      setError(error.message || "Failed to delete income")
+      setError(error instanceof Error ? error.message : "Failed to delete income")
     }
   }
 
@@ -263,9 +234,9 @@ export default function IncomeManagement() {
   }
 
   // Calculate totals in INR using stored INR equivalents
-  const totalIncomeINR = incomes.reduce((sum, income) => sum + (income.inr_equivalent || 0), 0)
+  const totalIncomeINR = incomes.reduce((sum, income) => sum + (income.inrEquivalent || 0), 0)
   const monthlyRecurringINR = incomes
-    .filter((income) => income.is_recurring && income.recurring_frequency === "monthly")
+    .filter((income) => income.recurring && income.recurringFrequency === "monthly")
     .reduce((sum, income) => sum + (income.inr_equivalent || 0), 0)
 
   if (loading) {
@@ -583,7 +554,7 @@ export default function IncomeManagement() {
                         {formatINR(income.inr_equivalent || 0)}
                       </TableCell>
                       <TableCell>
-                        {income.currency === "USD" && income.exchange_rate ? (
+                        {income.currency === "USD" && income.exchangeRate ? (
                           <Badge variant="outline">₹{income.exchange_rate}</Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>

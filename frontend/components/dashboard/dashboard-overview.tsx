@@ -9,16 +9,15 @@
  *   - Managed by the global Spring Boot AuthProvider.
  *   - The authenticated user ID comes from useAuth().
  *
- * Financial data:
- *   - Existing Supabase database queries are temporarily retained.
- *   - These queries will be migrated to Spring Boot in a later milestone.
+ * Financial data is loaded through owner-scoped Spring Boot APIs. The browser
+ * never supplies a user ID; Spring derives ownership from the validated token.
  */
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import { supabase } from "@/lib/supabase";
+import { API, apiGetPage } from "@/lib/api";
 
 import {
   Card,
@@ -67,10 +66,10 @@ interface DashboardData {
 // 2. Dashboard component
 // -----------------------------------------------------------------------------
 
-type DashboardIncomeRow = { inr_equivalent: number | null }
-type DashboardLoanRow = { current_balance: number; currency: string; status: string }
-type DashboardTransferRow = { inr_equivalent: number | null }
-type DashboardExpenseRow = { inr_equivalent: number | null }
+type DashboardIncomeRow = { inrEquivalent: number | null }
+type DashboardLoanRow = { currentBalance: number; currency: string; status: string }
+type DashboardTransferRow = { inrEquivalent: number | null }
+type DashboardExpenseRow = { inrEquivalent: number | null; expenseDate: string }
 
 export default function DashboardOverview() {
   const router = useRouter();
@@ -80,7 +79,7 @@ export default function DashboardOverview() {
    *
    * We no longer ask Supabase to identify the logged-in user.
    */
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, accessToken, isLoading: authLoading } = useAuth();
 
   // Dashboard financial data.
   const [data, setData] = useState<DashboardData>({
@@ -122,132 +121,55 @@ export default function DashboardOverview() {
     }
 
     // Load financial data for the authenticated backend user.
-    void fetchDashboardData(user.id);
-  }, [authLoading, user]);
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.");
+      setLoading(false);
+      return;
+    }
+    void fetchDashboardData(accessToken);
+  }, [authLoading, user, accessToken]);
 
   // ---------------------------------------------------------------------------
   // 4. Fetch financial data
   // ---------------------------------------------------------------------------
 
   /**
-   * The user ID comes from Spring Boot authentication.
-   *
-   * Existing Supabase financial-data queries are intentionally preserved.
+   * Fetches the first bounded page from each owner-scoped resource. The backend
+   * enforces ownership from the bearer token; no user ID is sent by this client.
    */
-  const fetchDashboardData = async (userId: string) => {
+  const fetchDashboardData = async (token: string) => {
     try {
       setLoading(true);
       setError("");
 
-      // -----------------------------------------------------------------------
-      // Income
-      // -----------------------------------------------------------------------
+      const [incomePage, loanPage, transferPage, expensePage] = await Promise.all([
+        apiGetPage<DashboardIncomeRow>(`${API.income}?page=0&size=1000&sort=date,desc`, token),
+        apiGetPage<DashboardLoanRow>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, token),
+        apiGetPage<DashboardTransferRow>(`${API.transfers}?page=0&size=1000&sort=transferDate,desc`, token),
+        apiGetPage<DashboardExpenseRow>(`${API.monthlyExpenses}?page=0&size=1000&sort=expenseDate,desc`, token),
+      ]);
 
-      const { data: incomeData, error: incomeError } = await supabase
-        .from("income")
-        .select("inr_equivalent")
-        .eq("user_id", userId);
-
-      if (incomeError) {
-        console.error("Error fetching income:", incomeError);
-      }
-
-      // -----------------------------------------------------------------------
-      // Loans
-      // -----------------------------------------------------------------------
-
-      const { data: loansData, error: loansError } = await supabase
-        .from("loans")
-        .select("current_balance, currency, status")
-        .eq("user_id", userId);
-
-      if (loansError) {
-        console.error("Error fetching loans:", loansError);
-      }
-
-      // -----------------------------------------------------------------------
-      // International transfers
-      // -----------------------------------------------------------------------
-
-      const { data: transfersData, error: transfersError } = await supabase
-        .from("international_transfers")
-        .select("inr_equivalent")
-        .eq("user_id", userId);
-
-      if (transfersError) {
-        console.error("Error fetching transfers:", transfersError);
-      }
-
-      // -----------------------------------------------------------------------
-      // Monthly expenses
-      // -----------------------------------------------------------------------
-
+      const incomeData = incomePage.content;
+      const loansData = loanPage.content;
+      const transfersData = transferPage.content;
       const currentDate = new Date();
-
-      const firstDayOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1
+      const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+        .toISOString().slice(0, 10);
+      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+        .toISOString().slice(0, 10);
+      const expensesData = expensePage.content.filter(
+        (expense) => expense.expenseDate >= firstDay && expense.expenseDate <= lastDay
       );
 
-      const lastDayOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        0
-      );
-
-      const { data: expensesData, error: expensesError } = await supabase
-        .from("monthly_expenses")
-        .select("inr_equivalent")
-        .eq("user_id", userId)
-        .gte(
-          "expense_date",
-          firstDayOfMonth.toISOString().split("T")[0]
-        )
-        .lte(
-          "expense_date",
-          lastDayOfMonth.toISOString().split("T")[0]
-        );
-
-      if (expensesError) {
-        console.error("Error fetching expenses:", expensesError);
-      }
-
-      // -----------------------------------------------------------------------
-      // 5. Calculate financial totals
-      // -----------------------------------------------------------------------
-
-      // Income is already represented using INR equivalents.
-      const totalIncome = (incomeData || []).reduce(
-        (sum: number, item: DashboardIncomeRow) => sum + (item.inr_equivalent || 0),
-        0
-      );
-
-      // Preserve the existing USD-to-INR loan conversion logic.
-      const totalLoans = (loansData || []).reduce((sum: number, item: DashboardLoanRow) => {
-        const amountInINR =
-          item.currency === "USD"
-            ? item.current_balance * 83.25
-            : item.current_balance;
-
+      const totalIncome = incomeData.reduce((sum, item) => sum + Number(item.inrEquivalent ?? 0), 0);
+      const totalLoans = loansData.reduce((sum, item) => {
+        const amountInINR = item.currency === "USD" ? item.currentBalance * 83.25 : item.currentBalance;
         return sum + amountInINR;
       }, 0);
+      const totalTransfers = transfersData.reduce((sum, item) => sum + Number(item.inrEquivalent ?? 0), 0);
+      const totalExpenses = expensesData.reduce((sum, item) => sum + Number(item.inrEquivalent ?? 0), 0);
+      const activeLoans = loansData.filter((loan) => loan.status === "active").length;
 
-      const totalTransfers = (transfersData || []).reduce(
-        (sum: number, item: DashboardTransferRow) => sum + (item.inr_equivalent || 0),
-        0
-      );
-
-      const totalExpenses = (expensesData || []).reduce(
-        (sum: number, item: DashboardExpenseRow) => sum + (item.inr_equivalent || 0),
-        0
-      );
-
-      const activeLoans = (loansData || []).filter(
-        (loan: DashboardLoanRow) => loan.status === "active"
-      ).length;
-
-      // Update the dashboard with the calculated values.
       setData({
         totalIncome,
         totalLoans,
@@ -260,12 +182,7 @@ export default function DashboardOverview() {
       });
     } catch (error: unknown) {
       console.error("Error fetching dashboard data:", error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch dashboard data."
-      );
+      setError(error instanceof Error ? error.message : "Failed to fetch dashboard data.");
     } finally {
       setLoading(false);
     }
