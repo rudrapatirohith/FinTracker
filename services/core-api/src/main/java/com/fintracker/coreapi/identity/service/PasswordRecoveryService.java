@@ -100,7 +100,7 @@ public class PasswordRecoveryService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken token = tokens.findByTokenHash(sha256(request.token()))
+        PasswordResetToken token = tokens.findByTokenHashForUpdate(sha256(request.token()))
                 .orElseThrow(PasswordRecoveryService::invalidResetToken);
 
         if (!token.getExpiresAt().isAfter(Instant.now())) {
