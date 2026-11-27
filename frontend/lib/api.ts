@@ -1,31 +1,15 @@
 /**
- * Shared API utilities for communicating with the Spring Boot backend.
+ * Typed transport for the Spring Boot API.
  *
- * The frontend uses this file instead of hardcoding backend URLs
- * or implementing CSRF handling separately in every component.
+ * Authentication is deliberately supplied by the caller: the access token lives
+ * in AuthProvider memory and is never copied into localStorage or a cookie.
+ * The backend derives record ownership from that token, so request DTOs must
+ * never contain a client-selected userId.
  */
 
-// -----------------------------------------------------------------------------
-// 1. Backend configuration
-// -----------------------------------------------------------------------------
-
-/**
- * Base URL of our Spring Boot application.
- *
- * NEXT_PUBLIC_CORE_API_URL is configured in frontend/.env.local.
- *
- * The fallback is useful for local development, but production deployments
- * should explicitly configure their backend URL.
- */
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_CORE_API_URL ?? "http://localhost:8080";
 
-/**
- * Centralized API paths.
- *
- * Keeping paths together reduces typing mistakes and makes future API
- * version changes easier to manage.
- */
 export const AUTH_API = {
   csrf: "/api/v1/auth/csrf",
   register: "/api/v1/auth/register",
@@ -36,26 +20,23 @@ export const AUTH_API = {
   me: "/api/v1/auth/me",
 } as const;
 
-// -----------------------------------------------------------------------------
-// 2. Backend response types
-// -----------------------------------------------------------------------------
+export const API = {
+  income: "/api/v1/income",
+  monthlyExpenses: "/api/v1/monthly-expenses",
+  loans: "/api/v1/loans",
+  transfers: "/api/v1/international-transfers",
+  scheduledPayments: "/api/v1/scheduled-payments",
+  dashboardSummary: "/api/v1/dashboard/summary",
+  analyticsCategories: "/api/v1/analytics/categories",
+  analyticsMonthlyTrends: "/api/v1/analytics/monthly-trends",
+  reportsSummary: "/api/v1/reports/summary",
+} as const;
 
-/**
- * Shape returned by GET /api/v1/auth/csrf.
- *
- * The backend returns both the token and the header name expected
- * by Spring Security.
- */
 export interface CsrfTokenResponse {
   token: string;
   headerName: string;
 }
 
-/**
- * Shape returned by successful login, refresh, and OAuth exchange requests.
- *
- * This matches the Java LoginResponse record in our backend.
- */
 export interface LoginResponse {
   accessToken: string;
   tokenType: string;
@@ -64,12 +45,6 @@ export interface LoginResponse {
   email: string;
 }
 
-/**
- * Shape returned by successful registration.
- *
- * Registration does not log the user in. It only creates the account
- * and returns safe account information.
- */
 export interface RegisterResponse {
   id: string;
   email: string;
@@ -77,117 +52,152 @@ export interface RegisterResponse {
   status: string;
 }
 
-/**
- * Standard error response returned by Spring Boot ProblemDetail.
- *
- * We use detail as the primary user-facing error message.
- */
-export interface ApiProblemDetail {
-  title?: string;
-  detail?: string;
-  status?: number;
-}
-
-/**
- * Shape returned by GET /api/v1/auth/me.
- */
 export interface CurrentUserResponse {
   userId: string;
 }
 
-// -----------------------------------------------------------------------------
-// 3. CSRF token retrieval
-// -----------------------------------------------------------------------------
+export interface ApiPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+  numberOfElements: number;
+  empty: boolean;
+}
 
-/**
- * Requests a CSRF token from the backend.
- *
- * Why do we need this?
- *
- * Spring Security protects state-changing requests such as POST, PUT,
- * PATCH, and DELETE against Cross-Site Request Forgery (CSRF).
- *
- * Our backend:
- *   1. Returns the CSRF token in the JSON response.
- *   2. Stores the corresponding token in the XSRF-TOKEN cookie.
- *
- * The frontend must send the returned token in the header expected
- * by Spring Security when making a protected request.
- *
- * credentials: "include" is essential because the backend also sets cookies.
- */
+export interface ApiProblemDetail {
+  title?: string;
+  detail?: string;
+  status?: number;
+  message?: string;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly title?: string;
+
+  constructor(message: string, status: number, title?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.title = title;
+  }
+}
+
 export async function getCsrfToken(): Promise<CsrfTokenResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}${AUTH_API.csrf}`,
-    {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${API_BASE_URL}${AUTH_API.csrf}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
 
   if (!response.ok) {
-    throw new Error(
-      `Unable to obtain CSRF token. HTTP status: ${response.status}`
+    throw new ApiError(
+      `Unable to obtain CSRF token (HTTP ${response.status}).`,
+      response.status
     );
   }
 
-  const csrfResponse =
-    (await response.json()) as CsrfTokenResponse;
-
-  // Fail early if the backend response does not have the expected structure.
-  if (!csrfResponse.token || !csrfResponse.headerName) {
+  const csrf = (await response.json()) as CsrfTokenResponse;
+  if (!csrf.token || !csrf.headerName) {
     throw new Error("Backend returned an invalid CSRF token response.");
   }
-
-  return csrfResponse;
+  return csrf;
 }
 
-// -----------------------------------------------------------------------------
-// 4. Helper for CSRF-protected requests
-// -----------------------------------------------------------------------------
-
 /**
- * Sends a request that requires CSRF protection.
- *
- * Example:
- *
- * const response = await fetchWithCsrf(AUTH_API.login, {
- *   method: "POST",
- *   headers: {
- *     "Content-Type": "application/json",
- *   },
- *   body: JSON.stringify({ email, password }),
- * });
- *
- * This helper automatically:
- *   1. Obtains a fresh CSRF token.
- *   2. Adds that token to the expected request header.
- *   3. Includes browser cookies in the request.
- *
- * We use this for state-changing authentication operations.
+ * Authentication endpoints use cookie-backed refresh sessions. This helper
+ * obtains the CSRF token for each state-changing request and preserves caller
+ * headers so OAuth/login payloads can share the same transport.
  */
 export async function fetchWithCsrf(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  // Obtain a CSRF token before making the protected request.
   const csrf = await getCsrfToken();
-
-  // Headers provides a safe way to merge existing headers with our CSRF header.
   const headers = new Headers(options.headers);
-
-  // Spring Security expects this header name and token value.
   headers.set(csrf.headerName, csrf.token);
 
-  // Send the actual request to the backend.
   return fetch(`${API_BASE_URL}${path}`, {
     ...options,
-
-    // Include cookies, especially the HttpOnly refresh-token cookie.
     credentials: "include",
-
-    // Attach the CSRF token required by Spring Security.
     headers,
   });
+}
+
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Sends an authenticated API request. Spring Security's CSRF token is attached
+ * to mutations in addition to the short-lived bearer token. The server remains
+ * authoritative for ownership; callers pass only business fields and record IDs.
+ */
+export async function apiRequest<T>(
+  path: string,
+  accessToken: string,
+  options: RequestInit = {}
+): Promise<T> {
+  if (!accessToken) {
+    throw new ApiError("Your session has expired. Please sign in again.", 401);
+  }
+
+  const method = (options.method ?? "GET").toUpperCase();
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${accessToken}`);
+
+  if (options.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const requestOptions: RequestInit = {
+    ...options,
+    method,
+    headers,
+    credentials: "include",
+    cache: "no-store",
+  };
+
+  const response = MUTATING_METHODS.has(method)
+    ? await fetchWithCsrf(path, requestOptions)
+    : await fetch(`${API_BASE_URL}${path}`, requestOptions);
+
+  if (!response.ok) {
+    let problem: ApiProblemDetail | undefined;
+    try {
+      problem = (await response.json()) as ApiProblemDetail;
+    } catch {
+      // Some expected responses, such as 401/403, intentionally have no body.
+    }
+
+    throw new ApiError(
+      problem?.detail ??
+        problem?.message ??
+        problem?.title ??
+        `Request failed (HTTP ${response.status}).`,
+      response.status,
+      problem?.title
+    );
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Spring Data returns collections in a Page envelope. Normalizing that shape
+ * here keeps screen components independent of pagination metadata when they
+ * intentionally request the first page only.
+ */
+export async function apiGetPage<T>(
+  path: string,
+  accessToken: string
+): Promise<ApiPage<T>> {
+  return apiRequest<ApiPage<T>>(path, accessToken);
 }
