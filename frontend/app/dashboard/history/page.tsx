@@ -166,9 +166,15 @@ export default function TransactionHistoryPage() {
     }
   }
 
-  const totalIncome = filteredTransactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
+  // Convert each record before aggregating; summing raw USD, INR, and other
+  // currency amounts together would produce a meaningless mixed-currency total.
+  const totalIncome = filteredTransactions
+    .filter((transaction) => transaction.amount > 0)
+    .reduce((sum, transaction) => sum + toUSD(transaction.amount, transaction.currency), 0)
 
-  const totalExpenses = Math.abs(filteredTransactions.filter((t) => t.amount < 0).reduce((sum, t) => sum + t.amount, 0))
+  const totalExpenses = filteredTransactions
+    .filter((transaction) => transaction.amount < 0)
+    .reduce((sum, transaction) => sum + toUSD(Math.abs(transaction.amount), transaction.currency), 0)
 
   const netAmount = totalIncome - totalExpenses
 

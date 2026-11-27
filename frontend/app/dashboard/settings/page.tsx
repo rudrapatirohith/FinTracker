@@ -266,7 +266,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Password</h4>
-                <p className="text-sm text-muted-foreground">Change your account password</p>
+                <p className="text-sm text-muted-foreground">Password recovery will be enabled after the backend email-delivery and recovery-token flow is configured.</p>
               </div>
               <Button variant="outline" onClick={handlePasswordReset} disabled>
                 Reset Password

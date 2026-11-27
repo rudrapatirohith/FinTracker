@@ -117,7 +117,9 @@ export default function AIAssistant() {
       const monthExpensesUSD = expensePage.content
         .filter((expense) => expense.expenseDate >= asLocalDate(start) && expense.expenseDate <= asLocalDate(now))
         .reduce((sum, expense) => sum + toUSD(Number(expense.amount), expense.currency), 0)
-      const totalExpensesUSD = totalTransfersUSD + totalLoanPaymentsUSD
+      const totalExpensesUSD = summaryRows
+        .filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
+        .reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
 
       const categoryTotals = new Map<string, number>()
       summaryRows.filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
