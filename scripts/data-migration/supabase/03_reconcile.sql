@@ -211,13 +211,13 @@ ORDER BY 1,2;
 \echo 'Ownership and loan relationship violations (all must be zero)'
 SELECT count(*) AS unmapped_financial_owners
 FROM (
-    SELECT user_id FROM public.income t JOIN migration_source.income s USING(id)
-    UNION SELECT user_id FROM public.monthly_expenses t JOIN migration_source.monthly_expenses s USING(id)
-    UNION SELECT user_id FROM public.loans t JOIN migration_source.loans s USING(id)
-    UNION SELECT user_id FROM public.loan_payments t JOIN migration_source.loan_payments s USING(id)
-    UNION SELECT user_id FROM public.international_transfers t JOIN migration_source.international_transfers s USING(id)
-    UNION SELECT user_id FROM public.scheduled_payments t JOIN migration_source.scheduled_payments s USING(id)
-    UNION SELECT user_id FROM public.transactions t JOIN migration_source.transactions s USING(id)
+    SELECT t.user_id FROM public.income t JOIN migration_source.income s USING(id)
+    UNION SELECT t.user_id FROM public.monthly_expenses t JOIN migration_source.monthly_expenses s USING(id)
+    UNION SELECT t.user_id FROM public.loans t JOIN migration_source.loans s USING(id)
+    UNION SELECT t.user_id FROM public.loan_payments t JOIN migration_source.loan_payments s USING(id)
+    UNION SELECT t.user_id FROM public.international_transfers t JOIN migration_source.international_transfers s USING(id)
+    UNION SELECT t.user_id FROM public.scheduled_payments t JOIN migration_source.scheduled_payments s USING(id)
+    UNION SELECT t.user_id FROM public.transactions t JOIN migration_source.transactions s USING(id)
 ) f
 LEFT JOIN public.legacy_user_mappings m
   ON m.provider = 'SUPABASE' AND m.legacy_user_id = f.user_id AND m.app_user_id = f.user_id
