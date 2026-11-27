@@ -155,7 +155,7 @@ export default function IncomeManagement() {
         description: formData.description || null,
         date: formData.date,
         recurring: formData.is_recurring,
-        recurringFrequency: formData.is_recurring ? formData.is_recurring_frequency : null,
+        recurringFrequency: formData.is_recurring ? formData.recurring_frequency : null,
         exchangeRate,
         inrEquivalent,
       }
@@ -478,7 +478,7 @@ export default function IncomeManagement() {
                     <div className="space-y-2">
                       <Label htmlFor="frequency">Frequency</Label>
                       <Select
-                        value={formData.is_recurring_frequency}
+                        value={formData.recurring_frequency}
                         onValueChange={(value) => setFormData({ ...formData, recurring_frequency: value })}
                       >
                         <SelectTrigger>
