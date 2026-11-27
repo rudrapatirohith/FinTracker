@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic"
 
 import { useCallback, useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -46,13 +47,37 @@ const exportFormats = [
   { value: "csv", label: "CSV Data", icon: TrendingUp },
 ]
 
-type IncomeReportRow = { amount: number; category: string | null }
-type TransferReportRow = { transfer_fee: number; amount_sent: number; exchange_rate: number }
-type LoanReportRow = { current_balance: number; principal_amount: number }
-type LoanPaymentReportRow = { amount: number }
-type ScheduledPaymentReportRow = { amount: number; category: string | null }
+interface FinancialReportRow {
+  metric: string
+  category: string
+  currency: string
+  totalAmount: number
+  recordCount: number
+  snapshotDate: string | null
+}
+interface FinancialTrendRow {
+  period: string
+  metric: string
+  currency: string
+  totalAmount: number
+  recordCount: number
+}
+interface LoanReportRow {
+  id: string
+  currentBalance: number
+  principalAmount: number
+  currency: string
+}
+interface TransferReportRow {
+  transferDate: string
+  amountSent: number
+  currencySent: string
+  transferFee: number | null
+  exchangeRate: number
+}
 
 export default function ExportReportsPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -62,25 +87,25 @@ export default function ExportReportsPage() {
   const [dateTo, setDateTo] = useState<Date>()
 
   const generateReport = useCallback(async () => {
+    if (authLoading) return
+    if (!accessToken) {
+      setLoading(false)
+      setReportData(null)
+      return
+    }
     setLoading(true)
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Calculate date range based on report type
       let startDate: Date
       let endDate = new Date()
-
       switch (selectedReportType) {
         case "monthly":
           startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
           break
-        case "quarterly":
+        case "quarterly": {
           const quarter = Math.floor(endDate.getMonth() / 3)
           startDate = new Date(endDate.getFullYear(), quarter * 3, 1)
           break
+        }
         case "yearly":
           startDate = new Date(endDate.getFullYear(), 0, 1)
           break
@@ -91,126 +116,80 @@ export default function ExportReportsPage() {
         default:
           startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
       }
-
-      // Fetch data from all relevant tables
-      const [incomeData, transferData, loanData, loanPaymentData, scheduledPaymentData] = await Promise.all([
-        supabase
-          .from("income")
-          .select("*")
-          .eq("user_id", user.id)
-          .gte("date", startDate.toISOString().split("T")[0])
-          .lte("date", endDate.toISOString().split("T")[0]),
-        supabase
-          .from("international_transfers")
-          .select("*")
-          .eq("user_id", user.id)
-          .gte("transfer_date", startDate.toISOString().split("T")[0])
-          .lte("transfer_date", endDate.toISOString().split("T")[0]),
-        supabase.from("loans").select("*").eq("user_id", user.id),
-        supabase
-          .from("loan_payments")
-          .select("*")
-          .eq("user_id", user.id)
-          .gte("payment_date", startDate.toISOString().split("T")[0])
-          .lte("payment_date", endDate.toISOString().split("T")[0]),
-        supabase
-          .from("scheduled_payments")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("status", "paid")
-          .gte("due_date", startDate.toISOString().split("T")[0])
-          .lte("due_date", endDate.toISOString().split("T")[0]),
+      const asLocalDate = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, "0")
+        const day = String(date.getDate()).padStart(2, "0")
+        return `${year}-${month}-${day}`
+      }
+      const query = `?from=${asLocalDate(startDate)}&to=${asLocalDate(endDate)}`
+      const [summaryRows, trendRows, loanPage, transferPage] = await Promise.all([
+        apiRequest<FinancialReportRow[]>(`${API.reportsSummary}${query}`, accessToken),
+        apiRequest<FinancialTrendRow[]>(`${API.analyticsMonthlyTrends}${query}`, accessToken),
+        apiGetPage<LoanReportRow>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, accessToken),
+        apiGetPage<TransferReportRow>(`${API.transfers}?page=0&size=1000&sort=transferDate,desc`, accessToken),
       ])
 
-      // Calculate totals
-      const totalIncome = incomeData.data?.reduce((sum: number, item: IncomeReportRow) => sum + Number(item.amount), 0) || 0
-      const totalTransferFees = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.transfer_fee), 0) || 0
-      const totalLoanPayments = loanPaymentData.data?.reduce((sum: number, item: LoanPaymentReportRow) => sum + Number(item.amount), 0) || 0
-      const totalScheduledPayments = scheduledPaymentData.data?.reduce((sum: number, item: ScheduledPaymentReportRow) => sum + Number(item.amount), 0) || 0
-      const totalTransfersSent = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.amount_sent), 0) || 0
-
-      const totalExpenses = totalTransferFees + totalLoanPayments + totalScheduledPayments + totalTransfersSent
+      const incomeRows = summaryRows.filter((row) => row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME")
+      const expenseRows = summaryRows.filter((row) => !["INCOME", "TRANSACTION_INCOME", "LOAN_OUTSTANDING"].includes(row.metric))
+      const totalIncome = incomeRows.reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
+      const totalExpenses = expenseRows.reduce((sum, row) => sum + toUSD(Number(row.totalAmount), row.currency), 0)
       const netIncome = totalIncome - totalExpenses
 
-      // Calculate category breakdown
       const categoryMap = new Map<string, number>()
-
-      // Add income categories
-      incomeData.data?.forEach((item: IncomeReportRow) => {
-        const category = item.category || "Other Income"
-        categoryMap.set(category, (categoryMap.get(category) || 0) + Number(item.amount))
+      summaryRows.filter((row) => row.metric !== "LOAN_OUTSTANDING").forEach((row) => {
+        const category = row.category || "Other"
+        categoryMap.set(category, (categoryMap.get(category) || 0) + toUSD(Number(row.totalAmount), row.currency))
       })
-
-      // Add expense categories
-      transferData.data?.forEach((item: TransferReportRow) => {
-        categoryMap.set(
-          "International Transfers",
-          (categoryMap.get("International Transfers") || 0) + Number(item.amount_sent),
-        )
-      })
-
-      loanPaymentData.data?.forEach((item: LoanPaymentReportRow) => {
-        categoryMap.set("Loan Payments", (categoryMap.get("Loan Payments") || 0) + Number(item.amount))
-      })
-
-      scheduledPaymentData.data?.forEach((item: ScheduledPaymentReportRow) => {
-        const category = item.category || "Other Expenses"
-        categoryMap.set(category, (categoryMap.get(category) || 0) + Number(item.amount))
-      })
-
       const topCategories = Array.from(categoryMap.entries())
         .map(([category, amount]) => ({
           category,
           amount,
-          percentage: totalIncome > 0 ? (Math.abs(amount) / totalIncome) * 100 : 0,
+          percentage: totalExpenses > 0 ? (Math.abs(amount) / totalExpenses) * 100 : 0,
         }))
-        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+        .sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
         .slice(0, 5)
 
-      // Calculate loan summary
-      const totalDebt = loanData.data?.reduce((sum: number, loan: LoanReportRow) => sum + Number(loan.current_balance), 0) || 0
-      const totalPrincipal = loanData.data?.reduce((sum: number, loan: LoanReportRow) => sum + Number(loan.principal_amount), 0) || 0
-      const totalPaid = totalPrincipal - totalDebt
+      const totalDebt = loanPage.content.reduce((sum, loan) => sum + toUSD(Number(loan.currentBalance), loan.currency), 0)
+      const totalPrincipal = loanPage.content.reduce((sum, loan) => sum + toUSD(Number(loan.principalAmount), loan.currency), 0)
+      const totalPaid = Math.max(0, totalPrincipal - totalDebt)
       const averageProgress = totalPrincipal > 0 ? (totalPaid / totalPrincipal) * 100 : 0
 
-      // Calculate transfer summary
-      const totalSent = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.amount_sent), 0) || 0
-      const totalFees = transferData.data?.reduce((sum: number, item: TransferReportRow) => sum + Number(item.transfer_fee), 0) || 0
-      const averageRate =
-        transferData.data?.length > 0
-          ? transferData.data.reduce((sum: number, item: TransferReportRow) => sum + Number(item.exchange_rate), 0) / transferData.data.length
-          : 0
+      const transfersInRange = transferPage.content.filter((transfer) =>
+        transfer.transferDate >= asLocalDate(startDate) && transfer.transferDate <= asLocalDate(endDate)
+      )
+      const totalSent = transfersInRange.reduce((sum, item) => sum + toUSD(Number(item.amountSent), item.currencySent), 0)
+      const totalFees = transfersInRange.reduce((sum, item) => sum + toUSD(Number(item.transferFee ?? 0), item.currencySent), 0)
+      const averageRate = transfersInRange.length > 0
+        ? transfersInRange.reduce((sum, item) => sum + Number(item.exchangeRate), 0) / transfersInRange.length
+        : 0
 
-      // Generate monthly trends (simplified for demo)
-      const monthlyTrends = [
-        { month: "Jan", income: totalIncome * 0.8, expenses: totalExpenses * 0.7 },
-        { month: "Feb", income: totalIncome * 0.9, expenses: totalExpenses * 0.8 },
-        { month: "Mar", income: totalIncome, expenses: totalExpenses },
-      ]
+      const monthlyMap = new Map<string, { income: number; expenses: number }>()
+      trendRows.forEach((row) => {
+        const current = monthlyMap.get(row.period) ?? { income: 0, expenses: 0 }
+        const amount = toUSD(Number(row.totalAmount), row.currency)
+        if (row.metric === "INCOME" || row.metric === "TRANSACTION_INCOME") current.income += amount
+        else current.expenses += amount
+        monthlyMap.set(row.period, current)
+      })
+      const monthlyTrends = Array.from(monthlyMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([period, values]) => ({
+        month: new Date(`${period}-01T00:00:00`).toLocaleDateString("en-US", { month: "short" }),
+        income: values.income,
+        expenses: values.expenses,
+      }))
 
       setReportData({
-        totalIncome,
-        totalExpenses,
-        netIncome,
-        topCategories,
-        monthlyTrends,
-        loanSummary: {
-          totalDebt,
-          totalPaid,
-          averageProgress,
-        },
-        transferSummary: {
-          totalSent,
-          totalFees,
-          averageRate,
-        },
+        totalIncome, totalExpenses, netIncome, topCategories, monthlyTrends,
+        loanSummary: { totalDebt, totalPaid, averageProgress },
+        transferSummary: { totalSent, totalFees, averageRate },
       })
     } catch (error) {
       console.error("Error generating report:", error)
+      setReportData(null)
     } finally {
       setLoading(false)
     }
-  }, [selectedReportType, dateFrom, dateTo])
+  }, [accessToken, authLoading, selectedReportType, dateFrom, dateTo])
 
   useEffect(() => {
     void generateReport()

@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, AUTH_API, apiRequest, fetchWithCsrf } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,15 +15,17 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { User, Bell, Shield, Palette } from "lucide-react"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
+
 
 interface Profile {
-  id: string
-  email: string | null
-  full_name: string | null
-  avatar_url: string | null
-  currency_preference: string | null
-  timezone: string | null
+  userId: string
+  email: string
+  fullName: string | null
+  avatarUrl: string | null
+  currencyPreference: string
+  timezone: string
+  accountCreatedAt: string
+  profileUpdatedAt: string
 }
 
 const currencies = [
@@ -48,7 +51,7 @@ const timezones = [
 ]
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const { user, accessToken } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -69,82 +72,47 @@ export default function SettingsPage() {
   }, [])
 
   const fetchUserData = async () => {
+    if (!accessToken) {
+      setLoading(false)
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      setUser(user)
-
-      // Fetch or create profile
-      let { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-      if (error && error.code === "PGRST116") {
-        // Profile doesn't exist, create it
-        const newProfile = {
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || "",
-          avatar_url: user.user_metadata?.avatar_url || null,
-          currency_preference: "USD",
-          timezone: "UTC",
-        }
-
-        const { data: createdProfile, error: createError } = await supabase
-          .from("profiles")
-          .insert([newProfile])
-          .select()
-          .single()
-
-        if (createError) throw createError
-        profile = createdProfile
-      } else if (error) {
-        throw error
-      }
-
-      setProfile(profile)
-      setFormData({
-        full_name: profile?.full_name || "",
-        currency_preference: profile?.currency_preference || "USD",
-        timezone: profile?.timezone || "UTC",
-        email_notifications: true,
-        push_notifications: false,
-        dark_mode: false,
-      })
+      const currentProfile = await apiRequest<Profile>(API.profile, accessToken)
+      setProfile(currentProfile)
+      setFormData((current) => ({
+        ...current,
+        full_name: currentProfile.fullName || "",
+        currency_preference: currentProfile.currencyPreference || "USD",
+        timezone: currentProfile.timezone || "UTC",
+      }))
     } catch (error) {
-      console.error("Error fetching user data:", error)
-      setError("Failed to load user settings")
+      console.error("Error fetching user profile:", error)
+      setError(error instanceof Error ? error.message : "Failed to load user settings")
     } finally {
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
-    if (!user || !profile) return
-
+    if (!accessToken || !profile) return
     setSaving(true)
     setError("")
     setMessage("")
-
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          currency_preference: formData.currency_preference,
+      const updated = await apiRequest<Profile>(API.profile, accessToken, {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: formData.full_name,
+          currencyPreference: formData.currency_preference,
           timezone: formData.timezone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id)
-
-      if (error) throw error
-
-      setMessage("Settings saved successfully!")
+        }),
+      })
+      setProfile(updated)
+      setMessage("Profile settings saved successfully!")
       setTimeout(() => setMessage(""), 3000)
     } catch (error) {
-      console.error("Error saving settings:", error)
-      setError("Failed to save settings")
+      console.error("Error saving profile settings:", error)
+      setError(error instanceof Error ? error.message : "Failed to save settings")
     } finally {
       setSaving(false)
     }
@@ -152,17 +120,27 @@ export default function SettingsPage() {
 
   const handlePasswordReset = async () => {
     if (!user?.email) return
-
+    setError("")
+    setMessage("")
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+      const response = await fetchWithCsrf(AUTH_API.forgotPassword, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
       })
-
-      if (error) throw error
-      setMessage("Password reset email sent!")
+      if (!response.ok) {
+        let detail = "Password recovery could not be started."
+        try {
+          const problem = await response.json()
+          detail = problem.detail || problem.message || problem.title || detail
+        } catch {
+          // Use the safe fallback when the server response has no JSON body.
+        }
+        throw new Error(detail)
+      }
+      setMessage("If this email is registered, you will receive a password reset link shortly.")
     } catch (error) {
-      console.error("Error sending password reset:", error)
-      setError("Failed to send password reset email")
+      setError(error instanceof Error ? error.message : "Password recovery could not be started.")
     }
   }
 
@@ -225,7 +203,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} />
+                <AvatarImage src={user?.avatarUrl || profile?.avatarUrl || "/placeholder.svg"} />
                 <AvatarFallback>
                   <User className="h-10 w-10" />
                 </AvatarFallback>
@@ -233,7 +211,7 @@ export default function SettingsPage() {
               <div>
                 <h3 className="font-medium">{user?.email}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Member since {new Date(user?.created_at || "").toLocaleDateString()}
+                  Member since {new Date(profile?.accountCreatedAt || "").toLocaleDateString()}
                 </p>
               </div>
             </div>
@@ -307,7 +285,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Password</h4>
-                <p className="text-sm text-muted-foreground">Change your account password</p>
+                <p className="text-sm text-muted-foreground">Send a single-use password reset link to your account email.</p>
               </div>
               <Button variant="outline" onClick={handlePasswordReset}>
                 Reset Password

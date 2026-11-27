@@ -182,6 +182,15 @@ public class RefreshSessionService {
     }
 
     /**
+     * Invalidates every active refresh session for the account after a
+     * credential change. Already-issued access JWTs expire within their short TTL.
+     */
+    @Transactional
+    public void revokeAllSessionsForUser(UUID userId) {
+        userSessionRepository.revokeActiveByUserId(userId, Instant.now(), "PASSWORD_RESET");
+    }
+
+    /**
      * Creates a new FinTracker session for a user who has already
      * been authenticated by a trusted authentication mechanism.
      *

@@ -34,6 +34,7 @@ import {
   API_BASE_URL,
   AUTH_API,
   fetchWithCsrf,
+  registerAccessTokenRefreshListener,
   type CurrentUserResponse,
   type LoginResponse,
 } from "@/lib/api";
@@ -119,6 +120,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // True while the provider is checking whether a refresh session exists.
   const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * Keep the in-memory React session synchronized when the shared API client
+   * rotates an expired access token after a protected request receives 401.
+   */
+  useEffect(() => {
+    return registerAccessTokenRefreshListener((session) => {
+      if (!session) {
+        sessionEstablishedRef.current = false;
+        setUser(null);
+        setAccessToken(null);
+        return;
+      }
+
+      setUser(createAuthUser(session));
+      setAccessToken(session.accessToken);
+      sessionEstablishedRef.current = true;
+    });
+  }, []);
 
   /**
    * Tracks whether this provider instance has already established

@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase, handleSupabaseError } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,22 +38,22 @@ import { formatUSD, formatINR, calculateINREquivalent, getCurrentExchangeRate, i
 
 interface Transfer {
   id: string
-  recipient_name: string
-  recipient_country: string
-  amount_sent: number
-  currency_sent: string
-  amount_received: number
-  currency_received: string
-  exchange_rate: number
-  transfer_fee: number
-  transfer_method: string | null
+  recipientName: string
+  recipientCountry: string
+  amountSent: number
+  currencySent: string
+  amountReceived: number
+  currencyReceived: string
+  exchangeRate: number
+  transferFee: number
+  transferMethod: string | null
   purpose: string | null
   status: string
-  transfer_date: string
-  completion_date: string | null
-  reference_number: string | null
-  usd_to_inr_rate: number | null
-  inr_equivalent: number | null
+  transferDate: string
+  completionDate: string | null
+  referenceNumber: string | null
+  usdToInrRate: number | null
+  inrEquivalent: number | null
 }
 
 // Countries with focus on India
@@ -86,6 +87,7 @@ const transferPurposes = [
 ]
 
 export default function InternationalTransfers() {
+  const { accessToken } = useAuth()
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -96,20 +98,20 @@ export default function InternationalTransfers() {
   const [success, setSuccess] = useState("")
 
   const [formData, setFormData] = useState({
-    recipient_name: "",
-    recipient_country: "India",
-    amount_sent: "",
-    currency_sent: "USD",
-    amount_received: "",
-    currency_received: "INR",
-    exchange_rate: "",
-    transfer_fee: "",
-    transfer_method: "",
+    recipientName: "",
+    recipientCountry: "India",
+    amountSent: "",
+    currencySent: "USD",
+    amountReceived: "",
+    currencyReceived: "INR",
+    exchangeRate: "",
+    transferFee: "",
+    transferMethod: "",
     purpose: "",
     status: "pending",
-    transfer_date: new Date().toISOString().split("T")[0],
-    reference_number: "",
-    usd_to_inr_rate: "",
+    transferDate: new Date().toISOString().split("T")[0],
+    referenceNumber: "",
+    usdToInrRate: "",
   })
 
   useEffect(() => {
@@ -124,8 +126,8 @@ export default function InternationalTransfers() {
       setCurrentExchangeRate(rate)
       setFormData((prev) => ({
         ...prev,
-        exchange_rate: rate.toString(),
-        usd_to_inr_rate: rate.toString(),
+        exchangeRate: rate.toString(),
+        usdToInrRate: rate.toString(),
       }))
     } catch (error) {
       console.error("Failed to fetch exchange rate:", error)
@@ -135,35 +137,18 @@ export default function InternationalTransfers() {
   }
 
   const fetchTransfers = async () => {
+    if (!accessToken) {
+      setError("Please sign in to view transfers.")
+      setLoading(false)
+      return
+    }
     try {
       setError("")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view transfers")
-        return
-      }
-
-      console.log("Fetching transfers for user:", user.id)
-
-      const { data, error } = await supabase
-        .from("international_transfers")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("transfer_date", { ascending: false })
-
-      if (error) {
-        handleSupabaseError(error, "fetch transfers")
-        return
-      }
-
-      console.log("Fetched transfers:", data)
-      setTransfers(data || [])
-    } catch (error: any) {
+      const page = await apiGetPage<Transfer>(`${API.transfers}?page=0&size=1000&sort=transferDate,desc`, accessToken)
+      setTransfers(page.content)
+    } catch (error) {
       console.error("Error fetching transfers:", error)
-      setError(error.message || "Failed to fetch transfers")
+      setError(error instanceof Error ? error.message : "Failed to fetch transfers")
     } finally {
       setLoading(false)
     }
@@ -182,147 +167,119 @@ export default function InternationalTransfers() {
     e.preventDefault()
     setError("")
     setSuccess("")
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add transfers")
-        return
-      }
-
-      // Validate exchange rates
-      const exchangeRate = Number.parseFloat(formData.exchange_rate)
+      const exchangeRate = Number.parseFloat(formData.exchangeRate)
       if (!isValidExchangeRate(exchangeRate)) {
         setError("Please enter a valid exchange rate")
         return
       }
-
-      let usdToInrRate = null
-      let inrEquivalent = null
-
-      // Calculate USD to INR rate and INR equivalent
-      if (formData.currency_sent === "USD") {
-        const rate = Number.parseFloat(formData.usd_to_inr_rate)
+      let usdToInrRate: number | null = null
+      let inrEquivalent: number | null = null
+      if (formData.currencySent === "USD") {
+        const rate = Number.parseFloat(formData.usdToInrRate)
         if (!isValidExchangeRate(rate)) {
           setError("Please enter a valid USD to INR rate")
           return
         }
         usdToInrRate = rate
-        inrEquivalent = calculateINREquivalent(Number.parseFloat(formData.amount_sent), rate)
+        inrEquivalent = calculateINREquivalent(Number.parseFloat(formData.amountSent), rate)
       }
-
-      console.log("Submitting transfer data...")
-
       const transferData = {
-        user_id: user.id,
-        recipient_name: formData.recipient_name,
-        recipient_country: formData.recipient_country,
-        amount_sent: Number.parseFloat(formData.amount_sent),
-        currency_sent: formData.currency_sent,
-        amount_received: Number.parseFloat(formData.amount_received),
-        currency_received: formData.currency_received,
-        exchange_rate: exchangeRate,
-        transfer_fee: Number.parseFloat(formData.transfer_fee) || 0,
-        transfer_method: formData.transfer_method || null,
+        recipientName: formData.recipientName,
+        recipientCountry: formData.recipientCountry,
+        amountSent: Number.parseFloat(formData.amountSent),
+        currencySent: formData.currencySent,
+        amountReceived: Number.parseFloat(formData.amountReceived),
+        currencyReceived: formData.currencyReceived,
+        exchangeRate,
+        transferFee: Number.parseFloat(formData.transferFee) || 0,
+        transferMethod: formData.transferMethod || null,
         purpose: formData.purpose || null,
         status: formData.status,
-        transfer_date: formData.transfer_date,
-        reference_number: formData.reference_number || null,
-        usd_to_inr_rate: usdToInrRate,
-        inr_equivalent: inrEquivalent,
+        transferDate: formData.transferDate,
+        completionDate: null,
+        referenceNumber: formData.referenceNumber || null,
+        usdToInrRate,
+        inrEquivalent,
       }
-
-      console.log("Transfer data to submit:", transferData)
-
-      let result
       if (editingTransfer) {
-        result = await supabase
-          .from("international_transfers")
-          .update(transferData)
-          .eq("id", editingTransfer.id)
-          .select()
+        await apiRequest<Transfer>(`${API.transfers}/${editingTransfer.id}`, accessToken, {
+          method: "PUT", body: JSON.stringify(transferData),
+        })
       } else {
-        result = await supabase.from("international_transfers").insert([transferData]).select()
+        await apiRequest<Transfer>(API.transfers, accessToken, {
+          method: "POST", body: JSON.stringify(transferData),
+        })
       }
-
-      if (result.error) {
-        handleSupabaseError(result.error, editingTransfer ? "update transfer" : "add transfer")
-        return
-      }
-
-      console.log("Transfer saved successfully:", result.data)
       setSuccess(editingTransfer ? "Transfer updated successfully!" : "Transfer added successfully!")
-
       await fetchTransfers()
       setDialogOpen(false)
       resetForm()
-
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error saving transfer:", error)
-      setError(error.message || "Failed to save transfer")
+      setError(error instanceof Error ? error.message : "Failed to save transfer")
     }
   }
 
   const handleEdit = (transfer: Transfer) => {
     setEditingTransfer(transfer)
     setFormData({
-      recipient_name: transfer.recipient_name,
-      recipient_country: transfer.recipient_country,
-      amount_sent: transfer.amount_sent.toString(),
-      currency_sent: transfer.currency_sent,
-      amount_received: transfer.amount_received.toString(),
-      currency_received: transfer.currency_received,
-      exchange_rate: transfer.exchange_rate.toString(),
-      transfer_fee: transfer.transfer_fee.toString(),
-      transfer_method: transfer.transfer_method || "",
+      recipientName: transfer.recipientName,
+      recipientCountry: transfer.recipientCountry,
+      amountSent: transfer.amountSent.toString(),
+      currencySent: transfer.currencySent,
+      amountReceived: transfer.amountReceived.toString(),
+      currencyReceived: transfer.currencyReceived,
+      exchangeRate: transfer.exchangeRate.toString(),
+      transferFee: transfer.transferFee.toString(),
+      transferMethod: transfer.transferMethod || "",
       purpose: transfer.purpose || "",
       status: transfer.status,
-      transfer_date: transfer.transfer_date,
-      reference_number: transfer.reference_number || "",
-      usd_to_inr_rate: transfer.usd_to_inr_rate?.toString() || "",
+      transferDate: transfer.transferDate,
+      referenceNumber: transfer.referenceNumber || "",
+      usdToInrRate: transfer.usdToInrRate?.toString() || "",
     })
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     try {
       setError("")
-      const { error } = await supabase.from("international_transfers").delete().eq("id", id)
-
-      if (error) {
-        handleSupabaseError(error, "delete transfer")
-        return
-      }
-
+      await apiRequest<void>(`${API.transfers}/${id}`, accessToken, { method: "DELETE" })
       setSuccess("Transfer deleted successfully!")
       await fetchTransfers()
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting transfer:", error)
-      setError(error.message || "Failed to delete transfer")
+      setError(error instanceof Error ? error.message : "Failed to delete transfer")
     }
   }
 
   const resetForm = () => {
     setFormData({
-      recipient_name: "",
-      recipient_country: "India",
-      amount_sent: "",
-      currency_sent: "USD",
-      amount_received: "",
-      currency_received: "INR",
-      exchange_rate: currentExchangeRate.toString(),
-      transfer_fee: "",
-      transfer_method: "",
+      recipientName: "",
+      recipientCountry: "India",
+      amountSent: "",
+      currencySent: "USD",
+      amountReceived: "",
+      currencyReceived: "INR",
+      exchangeRate: currentExchangeRate.toString(),
+      transferFee: "",
+      transferMethod: "",
       purpose: "",
       status: "pending",
-      transfer_date: new Date().toISOString().split("T")[0],
-      reference_number: "",
-      usd_to_inr_rate: currentExchangeRate.toString(),
+      transferDate: new Date().toISOString().split("T")[0],
+      referenceNumber: "",
+      usdToInrRate: currentExchangeRate.toString(),
     })
     setEditingTransfer(null)
     setError("")
@@ -330,20 +287,20 @@ export default function InternationalTransfers() {
 
   // Calculate totals using INR equivalents
   const totalSentINR = transfers.reduce((sum, transfer) => {
-    return sum + (transfer.inr_equivalent || 0)
+    return sum + (transfer.inrEquivalent || 0)
   }, 0)
 
   const totalFeesINR = transfers.reduce((sum, transfer) => {
-    if (transfer.currency_sent === "USD" && transfer.usd_to_inr_rate) {
-      return sum + calculateINREquivalent(transfer.transfer_fee, transfer.usd_to_inr_rate)
+    if (transfer.currencySent === "USD" && transfer.usdToInrRate) {
+      return sum + calculateINREquivalent(transfer.transferFee, transfer.usdToInrRate)
     }
-    return sum + transfer.transfer_fee
+    return sum + transfer.transferFee
   }, 0)
 
   const pendingTransfers = transfers.filter((t) => t.status === "pending").length
   const totalToIndia = transfers
-    .filter((t) => t.recipient_country === "India")
-    .reduce((sum, t) => sum + t.amount_received, 0)
+    .filter((t) => t.recipientCountry === "India")
+    .reduce((sum, t) => sum + t.amountReceived, 0)
 
   if (loading) {
     return (
@@ -469,26 +426,26 @@ export default function InternationalTransfers() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="recipient_name">Recipient Name *</Label>
+                      <Label htmlFor="recipientName">Recipient Name *</Label>
                       <Input
-                        id="recipient_name"
+                        id="recipientName"
                         placeholder="Enter recipient's full name"
-                        value={formData.recipient_name}
-                        onChange={(e) => setFormData({ ...formData, recipient_name: e.target.value })}
+                        value={formData.recipientName}
+                        onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
                         required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="recipient_country">Recipient Country *</Label>
+                      <Label htmlFor="recipientCountry">Recipient Country *</Label>
                       <Select
-                        value={formData.recipient_country}
+                        value={formData.recipientCountry}
                         onValueChange={(value) => {
                           const country = countries.find((c) => c.name === value)
                           setFormData({
                             ...formData,
-                            recipient_country: value,
-                            currency_received: country?.currency || "INR",
+                            recipientCountry: value,
+                            currencyReceived: country?.currency || "INR",
                           })
                         }}
                       >
@@ -512,20 +469,20 @@ export default function InternationalTransfers() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="amount_sent">Amount Sent (USD) *</Label>
+                      <Label htmlFor="amountSent">Amount Sent (USD) *</Label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          id="amount_sent"
+                          id="amountSent"
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           className="pl-10"
-                          value={formData.amount_sent}
+                          value={formData.amountSent}
                           onChange={(e) => {
-                            const newFormData = { ...formData, amount_sent: e.target.value }
-                            if (formData.exchange_rate) {
-                              newFormData.amount_received = calculateReceived(e.target.value, formData.exchange_rate)
+                            const newFormData = { ...formData, amountSent: e.target.value }
+                            if (formData.exchangeRate) {
+                              newFormData.amountReceived = calculateReceived(e.target.value, formData.exchangeRate)
                             }
                             setFormData(newFormData)
                           }}
@@ -535,18 +492,18 @@ export default function InternationalTransfers() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="exchange_rate">Exchange Rate (USD to {formData.currency_received}) *</Label>
+                      <Label htmlFor="exchangeRate">Exchange Rate (USD to {formData.currencyReceived}) *</Label>
                       <div className="flex gap-2">
                         <Input
-                          id="exchange_rate"
+                          id="exchangeRate"
                           type="number"
                           step="0.000001"
                           placeholder="0.000000"
-                          value={formData.exchange_rate}
+                          value={formData.exchangeRate}
                           onChange={(e) => {
-                            const newFormData = { ...formData, exchange_rate: e.target.value }
-                            if (formData.amount_sent) {
-                              newFormData.amount_received = calculateReceived(formData.amount_sent, e.target.value)
+                            const newFormData = { ...formData, exchangeRate: e.target.value }
+                            if (formData.amountSent) {
+                              newFormData.amountReceived = calculateReceived(formData.amountSent, e.target.value)
                             }
                             setFormData(newFormData)
                           }}
@@ -566,22 +523,22 @@ export default function InternationalTransfers() {
                     </div>
                   </div>
 
-                  {formData.currency_sent === "USD" && (
+                  {formData.currencySent === "USD" && (
                     <div className="space-y-2">
-                      <Label htmlFor="usd_to_inr_rate">USD to INR Rate (for tracking) *</Label>
+                      <Label htmlFor="usdToInrRate">USD to INR Rate (for tracking) *</Label>
                       <Input
-                        id="usd_to_inr_rate"
+                        id="usdToInrRate"
                         type="number"
                         step="0.000001"
                         placeholder="83.25"
-                        value={formData.usd_to_inr_rate}
-                        onChange={(e) => setFormData({ ...formData, usd_to_inr_rate: e.target.value })}
+                        value={formData.usdToInrRate}
+                        onChange={(e) => setFormData({ ...formData, usdToInrRate: e.target.value })}
                         required
                       />
-                      {formData.amount_sent &&
-                        formData.usd_to_inr_rate &&
-                        Number.parseFloat(formData.amount_sent) > 0 &&
-                        Number.parseFloat(formData.usd_to_inr_rate) > 0 && (
+                      {formData.amountSent &&
+                        formData.usdToInrRate &&
+                        Number.parseFloat(formData.amountSent) > 0 &&
+                        Number.parseFloat(formData.usdToInrRate) > 0 && (
                           <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
                             <div className="flex items-center gap-1">
                               <IndianRupee className="h-3 w-3" />
@@ -589,8 +546,8 @@ export default function InternationalTransfers() {
                                 INR Equivalent:{" "}
                                 {formatINR(
                                   calculateINREquivalent(
-                                    Number.parseFloat(formData.amount_sent),
-                                    Number.parseFloat(formData.usd_to_inr_rate),
+                                    Number.parseFloat(formData.amountSent),
+                                    Number.parseFloat(formData.usdToInrRate),
                                   ),
                                 )}
                               </span>
@@ -602,36 +559,36 @@ export default function InternationalTransfers() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="amount_received">Amount Received *</Label>
+                      <Label htmlFor="amountReceived">Amount Received *</Label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
-                          {formData.currency_received === "INR" ? "₹" : formData.currency_received}
+                          {formData.currencyReceived === "INR" ? "₹" : formData.currencyReceived}
                         </span>
                         <Input
-                          id="amount_received"
+                          id="amountReceived"
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           className="pl-10"
-                          value={formData.amount_received}
-                          onChange={(e) => setFormData({ ...formData, amount_received: e.target.value })}
+                          value={formData.amountReceived}
+                          onChange={(e) => setFormData({ ...formData, amountReceived: e.target.value })}
                           required
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="transfer_fee">Transfer Fee (USD)</Label>
+                      <Label htmlFor="transferFee">Transfer Fee (USD)</Label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          id="transfer_fee"
+                          id="transferFee"
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           className="pl-10"
-                          value={formData.transfer_fee}
-                          onChange={(e) => setFormData({ ...formData, transfer_fee: e.target.value })}
+                          value={formData.transferFee}
+                          onChange={(e) => setFormData({ ...formData, transferFee: e.target.value })}
                         />
                       </div>
                     </div>
@@ -639,10 +596,10 @@ export default function InternationalTransfers() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="transfer_method">Transfer Method</Label>
+                      <Label htmlFor="transferMethod">Transfer Method</Label>
                       <Select
-                        value={formData.transfer_method}
-                        onValueChange={(value) => setFormData({ ...formData, transfer_method: value })}
+                        value={formData.transferMethod}
+                        onValueChange={(value) => setFormData({ ...formData, transferMethod: value })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select method" />
@@ -679,12 +636,12 @@ export default function InternationalTransfers() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="transfer_date">Transfer Date *</Label>
+                      <Label htmlFor="transferDate">Transfer Date *</Label>
                       <Input
-                        id="transfer_date"
+                        id="transferDate"
                         type="date"
-                        value={formData.transfer_date}
-                        onChange={(e) => setFormData({ ...formData, transfer_date: e.target.value })}
+                        value={formData.transferDate}
+                        onChange={(e) => setFormData({ ...formData, transferDate: e.target.value })}
                         required
                       />
                     </div>
@@ -708,12 +665,12 @@ export default function InternationalTransfers() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reference_number">Reference Number</Label>
+                    <Label htmlFor="referenceNumber">Reference Number</Label>
                     <Input
-                      id="reference_number"
+                      id="referenceNumber"
                       placeholder="Transfer reference number (optional)"
-                      value={formData.reference_number}
-                      onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                      value={formData.referenceNumber}
+                      onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                     />
                   </div>
 
@@ -756,31 +713,31 @@ export default function InternationalTransfers() {
                 </TableHeader>
                 <TableBody>
                   {transfers.map((transfer) => {
-                    const country = countries.find((c) => c.name === transfer.recipient_country)
+                    const country = countries.find((c) => c.name === transfer.recipientCountry)
                     return (
                       <TableRow key={transfer.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{transfer.recipient_name}</p>
+                            <p className="font-medium">{transfer.recipientName}</p>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <span>{country?.flag}</span>
-                              <span>{transfer.recipient_country}</span>
+                              <span>{transfer.recipientCountry}</span>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-red-600 font-semibold">{formatUSD(transfer.amount_sent)}</TableCell>
+                        <TableCell className="text-red-600 font-semibold">{formatUSD(transfer.amountSent)}</TableCell>
                         <TableCell className="text-green-600 font-semibold">
-                          {transfer.currency_received === "INR"
-                            ? `₹${transfer.amount_received.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
-                            : `${transfer.currency_received} ${transfer.amount_received.toLocaleString()}`}
+                          {transfer.currencyReceived === "INR"
+                            ? `₹${transfer.amountReceived.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
+                            : `${transfer.currencyReceived} ${transfer.amountReceived.toLocaleString()}`}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {transfer.exchange_rate.toFixed(transfer.currency_received === "INR" ? 2 : 4)}
+                            {transfer.exchangeRate.toFixed(transfer.currencyReceived === "INR" ? 2 : 4)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-blue-600 font-semibold">
-                          {transfer.inr_equivalent ? formatINR(transfer.inr_equivalent) : "—"}
+                          {transfer.inrEquivalent ? formatINR(transfer.inrEquivalent) : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -795,7 +752,7 @@ export default function InternationalTransfers() {
                             {transfer.status.charAt(0).toUpperCase() + transfer.status.slice(1)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{new Date(transfer.transfer_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(transfer.transferDate).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
                             <Button variant="ghost" size="sm" onClick={() => handleEdit(transfer)}>

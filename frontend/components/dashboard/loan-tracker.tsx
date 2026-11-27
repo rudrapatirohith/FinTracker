@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,29 +38,36 @@ import { formatINR } from "@/lib/utils"
 
 interface Loan {
   id: string
-  loan_name: string
-  principal_amount: number
-  current_balance: number
-  interest_rate: number
+  loanName: string
+  principalAmount: number
+  currentBalance: number
+  interestRate: number | null
+  monthlyPayment: number | null
+  startDate: string
+  endDate: string | null
+  lender: string | null
+  loanType: string | null
   currency: "INR" | "USD"
-  status: "active" | "paid_off"
-  created_at: string
+  status: string
 }
 
 interface Payment {
   id: string
-  loan_id: string
+  loanId: string
   amount: number
-  principal_amount: number
-  interest_amount: number
-  payment_date: string
+  principalAmount: number
+  interestAmount: number
+  paymentDate: string
+  paymentMethod?: string | null
+  currency: string
   notes?: string
   loan?: Loan
 }
 
-type LoanPaymentWithLoan = { interest_amount: number; loan: { currency: string } | null }
+type LoanPaymentWithLoan = { interestAmount: number; currency: string }
 
 export default function LoanTracker() {
+  const { accessToken } = useAuth()
   const [loans, setLoans] = useState<Loan[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [totalInterestPaid, setTotalInterestPaid] = useState(0)
@@ -105,62 +113,39 @@ export default function LoanTracker() {
   }, [paymentForm.principal_amount, paymentForm.interest_amount])
 
   const fetchData = async () => {
+    if (!accessToken) {
+      setError("Please sign in to view loans.")
+      setLoading(false)
+      return
+    }
     try {
       setError("")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to view loans")
-        return
-      }
-
-      // Fetch loans
-      const { data: loansData, error: loansError } = await supabase
-        .from("loans")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-
-      if (loansError) {
-        console.error("Error fetching loans:", loansError)
-        setError("Failed to fetch loans")
-        return
-      }
-
-      // Fetch payments with loan details
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("loan_payments")
-        .select(`
-          *,
-          loan:loans(*)
-        `)
-        .eq("user_id", user.id)
-        .order("payment_date", { ascending: false })
-
-      if (paymentsError) {
-        console.error("Error fetching payments:", paymentsError)
-        setError("Failed to fetch payments")
-        return
-      }
-
-      setLoans(loansData || [])
-      setPayments(paymentsData || [])
-
-      // Keep the aggregate numeric and normalize USD loans to INR.
-      // This matches the existing dashboard conversion convention.
-      const totalInterest = (paymentsData || []).reduce((sum: number, payment: LoanPaymentWithLoan) => {
-        const interestInINR =
-          payment.loan?.currency === "USD"
-            ? payment.interest_amount * 83.25
-            : payment.interest_amount
+      const loanPage = await apiGetPage<Loan>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, accessToken)
+      const loansData = loanPage.content
+      // Payments are a nested resource because the backend verifies ownership
+      // of both the loan and each payment before returning or mutating records.
+      const paymentPages = await Promise.all(
+        loansData.map(async (loan) => {
+          const page = await apiGetPage<Payment>(
+            `${API.loans}/${loan.id}/payments?page=0&size=1000&sort=paymentDate,desc`,
+            accessToken
+          )
+          return page.content.map((payment) => ({ ...payment, loan }))
+        })
+      )
+      const paymentsData = paymentPages.flat()
+      setLoans(loansData)
+      setPayments(paymentsData)
+      const totalInterest = paymentsData.reduce((sum, payment) => {
+        const interestInINR = payment.currency === "USD"
+          ? payment.interestAmount * 83.25
+          : payment.interestAmount
         return sum + interestInINR
       }, 0)
       setTotalInterestPaid(totalInterest)
-    } catch (error: any) {
-      console.error("Error fetching data:", error)
-      setError(error.message || "Failed to fetch data")
+    } catch (error) {
+      console.error("Error fetching loan data:", error)
+      setError(error instanceof Error ? error.message : "Failed to fetch loans and payments")
     } finally {
       setLoading(false)
     }
@@ -170,44 +155,35 @@ export default function LoanTracker() {
     e.preventDefault()
     setLoading(true)
     setError("")
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      setLoading(false)
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add loans")
-        return
+      const principalAmount = Number.parseFloat(loanForm.principal_amount)
+      const payload = {
+        loanName: loanForm.loan_name,
+        principalAmount,
+        currentBalance: principalAmount,
+        interestRate: Number.parseFloat(loanForm.interest_rate) || 0,
+        monthlyPayment: null,
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: null,
+        lender: null,
+        loanType: "personal",
+        currency: loanForm.currency,
+        status: "active",
       }
-
-      const { error } = await supabase.from("loans").insert([
-        {
-          user_id: user.id,
-          loan_name: loanForm.loan_name,
-          principal_amount: Number.parseFloat(loanForm.principal_amount),
-          current_balance: Number.parseFloat(loanForm.principal_amount),
-          interest_rate: Number.parseFloat(loanForm.interest_rate),
-          currency: loanForm.currency,
-          status: "active",
-        },
-      ])
-
-      if (error) {
-        setError(error.message)
-      } else {
-        setSuccess("Loan added successfully!")
-        setIsAddingLoan(false)
-        setLoanForm({
-          loan_name: "",
-          principal_amount: "",
-          interest_rate: "",
-          currency: "INR",
-        })
-        fetchData()
-      }
-    } catch (error: any) {
-      setError(error.message || "Failed to add loan")
+      await apiRequest<Loan>(API.loans, accessToken, {
+        method: "POST", body: JSON.stringify(payload),
+      })
+      setSuccess("Loan added successfully!")
+      setIsAddingLoan(false)
+      setLoanForm({ loan_name: "", principal_amount: "", interest_rate: "", currency: "INR" })
+      await fetchData()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to add loan")
     } finally {
       setLoading(false)
     }
@@ -217,97 +193,47 @@ export default function LoanTracker() {
     e.preventDefault()
     setLoading(true)
     setError("")
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      setLoading(false)
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setError("Please log in to add payments")
-        return
-      }
-
       const principalAmount = Number.parseFloat(paymentForm.principal_amount) || 0
       const interestAmount = Number.parseFloat(paymentForm.interest_amount) || 0
       const totalAmount = principalAmount + interestAmount
-
-      // Validate amounts
-      if (totalAmount <= 0) {
-        setError("Payment amount must be greater than 0")
+      if (totalAmount <= 0 || Number.parseFloat(paymentForm.total_amount) !== totalAmount) {
+        setError("Payment amount must equal principal + interest and be greater than zero.")
         return
       }
-
-      if (Number.parseFloat(paymentForm.total_amount) !== totalAmount) {
-        setError("Total amount must equal principal + interest")
+      const loan = loans.find((item) => item.id === paymentForm.loan_id)
+      if (!loan) {
+        setError("Select a valid loan before recording a payment.")
         return
       }
-
-      // Get current loan balance
-      const { data: loanData, error: loanError } = await supabase
-        .from("loans")
-        .select("current_balance")
-        .eq("id", paymentForm.loan_id)
-        .single()
-
-      if (loanError) {
-        setError("Failed to fetch loan details")
-        return
+      const payload = {
+        amount: totalAmount,
+        principalAmount,
+        interestAmount,
+        paymentDate: paymentForm.payment_date,
+        paymentMethod: null,
+        notes: paymentForm.notes || null,
+        currency: loan.currency,
+        exchangeRate: null,
+        inrEquivalent: loan.currency === "INR" ? totalAmount : null,
       }
-
-      if (principalAmount > loanData.current_balance) {
-        setError("Principal payment cannot exceed current loan balance")
-        return
-      }
-
-      // Add payment record
-      const { error: paymentError } = await supabase.from("loan_payments").insert([
-        {
-          user_id: user.id,
-          loan_id: paymentForm.loan_id,
-          amount: totalAmount,
-          principal_amount: principalAmount,
-          interest_amount: interestAmount,
-          payment_date: paymentForm.payment_date,
-          notes: paymentForm.notes || null,
-        },
-      ])
-
-      if (paymentError) {
-        setError(paymentError.message)
-        return
-      }
-
-      // Update loan balance (only reduce by principal amount)
-      const newBalance = loanData.current_balance - principalAmount
-      const newStatus = newBalance <= 0 ? "paid_off" : "active"
-
-      const { error: updateError } = await supabase
-        .from("loans")
-        .update({
-          current_balance: Math.max(0, newBalance),
-          status: newStatus,
-        })
-        .eq("id", paymentForm.loan_id)
-
-      if (updateError) {
-        setError(updateError.message)
-        return
-      }
-
+      await apiRequest<Payment>(`${API.loans}/${loan.id}/payments`, accessToken, {
+        method: "POST", body: JSON.stringify(payload),
+      })
       setSuccess("Payment recorded successfully!")
       setIsAddingPayment(false)
       setPaymentForm({
-        loan_id: "",
-        total_amount: "",
-        principal_amount: "",
-        interest_amount: "",
-        payment_date: new Date().toISOString().split("T")[0],
-        notes: "",
+        loan_id: "", total_amount: "", principal_amount: "", interest_amount: "",
+        payment_date: new Date().toISOString().split("T")[0], notes: "",
       })
-      fetchData()
-    } catch (error: any) {
-      setError(error.message || "Failed to record payment")
+      await fetchData()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to record payment")
     } finally {
       setLoading(false)
     }
@@ -315,92 +241,47 @@ export default function LoanTracker() {
 
   const handleEditPayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editingPayment) return
-
+    if (!editingPayment || !accessToken) return
     setLoading(true)
     setError("")
-
     try {
       const principalAmount = Number.parseFloat(paymentForm.principal_amount) || 0
       const interestAmount = Number.parseFloat(paymentForm.interest_amount) || 0
       const totalAmount = principalAmount + interestAmount
-
-      // Validate amounts
       if (totalAmount <= 0) {
-        setError("Payment amount must be greater than 0")
+        setError("Payment amount must be greater than zero.")
         return
       }
-
-      // Calculate balance adjustment
-      const oldPrincipal = editingPayment.principal_amount
-      const newPrincipal = principalAmount
-      const principalDifference = newPrincipal - oldPrincipal
-
-      // Get current loan balance
-      const { data: loanData, error: loanError } = await supabase
-        .from("loans")
-        .select("current_balance")
-        .eq("id", editingPayment.loan_id)
-        .single()
-
-      if (loanError) {
-        setError("Failed to fetch loan details")
+      const loan = loans.find((item) => item.id === editingPayment.loanId)
+      if (!loan) {
+        setError("The parent loan for this payment could not be found.")
         return
       }
-
-      // Check if the adjustment would make balance negative
-      if (loanData.current_balance - principalDifference < 0) {
-        setError("This change would result in a negative loan balance")
-        return
+      const payload = {
+        amount: totalAmount,
+        principalAmount,
+        interestAmount,
+        paymentDate: paymentForm.payment_date,
+        paymentMethod: editingPayment.paymentMethod ?? null,
+        notes: paymentForm.notes || null,
+        currency: loan.currency,
+        exchangeRate: null,
+        inrEquivalent: loan.currency === "INR" ? totalAmount : null,
       }
-
-      // Update payment record
-      const { error: paymentError } = await supabase
-        .from("loan_payments")
-        .update({
-          amount: totalAmount,
-          principal_amount: principalAmount,
-          interest_amount: interestAmount,
-          payment_date: paymentForm.payment_date,
-          notes: paymentForm.notes || null,
-        })
-        .eq("id", editingPayment.id)
-
-      if (paymentError) {
-        setError(paymentError.message)
-        return
-      }
-
-      // Update loan balance
-      const newBalance = loanData.current_balance - principalDifference
-      const newStatus = newBalance <= 0 ? "paid_off" : "active"
-
-      const { error: updateError } = await supabase
-        .from("loans")
-        .update({
-          current_balance: Math.max(0, newBalance),
-          status: newStatus,
-        })
-        .eq("id", editingPayment.loan_id)
-
-      if (updateError) {
-        setError(updateError.message)
-        return
-      }
-
+      await apiRequest<Payment>(
+        `${API.loans}/${loan.id}/payments/${editingPayment.id}`,
+        accessToken,
+        { method: "PUT", body: JSON.stringify(payload) }
+      )
       setSuccess("Payment updated successfully!")
       setEditingPayment(null)
       setPaymentForm({
-        loan_id: "",
-        total_amount: "",
-        principal_amount: "",
-        interest_amount: "",
-        payment_date: new Date().toISOString().split("T")[0],
-        notes: "",
+        loan_id: "", total_amount: "", principal_amount: "", interest_amount: "",
+        payment_date: new Date().toISOString().split("T")[0], notes: "",
       })
-      fetchData()
-    } catch (error: any) {
-      setError(error.message || "Failed to update payment")
+      await fetchData()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to update payment")
     } finally {
       setLoading(false)
     }
@@ -408,50 +289,23 @@ export default function LoanTracker() {
 
   const handleDeletePayment = async (payment: Payment) => {
     if (!confirm("Are you sure you want to delete this payment?")) return
-
+    if (!accessToken) {
+      setError("Your session has expired. Please sign in again.")
+      return
+    }
     setLoading(true)
     setError("")
-
     try {
-      // Delete payment record
-      const { error: deleteError } = await supabase.from("loan_payments").delete().eq("id", payment.id)
-
-      if (deleteError) {
-        setError(deleteError.message)
-        return
-      }
-
-      // Restore loan balance (add back the principal amount)
-      const { data: loanData, error: loanError } = await supabase
-        .from("loans")
-        .select("current_balance")
-        .eq("id", payment.loan_id)
-        .single()
-
-      if (loanError) {
-        setError("Failed to fetch loan details")
-        return
-      }
-
-      const newBalance = loanData.current_balance + payment.principal_amount
-
-      const { error: updateError } = await supabase
-        .from("loans")
-        .update({
-          current_balance: newBalance,
-          status: "active", // Restore to active since we're adding balance back
-        })
-        .eq("id", payment.loan_id)
-
-      if (updateError) {
-        setError(updateError.message)
-        return
-      }
-
+      // The backend reverses the principal reduction in the same transaction.
+      await apiRequest<void>(
+        `${API.loans}/${payment.loanId}/payments/${payment.id}`,
+        accessToken,
+        { method: "DELETE" }
+      )
       setSuccess("Payment deleted successfully!")
-      fetchData()
-    } catch (error: any) {
-      setError(error.message || "Failed to delete payment")
+      await fetchData()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to delete payment")
     } finally {
       setLoading(false)
     }
@@ -460,11 +314,11 @@ export default function LoanTracker() {
   const startEditPayment = (payment: Payment) => {
     setEditingPayment(payment)
     setPaymentForm({
-      loan_id: payment.loan_id,
+      loan_id: payment.loanId,
       total_amount: payment.amount.toString(),
-      principal_amount: payment.principal_amount.toString(),
-      interest_amount: payment.interest_amount.toString(),
-      payment_date: payment.payment_date,
+      principal_amount: payment.principalAmount.toString(),
+      interest_amount: payment.interestAmount.toString(),
+      payment_date: payment.paymentDate,
       notes: payment.notes || "",
     })
   }
@@ -473,8 +327,8 @@ export default function LoanTracker() {
     return loans.reduce((sum, loan) => {
       const balanceInINR =
         loan.currency === "USD"
-          ? loan.current_balance * 83.25
-          : loan.current_balance
+          ? loan.currentBalance * 83.25
+          : loan.currentBalance
       return sum + balanceInINR
     }, 0)
   }
@@ -622,8 +476,8 @@ export default function LoanTracker() {
                         .filter((loan) => loan.status === "active")
                         .map((loan) => (
                           <SelectItem key={loan.id} value={loan.id}>
-                            {loan.loan_name} - {loan.currency === "INR" ? "₹" : "$"}
-                            {loan.current_balance.toLocaleString()}
+                            {loan.loanName} - {loan.currency === "INR" ? "₹" : "$"}
+                            {loan.currentBalance.toLocaleString()}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -794,21 +648,21 @@ export default function LoanTracker() {
                       </div>
                     </div>
                     <div>
-                      <h3 className="font-medium">{loan.loan_name}</h3>
+                      <h3 className="font-medium">{loan.loanName}</h3>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>
                           {loan.currency === "INR" ? "₹" : "$"}
-                          {loan.current_balance.toLocaleString()} remaining
+                          {loan.currentBalance.toLocaleString()} remaining
                         </span>
                         <Badge variant={loan.status === "active" ? "default" : "secondary"}>{loan.status}</Badge>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium">{loan.interest_rate}% interest</div>
+                    <div className="text-sm font-medium">{loan.interestRate}% interest</div>
                     <div className="text-xs text-muted-foreground">
                       Principal: {loan.currency === "INR" ? "₹" : "$"}
-                      {loan.principal_amount.toLocaleString()}
+                      {loan.principalAmount.toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -846,8 +700,8 @@ export default function LoanTracker() {
               <TableBody>
                 {payments.slice(0, 10).map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.loan?.loan_name || "Unknown Loan"}</TableCell>
-                    <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">{payment.loan?.loanName || "Unknown Loan"}</TableCell>
+                    <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {payment.loan?.currency === "INR" ? (
@@ -855,7 +709,7 @@ export default function LoanTracker() {
                         ) : (
                           <DollarSign className="h-3 w-3" />
                         )}
-                        {payment.principal_amount.toLocaleString()}
+                        {payment.principalAmount.toLocaleString()}
                         <Badge variant="secondary" className="text-xs">
                           Reduces Balance
                         </Badge>
@@ -868,8 +722,8 @@ export default function LoanTracker() {
                         ) : (
                           <DollarSign className="h-3 w-3" />
                         )}
-                        {payment.interest_amount.toLocaleString()}
-                        {payment.interest_amount > 0 && (
+                        {payment.interestAmount.toLocaleString()}
+                        {payment.interestAmount > 0 && (
                           <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
                             Interest
                           </Badge>

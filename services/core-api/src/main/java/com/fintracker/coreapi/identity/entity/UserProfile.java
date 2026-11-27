@@ -59,6 +59,17 @@ public class UserProfile {
         this.updatedAt = this.createdAt;
     }
 
+    /**
+     * Applies the editable profile preferences as one domain operation. Email,
+     * ownership, and creation metadata are intentionally not client-editable.
+     */
+    public void updatePreferences(String fullName, String currencyPreference, String timezone) {
+        this.fullName = fullName == null || fullName.isBlank() ? null : fullName.trim();
+        this.currencyPreference = currencyPreference.trim().toUpperCase(java.util.Locale.ROOT);
+        this.timezone = timezone.trim();
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getUserId() {
         return userId;
     }
@@ -81,5 +92,9 @@ public class UserProfile {
 
     public String getTimezone() {
         return timezone;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

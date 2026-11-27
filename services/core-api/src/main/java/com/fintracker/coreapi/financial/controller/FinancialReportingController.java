@@ -80,6 +80,17 @@ public class FinancialReportingController {
     }
 
     /**
+     * Returns weekly activity totals for the selected date range. Each row keeps
+     * metric and currency separate, matching the monthly trend contract.
+     */
+    @GetMapping("/analytics/weekly-trends")
+    public List<FinancialTrendRow> weeklyTrends(
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return reportingService.weeklyTrends(from, to);
+    }
+
+    /**
      * Returns the shared currency-safe summary for report screens.
      * It deliberately reuses the dashboard calculation so the same financial
      * source is not calculated differently in two places.

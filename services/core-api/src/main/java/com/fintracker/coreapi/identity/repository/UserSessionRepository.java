@@ -26,6 +26,23 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     List<UserSession> findAllByUser_IdAndRevokedAtIsNull(UUID userId);
 
     /**
+     * Revokes every active refresh session after a password reset. Access JWTs
+     * remain short-lived and expire naturally; no refresh token can mint a new one.
+     */
+    @Modifying
+    @Query("""
+        UPDATE UserSession s
+        SET s.revokedAt = :now,
+            s.revocationReason = :reason
+        WHERE s.user.id = :userId
+        AND s.revokedAt IS NULL
+        """)
+    int revokeActiveByUserId(
+            @Param("userId") UUID userId,
+            @Param("now") Instant now,
+            @Param("reason") String reason);
+
+    /**
      * STEP 1 OF ROTATION: FIND AND LOCK THE ROW
      *
      * @Lock(LockModeType.PESSIMISTIC_WRITE) tells PostgreSQL:

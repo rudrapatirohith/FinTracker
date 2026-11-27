@@ -18,6 +18,7 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   API_BASE_URL,
@@ -567,6 +568,15 @@ export default function AuthForm() {
                       )}
                     </Button>
                   </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
 
                 {/* Submit */}

@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic"
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage, apiRequest } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,17 +33,17 @@ import { format } from "date-fns"
 
 interface ScheduledPayment {
   id: string
-  payment_name: string
+  paymentName: string
   amount: number
   currency: string
   category: string | null
   recipient: string | null
-  due_date: string
+  dueDate: string
   frequency: string | null
-  is_recurring: boolean
-  auto_pay: boolean
+  recurring: boolean
+  autoPay: boolean
   status: string
-  reminder_days: number
+  reminderDays: number
   notes: string | null
 }
 
@@ -66,6 +67,7 @@ const frequencies = [
 ]
 
 export default function ScheduledPaymentsPage() {
+  const { accessToken } = useAuth()
   const [payments, setPayments] = useState<ScheduledPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -73,16 +75,16 @@ export default function ScheduledPaymentsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>()
 
   const [formData, setFormData] = useState({
-    payment_name: "",
+    paymentName: "",
     amount: "",
     currency: "USD",
     category: "",
     recipient: "",
-    due_date: new Date().toISOString().split("T")[0],
+    dueDate: new Date().toISOString().split("T")[0],
     frequency: "once",
-    is_recurring: false,
-    auto_pay: false,
-    reminder_days: 3,
+    recurring: false,
+    autoPay: false,
+    reminderDays: 3,
     notes: "",
   })
 
@@ -91,126 +93,122 @@ export default function ScheduledPaymentsPage() {
   }, [])
 
   const fetchPayments = async () => {
+    if (!accessToken) { setLoading(false); return }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from("scheduled_payments")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("due_date", { ascending: true })
-
-      if (error) throw error
-      setPayments(data || [])
+      const page = await apiGetPage<ScheduledPayment>(
+        `${API.scheduledPayments}?page=0&size=1000&sort=dueDate,asc`, accessToken
+      )
+      setPayments(page.content)
     } catch (error) {
-      console.error("Error fetching payments:", error)
-    } finally {
-      setLoading(false)
-    }
+      console.error("Error fetching scheduled payments:", error)
+    } finally { setLoading(false) }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+    if (!accessToken) return
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
       const paymentData = {
-        user_id: user.id,
-        payment_name: formData.payment_name,
+        paymentName: formData.paymentName,
         amount: Number.parseFloat(formData.amount),
         currency: formData.currency,
         category: formData.category || null,
         recipient: formData.recipient || null,
-        due_date: formData.due_date,
+        dueDate: formData.dueDate,
         frequency: formData.frequency,
-        is_recurring: formData.is_recurring,
-        auto_pay: formData.auto_pay,
-        status: "pending",
-        reminder_days: formData.reminder_days,
+        recurring: formData.recurring,
+        autoPay: formData.autoPay,
+        status: editingPayment?.status ?? "pending",
+        reminderDays: formData.reminderDays,
         notes: formData.notes || null,
       }
-
-      let error
       if (editingPayment) {
-        const { error: updateError } = await supabase
-          .from("scheduled_payments")
-          .update(paymentData)
-          .eq("id", editingPayment.id)
-        error = updateError
+        await apiRequest<ScheduledPayment>(`${API.scheduledPayments}/${editingPayment.id}`, accessToken, {
+          method: "PUT", body: JSON.stringify(paymentData),
+        })
       } else {
-        const { error: insertError } = await supabase.from("scheduled_payments").insert([paymentData])
-        error = insertError
+        await apiRequest<ScheduledPayment>(API.scheduledPayments, accessToken, {
+          method: "POST", body: JSON.stringify(paymentData),
+        })
       }
-
-      if (error) throw error
-
       await fetchPayments()
       setDialogOpen(false)
       resetForm()
     } catch (error) {
-      console.error("Error saving payment:", error)
+      console.error("Error saving scheduled payment:", error)
     }
   }
 
   const handleEdit = (payment: ScheduledPayment) => {
     setEditingPayment(payment)
     setFormData({
-      payment_name: payment.payment_name,
+      paymentName: payment.paymentName,
       amount: payment.amount.toString(),
       currency: payment.currency,
       category: payment.category || "",
       recipient: payment.recipient || "",
-      due_date: payment.due_date,
+      dueDate: payment.dueDate,
       frequency: payment.frequency || "once",
-      is_recurring: payment.is_recurring,
-      auto_pay: payment.auto_pay,
-      reminder_days: payment.reminder_days,
+      recurring: payment.recurring,
+      autoPay: payment.autoPay,
+      reminderDays: payment.reminderDays,
       notes: payment.notes || "",
     })
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) return
     try {
-      const { error } = await supabase.from("scheduled_payments").delete().eq("id", id)
-
-      if (error) throw error
+      await apiRequest<void>(`${API.scheduledPayments}/${id}`, accessToken, { method: "DELETE" })
       await fetchPayments()
     } catch (error) {
-      console.error("Error deleting payment:", error)
+      console.error("Error deleting scheduled payment:", error)
     }
   }
 
   const handleMarkPaid = async (id: string) => {
+    if (!accessToken) return
+    const payment = payments.find((item) => item.id === id)
+    if (!payment) return
     try {
-      const { error } = await supabase.from("scheduled_payments").update({ status: "paid" }).eq("id", id)
-
-      if (error) throw error
+      // PUT is a full replacement in the backend contract; preserve all fields
+      // so changing the status cannot accidentally clear the user's reminder data.
+      const payload = {
+        paymentName: payment.paymentName,
+        amount: payment.amount,
+        currency: payment.currency,
+        category: payment.category,
+        recipient: payment.recipient,
+        dueDate: payment.dueDate,
+        frequency: payment.frequency,
+        recurring: payment.recurring,
+        autoPay: payment.autoPay,
+        status: "paid",
+        reminderDays: payment.reminderDays,
+        notes: payment.notes,
+      }
+      await apiRequest<ScheduledPayment>(`${API.scheduledPayments}/${id}`, accessToken, {
+        method: "PUT", body: JSON.stringify(payload),
+      })
       await fetchPayments()
     } catch (error) {
-      console.error("Error marking payment as paid:", error)
+      console.error("Error marking scheduled payment as paid:", error)
     }
   }
 
   const resetForm = () => {
     setFormData({
-      payment_name: "",
+      paymentName: "",
       amount: "",
       currency: "USD",
       category: "",
       recipient: "",
-      due_date: new Date().toISOString().split("T")[0],
+      dueDate: new Date().toISOString().split("T")[0],
       frequency: "once",
-      is_recurring: false,
-      auto_pay: false,
-      reminder_days: 3,
+      recurring: false,
+      autoPay: false,
+      reminderDays: 3,
       notes: "",
     })
     setEditingPayment(null)
@@ -218,7 +216,7 @@ export default function ScheduledPaymentsPage() {
 
   const upcomingPayments = payments.filter((p) => p.status === "pending")
   const totalUpcoming = upcomingPayments.reduce((sum, payment) => sum + payment.amount, 0)
-  const overduePayments = payments.filter((p) => p.status === "pending" && new Date(p.due_date) < new Date()).length
+  const overduePayments = payments.filter((p) => p.status === "pending" && new Date(p.dueDate) < new Date()).length
 
   if (loading) {
     return (
@@ -288,7 +286,7 @@ export default function ScheduledPaymentsPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{payments.filter((p) => p.auto_pay).length}</div>
+            <div className="text-2xl font-bold text-green-600">{payments.filter((p) => p.autoPay).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -317,12 +315,12 @@ export default function ScheduledPaymentsPage() {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="payment_name">Payment Name</Label>
+                    <Label htmlFor="paymentName">Payment Name</Label>
                     <Input
-                      id="payment_name"
+                      id="paymentName"
                       placeholder="e.g., Electric Bill, Rent"
-                      value={formData.payment_name}
-                      onChange={(e) => setFormData({ ...formData, payment_name: e.target.value })}
+                      value={formData.paymentName}
+                      onChange={(e) => setFormData({ ...formData, paymentName: e.target.value })}
                       required
                     />
                   </div>
@@ -399,19 +397,19 @@ export default function ScheduledPaymentsPage() {
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            !formData.due_date && "text-muted-foreground",
+                            !formData.dueDate && "text-muted-foreground",
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.due_date ? format(new Date(formData.due_date), "PPP") : "Pick a date"}
+                          {formData.dueDate ? format(new Date(formData.dueDate), "PPP") : "Pick a date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
                         <Calendar
                           mode="single"
-                          selected={formData.due_date ? new Date(formData.due_date) : undefined}
+                          selected={formData.dueDate ? new Date(formData.dueDate) : undefined}
                           onSelect={(date) =>
-                            setFormData({ ...formData, due_date: date?.toISOString().split("T")[0] || "" })
+                            setFormData({ ...formData, dueDate: date?.toISOString().split("T")[0] || "" })
                           }
                           initialFocus
                         />
@@ -422,13 +420,13 @@ export default function ScheduledPaymentsPage() {
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="recurring"
-                      checked={formData.is_recurring}
-                      onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
+                      checked={formData.recurring}
+                      onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
                     />
                     <Label htmlFor="recurring">Recurring Payment</Label>
                   </div>
 
-                  {formData.is_recurring && (
+                  {formData.recurring && (
                     <div className="space-y-2">
                       <Label htmlFor="frequency">Frequency</Label>
                       <Select
@@ -451,18 +449,18 @@ export default function ScheduledPaymentsPage() {
 
                   <div className="flex items-center space-x-2">
                     <Switch
-                      id="auto_pay"
-                      checked={formData.auto_pay}
-                      onCheckedChange={(checked) => setFormData({ ...formData, auto_pay: checked })}
+                      id="autoPay"
+                      checked={formData.autoPay}
+                      onCheckedChange={(checked) => setFormData({ ...formData, autoPay: checked })}
                     />
-                    <Label htmlFor="auto_pay">Auto Pay (when available)</Label>
+                    <Label htmlFor="autoPay">Auto Pay (when available)</Label>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reminder_days">Reminder Days Before</Label>
+                    <Label htmlFor="reminderDays">Reminder Days Before</Label>
                     <Select
-                      value={formData.reminder_days.toString()}
-                      onValueChange={(value) => setFormData({ ...formData, reminder_days: Number.parseInt(value) })}
+                      value={formData.reminderDays.toString()}
+                      onValueChange={(value) => setFormData({ ...formData, reminderDays: Number.parseInt(value) })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -519,16 +517,16 @@ export default function ScheduledPaymentsPage() {
               </TableHeader>
               <TableBody>
                 {payments.map((payment) => {
-                  const isOverdue = new Date(payment.due_date) < new Date() && payment.status === "pending"
+                  const isOverdue = new Date(payment.dueDate) < new Date() && payment.status === "pending"
                   const isDueSoon =
-                    new Date(payment.due_date) <= new Date(Date.now() + payment.reminder_days * 24 * 60 * 60 * 1000) &&
+                    new Date(payment.dueDate) <= new Date(Date.now() + payment.reminderDays * 24 * 60 * 60 * 1000) &&
                     payment.status === "pending"
 
                   return (
                     <TableRow key={payment.id} className={isOverdue ? "bg-red-50 dark:bg-red-950/30" : isDueSoon ? "bg-yellow-50 dark:bg-yellow-950/30" : ""}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{payment.payment_name}</p>
+                          <p className="font-medium">{payment.paymentName}</p>
                           {payment.category && <p className="text-sm text-muted-foreground">{payment.category}</p>}
                         </div>
                       </TableCell>
@@ -538,7 +536,7 @@ export default function ScheduledPaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p>{formatDate(payment.due_date)}</p>
+                          <p>{formatDate(payment.dueDate)}</p>
                           {isOverdue && <p className="text-xs text-red-600">Overdue</p>}
                           {isDueSoon && !isOverdue && <p className="text-xs text-yellow-600">Due soon</p>}
                         </div>
@@ -560,8 +558,8 @@ export default function ScheduledPaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {payment.is_recurring && <Badge variant="outline">Recurring</Badge>}
-                          {payment.auto_pay && <Badge variant="secondary">Auto Pay</Badge>}
+                          {payment.recurring && <Badge variant="outline">Recurring</Badge>}
+                          {payment.autoPay && <Badge variant="secondary">Auto Pay</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

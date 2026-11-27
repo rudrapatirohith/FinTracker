@@ -32,6 +32,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- SMTP delivery for one-time password recovery links -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Database access with JPA / Hibernate -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

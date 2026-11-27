@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
+import { API, apiGetPage } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,11 +49,14 @@ const categories = [
 ]
 
 type IncomeHistoryRow = { id: string; category: string | null; amount: number; currency: string | null; description: string | null; date: string; source: string }
-type TransferHistoryRow = { id: string; amount_sent: number; currency_sent: string; recipient_name: string; recipient_country: string; transfer_date: string; status: string }
-type LoanPaymentHistoryRow = { id: string; amount: number; payment_date: string; loans: { loan_name: string } | null }
-type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; payment_name: string; due_date: string; recipient: string | null }
+type TransferHistoryRow = { id: string; amountSent: number; currencySent: string; recipientName: string; recipientCountry: string; transferDate: string; status: string }
+type LoanHistoryRow = { id: string; loanName: string }
+type LoanPaymentHistoryRow = { id: string; loanId: string; amount: number; currency: string; paymentDate: string }
+type ScheduledPaymentHistoryRow = { id: string; category: string | null; amount: number; currency: string; paymentName: string; dueDate: string; recipient: string | null; status: string }
+type MonthlyExpenseHistoryRow = { id: string; category: string | null; amount: number; currency: string; expenseName: string; expenseDate: string; notes: string | null }
 
 export default function TransactionHistoryPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,8 +67,8 @@ export default function TransactionHistoryPage() {
   const [dateTo, setDateTo] = useState<Date>()
 
   useEffect(() => {
-    fetchTransactions()
-  }, [])
+    if (!authLoading) void fetchTransactions()
+  }, [authLoading, accessToken])
 
   useEffect(() => {
     let filtered = [...transactions]
@@ -102,89 +106,58 @@ export default function TransactionHistoryPage() {
   }, [transactions, searchTerm, selectedType, selectedCategory, dateFrom, dateTo])
 
   const fetchTransactions = async () => {
+    if (!accessToken) {
+      setLoading(false)
+      return
+    }
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Fetch from multiple tables and combine
-      const [incomeData, transferData, loanPaymentData, scheduledPaymentData] = await Promise.all([
-        supabase.from("income").select("*").eq("user_id", user.id),
-        supabase.from("international_transfers").select("*").eq("user_id", user.id),
-        supabase.from("loan_payments").select("*, loans(loan_name)").eq("user_id", user.id),
-        supabase.from("scheduled_payments").select("*").eq("user_id", user.id).eq("status", "paid"),
+      const [incomePage, transferPage, loanPage, scheduledPage, expensePage] = await Promise.all([
+        apiGetPage<IncomeHistoryRow>(`${API.income}?page=0&size=1000&sort=date,desc`, accessToken),
+        apiGetPage<TransferHistoryRow>(`${API.transfers}?page=0&size=1000&sort=transferDate,desc`, accessToken),
+        apiGetPage<LoanHistoryRow>(`${API.loans}?page=0&size=1000&sort=createdAt,desc`, accessToken),
+        apiGetPage<ScheduledPaymentHistoryRow>(`${API.scheduledPayments}?page=0&size=1000&sort=dueDate,desc`, accessToken),
+        apiGetPage<MonthlyExpenseHistoryRow>(`${API.monthlyExpenses}?page=0&size=1000&sort=expenseDate,desc`, accessToken),
       ])
 
+      // Loan payments are nested under their parent loan so the API can enforce
+      // ownership of both resources. Fetch each loan's page and merge locally.
+      const paymentGroups = await Promise.all(loanPage.content.map(async (loan) => {
+        const page = await apiGetPage<LoanPaymentHistoryRow>(
+          `${API.loans}/${loan.id}/payments?page=0&size=1000&sort=paymentDate,desc`,
+          accessToken
+        )
+        return page.content.map((payment) => ({ ...payment, loanName: loan.loanName }))
+      }))
+
       const allTransactions: Transaction[] = []
+      incomePage.content.forEach((income) => allTransactions.push({
+        id: income.id, type: "Income", category: income.category || "Income",
+        amount: Number(income.amount), currency: income.currency || "USD",
+        description: income.description, date: income.date, source: income.source,
+      }))
+      transferPage.content.forEach((transfer) => allTransactions.push({
+        id: transfer.id, type: "International Transfer", category: "Transfer",
+        amount: -Number(transfer.amountSent), currency: transfer.currencySent,
+        description: `Transfer to ${transfer.recipientName} in ${transfer.recipientCountry}`,
+        date: transfer.transferDate, recipient: transfer.recipientName, status: transfer.status,
+      }))
+      paymentGroups.flat().forEach((payment) => allTransactions.push({
+        id: payment.id, type: "Loan Payment", category: "Loan Payment",
+        amount: -Number(payment.amount), currency: payment.currency || "INR",
+        description: `Payment for ${payment.loanName || "Loan"}`, date: payment.paymentDate,
+      }))
+      scheduledPage.content.filter((payment) => payment.status === "paid").forEach((payment) => allTransactions.push({
+        id: payment.id, type: "Expense", category: payment.category || "Other",
+        amount: -Number(payment.amount), currency: payment.currency,
+        description: payment.paymentName, date: payment.dueDate, recipient: payment.recipient,
+      }))
+      expensePage.content.forEach((expense) => allTransactions.push({
+        id: expense.id, type: "Expense", category: expense.category || "Other",
+        amount: -Number(expense.amount), currency: expense.currency,
+        description: expense.notes || expense.expenseName, date: expense.expenseDate,
+      }))
 
-      // Add income transactions
-      if (incomeData.data) {
-        incomeData.data.forEach((income: IncomeHistoryRow) => {
-          allTransactions.push({
-            id: income.id,
-            type: "Income",
-            category: income.category || "Income",
-            amount: income.amount,
-            currency: income.currency || "USD",
-            description: income.description,
-            date: income.date,
-            source: income.source,
-          })
-        })
-      }
-
-      // Add transfer transactions
-      if (transferData.data) {
-        transferData.data.forEach((transfer: TransferHistoryRow) => {
-          allTransactions.push({
-            id: transfer.id,
-            type: "International Transfer",
-            category: "Transfer",
-            amount: -transfer.amount_sent, // Negative because it's money going out
-            currency: transfer.currency_sent,
-            description: `Transfer to ${transfer.recipient_name} in ${transfer.recipient_country}`,
-            date: transfer.transfer_date,
-            recipient: transfer.recipient_name,
-            status: transfer.status,
-          })
-        })
-      }
-
-      // Add loan payment transactions
-      if (loanPaymentData.data) {
-        loanPaymentData.data.forEach((payment: LoanPaymentHistoryRow) => {
-          allTransactions.push({
-            id: payment.id,
-            type: "Loan Payment",
-            category: "Loan Payment",
-            amount: -payment.amount, // Negative because it's money going out
-            currency: "USD",
-            description: `Payment for ${payment.loans?.loan_name || "Loan"}`,
-            date: payment.payment_date,
-          })
-        })
-      }
-
-      // Add scheduled payments that were paid
-      if (scheduledPaymentData.data) {
-        scheduledPaymentData.data.forEach((payment: ScheduledPaymentHistoryRow) => {
-          allTransactions.push({
-            id: payment.id,
-            type: "Expense",
-            category: payment.category || "Other",
-            amount: -payment.amount, // Negative because it's money going out
-            currency: payment.currency,
-            description: payment.payment_name,
-            date: payment.due_date,
-            recipient: payment.recipient,
-          })
-        })
-      }
-
-      // Sort by date (newest first)
-      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
+      allTransactions.sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
       setTransactions(allTransactions)
     } catch (error) {
       console.error("Error fetching transactions:", error)
@@ -193,9 +166,15 @@ export default function TransactionHistoryPage() {
     }
   }
 
-  const totalIncome = filteredTransactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
+  // Convert each record before aggregating; summing raw USD, INR, and other
+  // currency amounts together would produce a meaningless mixed-currency total.
+  const totalIncome = filteredTransactions
+    .filter((transaction) => transaction.amount > 0)
+    .reduce((sum, transaction) => sum + toUSD(transaction.amount, transaction.currency), 0)
 
-  const totalExpenses = Math.abs(filteredTransactions.filter((t) => t.amount < 0).reduce((sum, t) => sum + t.amount, 0))
+  const totalExpenses = filteredTransactions
+    .filter((transaction) => transaction.amount < 0)
+    .reduce((sum, transaction) => sum + toUSD(Math.abs(transaction.amount), transaction.currency), 0)
 
   const netAmount = totalIncome - totalExpenses
 
