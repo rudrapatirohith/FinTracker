@@ -118,7 +118,7 @@ psql "$env:FINTRACKER_MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v dry_run=fals
 
 The batch marker prevents a second committed import. A dry run does not create the marker because its transaction is rolled back.
 
-After the committed import, run reconciliation and inspect every result: The supplied dataset contains 52 financial rows plus 10 profile rows (63 source rows total). In addition, import creates 10 app users, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
+After the committed import, run reconciliation and inspect every result: The supplied dataset contains 53 financial rows plus 10 profile rows (63 source rows total). In addition, import creates 10 app users, 10 legacy mappings, and 8 Google OAuth identity rows. The source `transactions` count must remain zero.
 
 The target `oauth_identities` table has no `updated_at` column, so the source Google identity `created_at` is preserved; identity `updated_at` is retained in the private source export as audit evidence but has no target column. The target schema also has no profile email column: Auth email is authoritative for `app_users.email`; profile email is not copied. The import rejects profile/Auth email mismatches after case/whitespace normalization rather than silently choosing one.
 
